@@ -20,7 +20,24 @@ The same file renders as:
 
 - `docs/format-spec.md` — the talkfile grammar (authoritative, v0.5, migrated 2026-09-05)
 - `docs/media-pipeline.md` — media cards, generation log, style cascade, engine posture
+- `docs/engine-decision.md` — builder spike decision record (engine, PDF path, parse model)
 - `templates/` — starter media card set (style, cards, gen-log) copied from the L01 instance
+- `build.py` + `talkparse.py` + `mediaresolve.py` + `render.py` — the builder (E2 spike):
+  one talkfile in, three outputs out: present view (reveal.js stand-in deck, VO in
+  speaker notes), document view (static HTML handout, print-to-PDF via print CSS),
+  cues.json (ordered slide id to script text for the future controller), plus a
+  media-manifest.json resolution audit. Generated output lives in `out/` (gitignored).
+
+### Build
+
+    python3 build.py <talkfile> [--out OUTDIR]
+
+Specimen (read-only input, TPL repo):
+
+    python3 build.py ~/talks/decks/L01-opening-talk/talk.md
+
+Deterministic output; re-running rebuilds the same bytes. See
+`docs/engine-decision.md` for the decisions encoded in the builder.
 
 ## Instances
 

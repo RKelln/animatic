@@ -1,0 +1,229 @@
+"""mediaresolve.py — extensionless slug -> media reference.
+
+Resolution order (docs/media-pipeline.md):
+  1. deck `media/cards.yaml`        — per-visual card: type, status, alt, credit,
+                                     licence, brief.  A card's `file:` or
+                                     `outputs:` entries, when present, point at
+                                     approved files.
+  2. deck `media/` dir              — `media/<slug>.<ext>` directly, or
+                                     `media/<slug>/attempts/<slug>-a<N>.<ext>`
+                                     (gen-log convention).  When the card lists
+                                     no approved output, the highest attempt
+                                     number is the current state.
+  3. shared `_media/library.yaml`   — sibling of the deck dir; cross-talk reuse,
+                                     entries carry an explicit `file:` path.
+
+When nothing resolves, the slug becomes a PLACEHOLDER (found=False) with the
+card's type/status carried through for the renderer.  The script never knows
+about file formats; the resolver is the only place extensions exist.
+
+Media found outside this repo (the TPL instance) is REFERENCED by absolute
+path, never copied: reads stay read-only, per the ticket constraint.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+import yaml
+
+MEDIA_EXTS = {
+    ".mp4": "video", ".webm": "video", ".mov": "video", ".m4v": "video",
+    ".webp": "image", ".png": "image", ".jpg": "image", ".jpeg": "image",
+    ".gif": "image", ".svg": "image",
+}
+VIDEO_EXTS = {e for e, t in MEDIA_EXTS.items() if t == "video"}
+
+
+@dataclass
+class MediaRef:
+    slug: str
+    type: str = "unknown"              # image | video | chart | composite | unknown
+    status: str = "missing"            # card status, else 'missing'
+    found: bool = False
+    file: Optional[str] = None         # absolute path when found
+    source: str = "none"               # cards | deckdir | library
+    alt: str = ""
+    credit: str = ""
+    licence: str = ""
+    note: str = ""                     # card brief first line / library note
+    reason: str = ""                   # why not found (placeholder labelling)
+
+
+@dataclass
+class MediaResolver:
+    talk_dir: Path
+    meta: dict
+    cards: list = field(default_factory=list)
+    library: list = field(default_factory=list)
+    cards_path: Optional[Path] = None
+    library_path: Optional[Path] = None
+
+    @classmethod
+    def from_talk(cls, talk) -> "MediaResolver":
+        talk_dir = Path(talk.source).parent if talk.source else Path.cwd()
+        return cls(talk_dir=talk_dir, meta=talk.meta)
+
+    def __post_init__(self):
+        media_dir_name = str(self.meta.get("media", "media"))
+        self.media_dir = self.talk_dir / media_dir_name
+        self.cards_path = self.media_dir / "cards.yaml"
+        if self.cards_path.is_file():
+            try:
+                loaded = yaml.safe_load(self.cards_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, list):
+                    self.cards = loaded
+            except yaml.YAMLError as exc:
+                self.cards = []
+                self._error = f"bad cards.yaml: {exc}"
+        # shared library: sibling `_media/library.yaml` of the deck dir
+        lib = self.talk_dir.parent / "_media" / "library.yaml"
+        if lib.is_file():
+            try:
+                loaded = yaml.safe_load(lib.read_text(encoding="utf-8"))
+                if isinstance(loaded, list):
+                    self.library = loaded
+                    self.library_path = lib
+            except yaml.YAMLError:
+                pass
+
+    # -- lookups -------------------------------------------------------------
+
+    def card_for(self, slug: str) -> Optional[dict]:
+        for c in self.cards:
+            if isinstance(c, dict) and c.get("slug") == slug:
+                return c
+        return None
+
+    def library_entry_for(self, slug: str) -> Optional[dict]:
+        for e in self.library:
+            if isinstance(e, dict) and e.get("slug") == slug:
+                return e
+        return None
+
+    # -- deck media dir ------------------------------------------------------
+
+    def _deckdir_file(self, slug: str) -> Optional[Path]:
+        """media/<slug>.<ext> direct file."""
+        for ext in MEDIA_EXTS:
+            p = self.media_dir / f"{slug}{ext}"
+            if p.is_file():
+                return p
+        return None
+
+    def _attempts_file(self, slug: str) -> Optional[Path]:
+        """media/<slug>/attempts/<slug>-a<N>.<ext> — highest N wins."""
+        import re
+
+        adir = self.media_dir / slug / "attempts"
+        if not adir.is_dir():
+            return None
+        pat = re.compile(rf"^{re.escape(slug)}-a(\d+)\.([a-z0-9]+)$")
+        best: tuple[int, Optional[Path]] = (-1, None)
+        for p in adir.iterdir():
+            if not p.is_file():
+                continue
+            m = pat.match(p.name)
+            if m and ("." + m.group(2)) in MEDIA_EXTS:
+                n = int(m.group(1))
+                if n > best[0]:
+                    best = (n, p)
+        return best[1]
+
+    # -- resolution ----------------------------------------------------------
+
+    def resolve(self, slug: str) -> MediaRef:
+        card = self.card_for(slug)
+        ctype = card.get("type") if card else None
+        cstatus = card.get("status") if card else None
+
+        # 1) approved file declared on the card itself
+        if card:
+            file_hint = None
+            outs = card.get("outputs") or []
+            if isinstance(outs, list) and outs:
+                first = outs[0]
+                if isinstance(first, str):
+                    file_hint = self.media_dir / first
+            elif card.get("file"):
+                file_hint = self.media_dir / str(card["file"])
+            if file_hint and file_hint.is_file():
+                return self._make(slug, card, file_hint, "cards")
+
+        # 2) deck media dir
+        p = self._deckdir_file(slug)
+        if p is not None:
+            return self._make(slug, card, p, "deckdir")
+        p = self._attempts_file(slug)
+        if p is not None:
+            return self._make(slug, card, p, "deckdir")
+
+        # 3) shared library
+        entry = self.library_entry_for(slug)
+        if entry and entry.get("file") and self.library_path is not None:
+            p = self.library_path.parent / str(entry["file"])
+            if p.is_file():
+                ref = self._make(slug, card, p, "library")
+                if not ref.alt and entry.get("note"):
+                    ref.note = entry["note"]
+                return ref
+
+        # placeholder
+        ref = MediaRef(
+            slug=slug,
+            type=ctype or "unknown",
+            status=cstatus or "missing",
+            found=False,
+            alt=card.get("alt", "") if card else "",
+            credit=card.get("credit", "") if card else "",
+            licence=card.get("licence", "") if card else "",
+        )
+        reasons = []
+        if card is not None:
+            if cstatus == "have" or (card.get("outputs") or card.get("file")):
+                reasons.append(f"card '{slug}' declares media but no file resolves "
+                               f"under {self.media_dir}")
+            else:
+                reasons.append(f"card '{slug}' has no approved output (status: "
+                               f"{cstatus or '?'})")
+        else:
+            reasons.append(f"no card for '{slug}' in {self.cards_path or 'cards.yaml'}")
+        reasons.append("no file under deck media dir")
+        if not self.library_entry_for(slug):
+            reasons.append("not in shared library")
+        ref.reason = "; ".join(reasons)
+        if card and card.get("brief"):
+            brief = card["brief"]
+            if isinstance(brief, str) and brief.strip():
+                ref.note = brief.strip().splitlines()[0]
+            elif isinstance(brief, list) and brief:
+                ref.note = str(brief[0])
+        return ref
+
+    def _make(self, slug: str, card: Optional[dict], path: Path, source: str) -> MediaRef:
+        ext = path.suffix.lower()
+        ref = MediaRef(
+            slug=slug,
+            type=(card.get("type") if card else None) or MEDIA_EXTS.get(ext, "file"),
+            status=(card.get("status") if card else None) or "have",
+            found=True,
+            file=str(path.resolve()),
+            source=source,
+            alt=card.get("alt", "") if card else "",
+            credit=card.get("credit", "") if card else "",
+            licence=card.get("licence", "") if card else "",
+        )
+        if card and card.get("brief"):
+            brief = card["brief"]
+            if isinstance(brief, str) and brief.strip():
+                ref.note = brief.strip().splitlines()[0]
+            elif isinstance(brief, list) and brief:
+                ref.note = str(brief[0])
+        return ref
+
+    def unreferenced_cards(self, referenced: set) -> list:
+        """Card slugs never referenced by any shot (authoring info)."""
+        return [str(c["slug"]) for c in self.cards
+                if isinstance(c, dict) and c.get("slug") not in referenced]

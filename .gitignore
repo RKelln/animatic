@@ -1,0 +1,6 @@
+# generated build output (local previews, media-absolute, machine-made)
+out/
+
+# python
+__pycache__/
+*.pyc
