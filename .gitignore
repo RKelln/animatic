@@ -4,3 +4,6 @@ out/
 # python
 __pycache__/
 *.pyc
+
+# E3: alternate-theme build dirs (--theme lecture etc.)
+**/out-*/
