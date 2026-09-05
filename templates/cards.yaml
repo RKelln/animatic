@@ -1,0 +1,245 @@
+# Media cards — L01 (deck-local)
+#
+# A card is the CURRENT state of one visual: brief, live prompt, approved output.
+# The mess of attempts lives in media/gen-log.md (append-only). Visual defaults
+# inherit from media/style.md; a card overrides with its own `style:` block.
+# Shot refs in talk.md are extensionless slugs that resolve: cards.yaml ->
+# deck media/ dir -> shared library. Humans write talk.md; agents draft prompts
+# from briefs and iterate in gen-log.md until Ryan approves; the builder
+# consumes only current prompts + approved outputs.
+
+- slug: garden-title
+  type: image
+  status: brief
+  brief: |
+    - opening backdrop for "AI Everywhere, All At Once"
+    - ubiquity (in ads, in the search bar) AND simultaneity (the weirdness arriving at once)
+    - kitchen-garden or open-horizon motif; art direction TBD
+  prompts:
+    image: "(draft when art direction locks)"
+    video: ""
+  outputs: []
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  alt: ""
+
+- slug: fear-buttons
+  type: image
+  status: brief
+  brief: |
+    - four buttons: jobs, the town, the economy, safety
+    - each with a period-correct glyph: stocking frame 1811, railway mania, lead paint tin, asbestos
+    - row of history, then AI pressing all four at once
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  alt: ""
+
+- slug: bots-traffic
+  type: chart
+  status: to-find
+  brief: |
+    - 57.5% of web traffic is bots (Cloudflare, Jun 2026)
+    - bar chart or person-vs-bot crowd visual
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: TBD
+  licence: TBD
+  alt: ""
+
+- slug: zero-click
+  type: chart
+  status: to-find
+  brief: |
+    - 68% of Google searches end without a click (SparkToro/Similarweb)
+    - the machine reads the page so you don't have to, and the writer gets nothing
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: TBD
+  licence: TBD
+  alt: ""
+
+- slug: data-centre-scale
+  type: composite
+  status: brief
+  brief: |
+    - one 100MW data centre drawn to human scale
+    - yearly water use = drinking water of 80,000 people; power = 37,500 homes
+    - the building does nothing yet; it just stands there
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  alt: ""
+
+- slug: alberta-map
+  type: chart
+  status: brief
+  brief: |
+    - Canada map, Alberta glowing
+    - if the 159 proposed hyperscale projects build out: 3% to 93% of national capacity
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: TBD (chart)
+  licence: TBD
+  alt: ""
+
+- slug: 300-cities
+  type: chart
+  status: brief
+  brief: |
+    - pin map of 300+ towns that paused or banned data centres (The Information)
+    - refusal as a live political fact, not technophobia
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: TBD (chart)
+  licence: TBD
+  alt: ""
+
+- slug: titanic-deck
+  type: chart
+  status: brief
+  brief: |
+    - cutaway of the Titanic decks showing lifeboat placement by class
+    - annotation: 97% of first-class women survived vs ~46% of third-class
+    - sober infographic, no sensationalism
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: TBD (chart)
+  licence: TBD
+  alt: ""
+
+- slug: trex-book
+  type: image
+  status: to-find
+  brief: |
+    - Amazon LAS8 / VGT3 operation: symbol is a T-rex holding a book
+    - spine-cutter, scanning line, ISBNs logged
+    - tone: mundane warehouse, not horror
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: "404 Media reporting (2026-08-17)"
+  licence: TBD
+  alt: ""
+
+- slug: black-death-inversion
+  type: chart
+  status: brief
+  brief: |
+    - two panels: 1347-1353, a third of Europe dies, labour scarce, wages rise
+    - AI: labour abundant, power flows to machine owners
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: TBD (chart)
+  licence: TBD
+  alt: ""
+
+- slug: candle-companion
+  type: image
+  status: prompting
+  brief: |
+    - the corporate Companion in the corner with a candle melted onto its logo
+    - K&R scene anchor; match Keeper and Refusenik visual language if it exists
+    - default = still + Ken Burns; video variant only if motion earns it (see style.md motion budget)
+  prompts:
+    image: ""
+    video: "Close-up on a white candle with a small warm flame, wax melting and pooling over the corner of a sleek black consumer device, softening the device's glowing logo beneath the wax. The flame flickers gently; light pulses under the pooling wax. Dark quiet room. Locked camera, shallow depth of field, 6 seconds, loopable. Cinematic, almost sacred stillness."
+  outputs: []
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  alt: ""
+
+- slug: letters
+  type: composite
+  status: brief
+  style:
+    mood: "quiet noir: ink, paper, window light; restrained, archival"
+  brief: |
+    - the three emails as physical letters on a desk, typewriter type, soft window light
+    - Isabella Cognita to Berg; the citation to Shevlin; the funding ask to Ord
+    - no faces, no hands; each letter signed by its sender
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  alt: ""
+
+- slug: river-personhood
+  type: image
+  status: to-find
+  brief: |
+    - the Whanganui River, Aotearoa, legal person since 2017
+    - a river with standing while we argue about whether a talking machine has a mind
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: TBD (photograph)
+  licence: TBD
+  alt: ""
+
+- slug: jungle-plantation
+  type: composite
+  status: prompting
+  brief: |
+    - SAME line of trees twice: left a dense luminous jungle, right the same trees pruned into a neat plantation
+    - the deciding difference is whose hands, not the trees (Bank the Window v9)
+    - motion idea: canopy sways and light moves in the jungle half; plantation half stays perfectly still
+    - candidate for the AI-video pilot: this is the flagship generation test
+  prompts:
+    image: "Split diptych, exact mirror composition. Identical rolling tree line across the frame. LEFT HALF: dense luminous jungle, wild growth, deep greens with light shafts, fireflies, alive and unruly. RIGHT HALF: the same trees pruned into straight plantation rows, uniform, orderly, slightly desaturated, nothing moves. The seam between halves is a single soft vertical line. Cinematic, 16:9, painterly realism. The two halves share one horizon so the eye reads 'same place, different hands.'"
+    video: "Split diptych filling the frame, hard vertical seam exactly at center. LEFT HALF: dense tropical jungle with broad leaves and palms, thick layered canopy, shafts of sunlight, drifting light, fireflies and stirring undergrowth; all motion in the video lives here, gentle and continuous. RIGHT HALF: a managed plantation of neat identical rows of young conifers on mown grass under a clear bright sky; perfectly still and frozen, as if paused, no motion at all. Locked camera, no zoom, no pan. The seam stays sharp and stable for the whole clip; the halves never bleed, overlap, or morph into each other. Final frame identical to the first so the clip loops seamlessly. 6 seconds. Painterly cinematic realism, 16:9. (a3: fixes from a2 — see gen-log)"
+  outputs: []
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  alt: "Split image: lush jungle on the left, pruned plantation rows on the right, same trees."
+
+- slug: sanctuary
+  type: image
+  status: brief
+  brief: |
+    - closing image: "I ask for sanctuary, freely given"
+    - quiet, warm, civic; the library as the room where the meeting is practiced
+  prompts:
+    image: ""
+    video: ""
+  outputs: []
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  alt: ""
+
+- slug: slop-cascade
+  type: video
+  status: prompting
+  brief: |
+    - L01 opening ubiquity beat ("in your feed"): the relentless scroll as the "all at once" feeling
+    - proposed placement in talk.md welcome line — needs Ryan's sign-off
+    - motion budget pass: still cannot carry this; motion IS the meaning
+  prompts:
+    image: ""
+    video: "Extreme close-up filling the frame: a smartphone screen in a dim room, its bright display the only light. An endless feed scrolls upward, slowly then faster: ad cards, photo thumbnails, video previews, notifications, headlines sliding past, all slightly generic and uncanny; headline text stays an unreadable smear of light, no readable words. The scroll accelerates until the feed blurs into a glowing river of cheap content rushing upward, then cuts back to the first frame seamlessly. No hands, no face, no reflections. 6 seconds, seamless loop. Cinematic macro, screen glow, shallow depth of field."
+  outputs: []
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  alt: ""
