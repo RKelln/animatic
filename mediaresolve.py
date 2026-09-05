@@ -13,6 +13,13 @@ Resolution order (docs/media-pipeline.md):
   3. shared `_media/library.yaml`   — sibling of the deck dir; cross-talk reuse,
                                      entries carry an explicit `file:` path.
 
+  4. explicit `--media-remap` stand-ins — a real file standing in for a
+     slug whose art is still brief/to-find/prompting (style tests, early
+     drafts).  Last in order ON PURPOSE: when real art lands in the deck
+     media dir or library, it wins and the stand-in evaporates.  Card
+     metadata (credit/licence/alt) is untouched; refs carry source
+     "standin" so the manifest audit stays honest.
+
 When nothing resolves, the slug becomes a PLACEHOLDER (found=False) with the
 card's type/status carried through for the renderer.  The script never knows
 about file formats; the resolver is the only place extensions exist.
@@ -27,6 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+import shutil
 import yaml
 
 MEDIA_EXTS = {
@@ -58,8 +66,10 @@ class MediaResolver:
     meta: dict
     cards: list = field(default_factory=list)
     library: list = field(default_factory=list)
+    remap: dict = field(default_factory=dict)      # slug -> Path (stand-ins)
     cards_path: Optional[Path] = None
     library_path: Optional[Path] = None
+    published: dict = field(default_factory=dict)  # slug -> out-root-relative path
 
     @classmethod
     def from_talk(cls, talk) -> "MediaResolver":
@@ -134,7 +144,7 @@ class MediaResolver:
 
     # -- resolution ----------------------------------------------------------
 
-    def resolve(self, slug: str) -> MediaRef:
+    def _resolve(self, slug: str) -> MediaRef:
         card = self.card_for(slug)
         ctype = card.get("type") if card else None
         cstatus = card.get("status") if card else None
@@ -170,6 +180,13 @@ class MediaResolver:
                     ref.note = entry["note"]
                 return ref
 
+        # 4) explicit stand-in remap (--media-remap). Deliberately last:
+        #    real art from deckdir/library above always wins, so a stand-in
+        #    disappears the moment the real file lands.
+        p = self.remap.get(slug)
+        if p is not None and p.is_file():
+            return self._make(slug, card, p, "standin")
+
         # placeholder
         ref = MediaRef(
             slug=slug,
@@ -201,6 +218,34 @@ class MediaResolver:
             elif isinstance(brief, list) and brief:
                 ref.note = str(brief[0])
         return ref
+
+    def resolve(self, slug: str) -> MediaRef:
+        """resolve() + publication override: once media has been published to
+        out/_media, refs carry the out-root-relative path instead of the
+        absolute source path, so decks render from anywhere (file://, http,
+        an sftp mount)."""
+        ref = self._resolve(slug)
+        if ref.found and slug in self.published:
+            ref.file = self.published[slug]
+        return ref
+
+    def publish(self, out_root: Path, slugs: list) -> None:
+        """Copy found media for `slugs` into out_root/_media/<slug><ext> and
+        record out-root-relative paths. The packaging decision: a deck is a
+        portable folder (html + _media side by side), not a bundle of
+        absolute machine paths. Idempotent: same bytes every build."""
+        media_dir = Path(out_root) / "_media"
+        media_dir.mkdir(parents=True, exist_ok=True)
+        for slug in slugs:
+            if slug in self.published:
+                continue
+            ref = self._resolve(slug)
+            if not (ref.found and ref.file):
+                continue
+            ext = Path(ref.file).suffix.lower() or ".bin"
+            dst = media_dir / f"{slug}{ext}"
+            shutil.copyfile(ref.file, dst)
+            self.published[slug] = str(Path("_media") / f"{slug}{ext}")
 
     def _make(self, slug: str, card: Optional[dict], path: Path, source: str) -> MediaRef:
         ext = path.suffix.lower()

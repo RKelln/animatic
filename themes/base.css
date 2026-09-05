@@ -1,0 +1,61 @@
+/* base.css — animatic layer: base.
+   Element defaults for both views. Every look value comes from the
+   theme's tokens (layer theme), never hardcoded here. Views are scoped
+   by body class (.view-present / .view-document) set by the builder. */
+
+@layer base {
+  :root {
+    /* Required token set — themes must define every one (see docs/tokens.md). */
+    /* stage (present view, 1920x1080 projection canvas) */
+    --stage-bg: #000;
+    --stage-ink: #fff;
+    --stage-muted: #aaa;
+    --stage-accent: #d8a95c;
+    --stage-accent-contrast: #17130b;   /* readable ink on top of accent */
+    --stage-overlay-bg: rgba(0, 0, 0, 0.45);  /* lower-third / chip backing */
+    --stage-text-glow: 0 2px 24px rgba(0, 0, 0, 0.55);
+    /* document view (paper handout + web) */
+    --doc-bg: #fff;
+    --doc-ink: #1c1e21;
+    --doc-muted: #5b6066;
+    --doc-accent: #8a6a2f;
+    --doc-line: #d9d4cc;
+    --doc-callout-bg: #f7f3ea;
+    /* shared type */
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    --font-body: Georgia, 'Times New Roman', serif;
+    --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  html { height: 100%; }
+
+  body { font-family: var(--font-body); }
+
+  /* ---- present view stage ------------------------------------------- */
+  body.view-present {
+    height: 100%;
+    background: var(--stage-bg);
+    color: var(--stage-ink);
+    overflow: hidden;
+  }
+  body.view-present h1, body.view-present h2, body.view-present h3,
+  body.view-present h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+  }
+
+  /* ---- document view ------------------------------------------------ */
+  body.view-document {
+    background: var(--doc-bg);
+    color: var(--doc-ink);
+    line-height: 1.65;
+  }
+  body.view-document h1, body.view-document h2, body.view-document h3,
+  body.view-document h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  ::selection { background: color-mix(in srgb, var(--stage-accent) 40%, transparent); }
+}

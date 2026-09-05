@@ -1,0 +1,436 @@
+/* components.css — animatic layer: components.
+   The animatic kit: every role and every view surface, built only from
+   tokens. Theme files (layer theme) restyle any of this with plain
+   rules — no specificity fights, no !important.
+
+   Role vocabulary (docs/tokens.md): media, heading card, quote card,
+   stat, lower, credits overlay, credits screen, black beat, title card. */
+
+@layer components {
+  /* ===================================================================
+     PRESENT VIEW — one .animatic-slide section per screen on a .stage.
+     The pager (inline script, see render.py PAGER_JS) crossfades slides,
+     syncs the hash, and shows speaker notes on 's'. No external engine:
+     one self-contained file per deck.
+     =================================================================== */
+
+  .stage {
+    position: fixed; inset: 0;
+    background: var(--stage-bg);
+    /* cinematic type base: reveal used to set ~42px at 1080p; the owned
+       pager needs an explicit stage scale or em sizes fall back to the
+       browser's 16px and read small from a distance. 3vh tracks the
+       projection height. */
+    font-size: 3vh;
+  }
+  @media (max-height: 640px) {
+    .stage { font-size: 19px; }
+  }
+
+  .animatic-slide {
+    position: absolute; inset: 0;
+    opacity: 0; visibility: hidden;
+    overflow: hidden;
+    transition: opacity 0.7s ease, visibility 0s linear 0.7s;
+  }
+  .animatic-slide.active {
+    opacity: 1; visibility: visible; z-index: 2;
+    transition: opacity 0.7s ease, visibility 0s linear 0s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animatic-slide, .animatic-slide.active { transition: none; }
+  }
+
+  /* full-bleed media ------------------------------------------------ */
+  .media-zone { position: absolute; inset: 0; }
+  .slide-media {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  /* fit=contain: media letterboxed on the stage colour, never cropped */
+  .media-zone.fit .slide-media { object-fit: contain; }
+
+  /* kb camera lens: a static clipping viewport. The IMAGE inside is the
+     animated layer — oversized 130%, centred, drifting via a compositor
+     translate. Its texture (the full overscan) exceeds the lens clip, so
+     translating it can never expose an edge, and the drift is pure layer
+     blit: no per-frame sampling, no main-thread writes. */
+  .kb-lens { position: absolute; inset: 0; overflow: hidden;
+    background: var(--stage-bg); }
+  .kb-lens .slide-media {
+    width: 130%; height: 130%;
+    max-width: none; max-height: none;
+    inset: auto;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  /* pan keyframes are full transforms around the -50% centre: x ±7%,
+     y ±2.5% (fast enough to clear the pixel grid). */
+  .kb-lens .slide-media.kb-in  { animation: kb-pan-a 22s ease-in-out infinite alternate; }
+  .kb-lens .slide-media.kb-out { animation: kb-pan-b 22s ease-in-out infinite alternate; }
+  .animatic-slide:not(.active) .kb-lens .slide-media.kb-in,
+  .animatic-slide:not(.active) .kb-lens .slide-media.kb-out { animation-play-state: paused; }
+  @keyframes kb-pan-a {
+    from { transform: translate(-57%, -52.5%); }
+    to   { transform: translate(-43%, -47.5%); }
+  }
+  @keyframes kb-pan-b {
+    from { transform: translate(-43%, -47.5%); }
+    to   { transform: translate(-57%, -52.5%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .kb-lens .slide-media.kb-in,
+    .kb-lens .slide-media.kb-out { animation: none; }
+  }
+
+  /* dim: scrim over media for text legibility (dim=N opacity). Solid
+     colour so the flag's opacity is exact; themes choose the tint. */
+  .dim {
+    position: absolute; inset: 0; z-index: 1;
+    background: var(--stage-dim, #000);
+  }
+
+  /* black beat: deliberate full-stage silence */
+  .animatic-slide.black-beat { background: #000; }
+
+  /* screen objects over media --------------------------------------- */
+  .screen-body {
+    position: relative; z-index: 2;
+    height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 6vh 7vw;
+  }
+  .animatic-slide.black-beat .screen-body { background: transparent; }
+
+  /* text over any image must stay legible: theme supplies the glow */
+  .slide-title {
+    color: var(--stage-ink);
+    text-shadow: var(--stage-text-glow);
+    max-width: 24em;
+  }
+  .animatic-slide h1.slide-title { font-size: 2.6em; letter-spacing: 0.01em; }
+  .animatic-slide h2.slide-title { font-size: 2em; }
+  .animatic-slide h3.slide-title { font-size: 1.55em; }
+  .animatic-slide h4.slide-title { font-size: 1.25em; }
+
+  /* pull-quote cards: the quote and its attribution share one centered
+     block; the credit hugs the block's right edge, not the slide's */
+  .quote-block {
+    width: 100%;
+    max-width: 24em;
+  }
+  .quote-block blockquote {
+    width: 100%;
+    max-width: 100%;
+  }
+  .animatic-slide blockquote {
+    max-width: 22em;
+    font-size: 1.3em;
+    font-style: italic;
+    line-height: 1.5;
+    text-align: left;
+    color: var(--stage-ink);
+    text-shadow: var(--stage-text-glow);
+  }
+  .animatic-slide blockquote p { margin: 0; }
+  /* quote attribution (grammar: a "Source: ..." line under a quote) */
+  .quote-source {
+    margin-top: 1.1em;
+    width: 100%;
+    text-align: right;
+    font-family: var(--font-ui);
+    font-size: 0.66em;
+    font-style: normal;
+    letter-spacing: 0.04em;
+    color: var(--stage-muted);
+  }
+
+  /* text over full-bleed background media ----------------------------------
+     The common slide: a full-bleed image or video with screen text on it.
+     Regular text rides on the glow/scrim discipline; a QUOTE sits on a
+     frosted plate: rounded rect, translucent theme tint, backdrop blur of
+     the ground behind it, and a small blur on the plate's own edge so the
+     boundary feathers instead of cutting. The plate wraps the quote AND
+     its credit chip — they share one block. (The credit chips over media
+     use the same blur idiom.) */
+  .quote-plate { display: none; }   /* default: quotes sit on the stage */
+  .animatic-slide.over-media .quote-block {
+    position: relative;
+    max-width: 32em;                /* plates can run wider than stage quotes */
+    padding: 1.6em 2.4em;
+  }
+  .animatic-slide.over-media .quote-plate {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 1.1em;
+    background: var(--quote-panel-bg);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    filter: blur(2px);               /* feathers the plate's own boundary */
+    box-shadow: var(--quote-panel-shadow);
+    pointer-events: none;
+  }
+  /* quotes over imagery scale up so they hold the room at a distance */
+  .animatic-slide.over-media blockquote {
+    font-size: 1.5em;
+  }
+
+  /* stat cards — the number is the whole slide */
+  .animatic-slide .stat {
+    font-size: 2.3em;
+    font-weight: 400;
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    line-height: 1.22;
+    color: var(--stage-ink);
+    text-shadow: var(--stage-text-glow);
+    max-width: 16em;
+    text-wrap: balance;
+  }
+  .animatic-slide ul {
+    text-align: left; font-size: 1.15em;
+    color: var(--stage-ink);
+    text-shadow: var(--stage-text-glow);
+    max-width: 22em;
+  }
+  .animatic-slide li { margin: 0.25em 0; }
+
+  /* lower third — transient attribution / caption over media */
+  .lower-third {
+    position: absolute; left: 6vw; bottom: 13vh; z-index: 3;
+    max-width: 55vw; text-align: left;
+    font-family: var(--font-ui);
+    font-size: 0.8em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--stage-ink);
+    font-weight: 600;
+    background: var(--stage-overlay-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 6px;
+    padding: 0.55em 1.1em;
+  }
+  .lower-third { white-space: nowrap; }
+
+  /* credits overlay — persistent attribution line on a media screen */
+  .credits-line {
+    position: absolute; right: 6vw; bottom: 7vh; z-index: 3;
+    max-width: 42vw; text-align: right;
+    font-family: var(--font-ui);
+    font-size: 0.72em;
+    letter-spacing: 0.06em;
+    color: var(--stage-ink);
+    font-weight: 600;
+    background: var(--stage-overlay-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 6px;
+    padding: 0.5em 1em;
+  }
+  .credits-line { white-space: nowrap; }
+
+  /* credits screen — full-screen end roll (no media on screen) */
+  .credits-screen {
+    position: relative; z-index: 2; height: 100%;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    padding: 8vh 10vw;
+    text-align: left;
+  }
+  .credits-screen .credits-title {
+    font-size: 1.8em; color: var(--stage-ink);
+    text-shadow: var(--stage-text-glow);
+    margin-bottom: 3vh;
+  }
+  .credits-screen.many .credits-columns {
+    columns: 3; column-gap: 4vw;
+    max-height: 58vh;
+    column-fill: balance;
+  }
+  .credits-screen.few .credits-columns {
+    columns: 1; max-width: 46em;
+  }
+  .credits-screen.few .credits-entry { text-align: center; }
+  .credits-screen .credits-entry {
+    break-inside: avoid;
+    font-family: var(--font-ui);
+    font-size: 0.74em;
+    line-height: 1.5;
+    color: var(--stage-muted);
+    margin-bottom: 1.4vh;
+  }
+  .credits-screen .credits-entry strong { color: var(--stage-ink); font-weight: 600; }
+
+  /* piece mode (shot flag `piece`): the media floats as a physical object
+     on the stage — a framed photograph shown as a piece, not atmosphere.
+     The border and shadow attach to the image element itself (natural
+     sizing, no letterboxing), so the frame matches the picture, never a
+     container box. Theme tokens: --piece-border, --piece-shadow. */
+  .media-zone.piece {
+    position: absolute; inset: 4vh 5vw; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+  }
+  .media-zone.piece .slide-media {
+    position: relative; inset: auto;
+    width: auto; height: auto;
+    max-width: 100%; max-height: 100%;
+    object-fit: contain;
+    border: 1px solid var(--piece-border, rgba(255, 255, 255, 0.16));
+    box-shadow: var(--piece-shadow, 0 24px 70px rgba(0, 0, 0, 0.45));
+  }
+  .media-zone.piece .kb-in, .media-zone.piece .kb-out { will-change: transform; }
+
+  /* duo slides (flag `duo` / `duo=left`): a framed object — book cover,
+     portrait, thing worth showing — shares the slide with a text column
+     (usually a quote). Object right by default, left with duo=left. */
+  .animatic-slide.duo .screen-body {
+    align-items: flex-start; text-align: left;
+    width: 58%;
+    padding: 0 0 0 7vw;
+  }
+  .animatic-slide.duo .quote-source { text-align: right; }
+  .media-zone.piece.duo,
+  .media-zone.piece.duo-left {
+    inset: auto; top: 50%;
+    transform: translateY(-50%);
+    width: 32vw;
+  }
+  .media-zone.piece.duo { right: 5vw; }
+  .media-zone.piece.duo-left { left: 5vw; }
+  .media-zone.piece.duo .slide-media,
+  .media-zone.piece.duo-left .slide-media {
+    border: 1px solid var(--piece-border, rgba(255, 255, 255, 0.16));
+    box-shadow: var(--piece-shadow, 0 24px 70px rgba(0, 0, 0, 0.45));
+  }
+
+  /* unresolved media: builder transparency in the work surface */
+  .media-placeholder {
+    position: absolute; inset: 0; z-index: 2;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1vh;
+    font-family: var(--font-ui);
+    text-align: center;
+    padding: 4vh 6vw;
+  }
+  .media-placeholder .ph-slug { color: var(--stage-ink); font-size: 1em; letter-spacing: 0.04em; }
+  .media-placeholder .ph-type,
+  .media-placeholder .ph-note { color: var(--stage-muted); font-size: 0.6em; max-width: 36em; }
+
+  /* pager chrome: hairline progress, counter and arrows. Muted, in the
+     theme's own colours; presenter furniture, not content. */
+  .progress-track { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 60; }
+  .progress-fill { height: 100%; width: 0%; background: var(--stage-accent); transition: width 0.4s ease; }
+  .pager-ui {
+    position: fixed; right: 1.4vw; bottom: 1.6vh; z-index: 60;
+    display: flex; align-items: center; gap: 0.8em;
+    font-family: var(--font-ui);
+    font-size: 0.5em; letter-spacing: 0.12em;
+    color: var(--stage-muted);
+    opacity: 0.85;
+  }
+  .pager-ui button {
+    background: none; border: none; cursor: pointer;
+    color: var(--stage-muted);
+    font-size: 1.9em; line-height: 1;
+    padding: 0 0.1em;
+  }
+  .pager-ui button:hover { color: var(--stage-accent); }
+  .pager-ui .counter { font-variant-numeric: tabular-nums; }
+
+  /* speaker notes: VO for the presenter. 's' toggles the panel. Notes
+     never appear on the projection; the .notes asides are hidden. */
+  .notes { display: none; }
+  .notes-panel {
+    display: none;
+    position: fixed; left: 8vw; right: 8vw; bottom: 3vh; z-index: 80;
+    max-height: 44vh; overflow: auto;
+    background: var(--doc-bg); color: var(--doc-ink);
+    border: 1px solid var(--doc-line); border-left: 4px solid var(--doc-accent);
+    padding: 1.1rem 1.4rem;
+    font-family: var(--font-body);
+    font-size: 0.95rem; line-height: 1.55;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+    text-align: left;
+  }
+  .notes-panel.open { display: block; }
+  .notes-panel p { margin: 0.4em 0; }
+  .notes-panel p.stage { color: var(--doc-muted); font-size: 0.85em; font-style: italic; }
+
+  /* ===================================================================
+     DOCUMENT VIEW — the VO as prose; shots become figures
+     =================================================================== */
+
+  body.view-document { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+  header.doc-head { border-bottom: 1px solid var(--doc-line); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+  header.doc-head h1 { font-size: 2.1rem; margin: 0 0 0.5rem; }
+  .doc-head .meta { color: var(--doc-muted); font-size: 0.9rem; margin: 0; }
+
+  .vo { margin: 1.1em 0; }
+
+  h2.movement {
+    font-size: 1.35rem; margin: 2.6rem 0 0; padding-top: 1.2rem;
+    border-top: 2px solid var(--doc-line);
+  }
+  h3.screen-heading, h2.screen-heading { font-size: 1.15rem; margin: 1.8em 0 0.4em; }
+
+  figure.shot { margin: 1.6em 0; text-align: center; }
+  figure.shot img, figure.shot video { max-width: 100%; border-radius: 4px; margin: 0 auto; }
+  figure.shot figcaption, .screen-caption {
+    color: var(--doc-muted); font-size: 0.85rem; margin-top: 0.5rem;
+  }
+
+  body.view-document blockquote {
+    margin: 1.4em 0; padding: 0.2em 0 0.2em 1.1em;
+    border-left: 3px solid var(--doc-accent);
+    font-style: italic;
+    color: color-mix(in srgb, var(--doc-ink) 82%, var(--doc-muted));
+  }
+  body.view-document ul { margin: 1em 0; padding-left: 1.4em; }
+
+  .stat-callout {
+    margin: 1.6em 0; padding: 1.1em 1.3em;
+    background: var(--doc-callout-bg);
+    border-left: 4px solid var(--doc-accent);
+    font-size: 1.3rem;
+  }
+  .stat-callout p { margin: 0; }
+
+  .doc-quote-source {
+    margin: 0.4em 0 1.4em;
+    text-align: right;
+    color: var(--doc-muted);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+  }
+
+  body.view-document .media-placeholder {
+    position: static; display: flex; flex-direction: column; gap: 0.25rem;
+    border: 1.5px dashed var(--doc-line); border-radius: 4px;
+    padding: 1.6rem 1rem;
+  }
+  body.view-document .media-placeholder .ph-slug { color: var(--doc-ink); font-size: 0.9rem; }
+  body.view-document .media-placeholder .ph-type,
+  body.view-document .media-placeholder .ph-note { color: var(--doc-muted); font-size: 0.8rem; }
+
+  /* end-credits in the handout: same list, ink on paper */
+  .doc-credits { margin: 2.2em 0; padding: 1.2em 1.4em;
+    background: var(--doc-callout-bg); border-left: 3px solid var(--doc-line); }
+  .doc-credits .credits-entry { color: var(--doc-muted); font-size: 0.92rem; margin: 0.4em 0; }
+  .doc-credits .credits-entry strong { color: var(--doc-ink); }
+
+  @media print {
+    @page { size: letter; margin: 16mm 15mm; }
+    body.view-document { max-width: none; padding: 0; }
+    h2.movement { page-break-before: always; }
+    figure.shot, .stat-callout, blockquote, .doc-credits { page-break-inside: avoid; }
+  }
+}

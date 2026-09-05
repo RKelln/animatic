@@ -1,10 +1,12 @@
 """render.py — one parse model, three outputs.
 
-- PRESENT view : reveal.js v6.0.1 deck (stand-in engine; see
-  docs/engine-decision.md).  One <section> per screen; VO + stage directions
-  go to the speaker-notes <aside>; on-screen objects (media, title, stat,
-  lower, credits, quotes, lists) render as the slide body.  reveal assets are
-  pinned to https://unpkg.com/reveal.js@6.0.1 (verified reachable).
+- PRESENT view : one self-contained HTML file per deck (no external engine;
+  the pager is a small inline script).  One <section> per screen on a
+  .stage; VO + stage directions go to the speaker-notes asides ('s' shows
+  them); on-screen objects (media, title, stat, lower, credits, quotes,
+  lists) render as the slide body.  All look lives in themes/
+  (layer reset > base > components > theme) and every value comes from the
+  selected theme's tokens.
 - DOCUMENT view: a self-contained static HTML handout.  The VO prose IS the
   document (the format's answer to "the handout is your notes"); shots become
   figures, stat cards become callouts, card headings become subheadings.
@@ -12,6 +14,10 @@
 - CUES: ordered slide-id -> script JSON for the future controller.
 - MEDIA MANIFEST: slug resolution audit (what resolved where, what is a
   placeholder and why).
+
+Themes: the `theme:` frontmatter field selects themes/<slug>.css
+(theme-<slug>.css on disk).  Unknown / TBD themes fall back to `lecture`
+with a warning.  See docs/tokens.md for the token set and layer contract.
 
 Deterministic: no timestamps, no set iteration, stable ordering everywhere.
 """
@@ -23,6 +29,7 @@ import json
 from pathlib import Path
 
 from talkparse import (
+    BLACK_ROLE,
     Block,
     Screen,
     Talk,
@@ -32,7 +39,61 @@ from talkparse import (
 )
 from mediaresolve import MediaResolver, MediaRef
 
-REVEAL_CDN = "https://unpkg.com/reveal.js@6.0.1"
+THEMES_DIR = Path(__file__).resolve().parent / "themes"
+KNOWN_THEMES = ("lecture", "workshop")
+DEFAULT_THEME = "lecture"
+
+LAYER_ORDER = "@layer reset, base, components, theme;"
+
+
+# ---------------------------------------------------------------------------
+# Theme loading (cascade layers, see docs/tokens.md)
+# ---------------------------------------------------------------------------
+
+
+def resolve_theme(talk: Talk) -> str:
+    """Resolve the deck's theme: frontmatter theme: -> known slug.
+
+    Idempotent per Talk: the resolved slug is cached on talk.meta
+    ('_theme').  Unknown or placeholder themes fall back to the default and
+    warn once.
+    """
+    cached = talk.meta.get("_theme")
+    if cached:
+        return str(cached)
+    raw = str(talk.meta.get("theme", "") or "").strip()
+    slug = slugify(raw)
+    if slug in KNOWN_THEMES:
+        resolved = slug
+    else:
+        resolved = DEFAULT_THEME
+        if raw and raw not in ("tbd", "none", ""):
+            talk.warnings.append(
+                f"theme: unknown or pending theme {raw!r}; using {resolved!r} "
+                f"(known: {', '.join(KNOWN_THEMES)})"
+            )
+    talk.meta["_theme"] = resolved
+    return resolved
+
+
+def theme_css_files(theme: str) -> list[str]:
+    """Ordered stylesheet names for one theme (shared by both views)."""
+    return ["reset.css", "base.css", "components.css", f"theme-{theme}.css"]
+
+
+def load_theme_css(theme: str) -> str:
+    """Concatenated layer CSS for one theme (engine import emitted separately)."""
+    parts = []
+    for name in theme_css_files(theme):
+        path = THEMES_DIR / name
+        parts.append(path.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
+def theme_style_blocks(theme: str) -> str:
+    """Full <style> content for a view: layer order, then the four theme
+    files (reset / base / components / theme) in layer order."""
+    return f"<style>\n{LAYER_ORDER}\n{load_theme_css(theme)}\n</style>"
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +107,9 @@ def deck_slug(talk: Talk) -> str:
 
 
 def screen_kind(screen: Screen) -> str:
-    """Primary kind of a screen: media | stat | lower | credits | card."""
+    """Primary kind of a screen: black | media | stat | lower | credits | card."""
+    if any(s.role == BLACK_ROLE for s in screen.shots):
+        return "black"
     if screen.media_shot is not None:
         return "media"
     kinds = [b.kind for b in screen.blocks]
@@ -78,6 +141,23 @@ def role_blocks(screen: Screen) -> list[Block]:
 
 def overlay_blocks(screen: Screen) -> list[Block]:
     return [b for b in screen.blocks if b.kind in ("lower", "credits")]
+
+
+def credits_entries(screen: Screen) -> list[Block]:
+    return [b for b in screen.blocks if b.kind == "credits" and b.text.strip()]
+
+
+def is_black_screen(screen: Screen) -> bool:
+    return any(s.role == BLACK_ROLE for s in screen.shots)
+
+
+def is_credits_screen(screen: Screen) -> bool:
+    """A credits SCREEN (end roll): no media shot, credits entries present.
+
+    Contrast: a credits OVERLAY sits on a media screen (media shot present)
+    and renders as a corner attribution line.
+    """
+    return screen.media_shot is None and bool(credits_entries(screen))
 
 
 def onscreen_blocks(screen: Screen) -> list[Block]:
@@ -118,16 +198,28 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
     if ref.found and ref.file:
         ext = Path(ref.file).suffix.lower()
         if ext in (".mp4", ".webm", ".mov", ".m4v"):
+            src = html.escape(ref.file if Path(ref.file).is_absolute() else "../" + ref.file)
+            if "slide-media" in css_class.split():
+                # cinematic: autoplay muted loop when the slide is active,
+                # no native controls bar (the big play button never belongs
+                # on a shot; the pager plays/pauses via data-autoplay)
+                attrs = 'autoplay muted loop playsinline preload="auto" data-autoplay'
+            else:
+                # document figure: a reader clicks to play
+                attrs = 'controls preload="metadata" muted loop playsinline'
             parts.append(
-                f'<video class="{css_class} media-video" src="{html.escape(ref.file)}" '
-                f'controls preload="metadata" muted loop playsinline'
-                + (f' data-autoplay' if css_class == "slide-media" else "")
-                + f' aria-label="{html.escape(ref.alt or ref.slug)}"></video>'
+                f'<video class="{css_class} media-video" src="{src}" {attrs} '
+                f'aria-label="{html.escape(ref.alt or ref.slug)}"></video>'
             )
         else:
+            src = html.escape(ref.file if Path(ref.file).is_absolute() else "../" + ref.file)
+            # slide media loads eagerly: hidden slides never enter the
+            # viewport, so lazy images there would never fetch. Document
+            # figures (all visible) may stay lazy.
+            lazy = "" if "slide-media" in css_class.split() else ' loading="lazy"'
             parts.append(
-                f'<img class="{css_class} media-image" src="{html.escape(ref.file)}" '
-                f'alt="{html.escape(ref.alt or ref.slug)}" loading="lazy">'
+                f'<img class="{css_class} media-image" src="{src}" '
+                f'alt="{html.escape(ref.alt or ref.slug)}"{lazy}>'
             )
     else:
         parts.append(
@@ -147,41 +239,154 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
     return "".join(parts)
 
 
+def media_zone_html(ref: MediaRef, flags: dict) -> str:
+    """Full-bleed media zone: media element + kb class + fit/dim handling."""
+    fit = " fit" if "fit" in flags else ""
+    piece = " piece" if "piece" in flags else ""
+    duo = flags.get("duo")
+    duo_cls = ""
+    if duo is not None and not piece:
+        piece = " piece"  # duo implies a framed object (cover, portrait)
+    if duo == "left":
+        duo_cls = " duo-left"
+    elif duo is not None:
+        duo_cls = " duo"
+    # a piece floats with its own shadow; a dim scrim would paint a box
+    # over the whole zone behind it. Pieces never take dim.
+    media_flags = {k: v for k, v in flags.items() if k != "dim"} if piece else flags
+    kbcls = f" kb-{flags['kb']}" if flags.get("kb") in ("in", "out") else ""
+    media = media_html(ref, media_flags, css_class=f"slide-media{kbcls}")
+    if kbcls and not piece:
+        # camera drift: the lens moves over an oversized, already-rasterized
+        # picture — the IMAGE is the animated layer (its texture is the
+        # full overscan), the lens only clips. No per-frame sampling, and
+        # an edge can never surface because the texture exceeds the clip.
+        media = f'<div class="kb-lens">{media}</div>'
+    return f'<div class="media-zone{fit}{piece}{duo_cls}">{media}</div>'
+
+
 # ---------------------------------------------------------------------------
-# PRESENT view (reveal.js)
+# PRESENT view (owned pager: no external engine, one self-contained file)
 # ---------------------------------------------------------------------------
 
-PRESENT_CSS = """
-:root { --ink:#f2ede4; --paper:#0d0f12; --accent:#d8b26e; --muted:#9aa0a6; }
-html, body { height: 100%; }
-.reveal { font-family: Georgia, 'Times New Roman', serif; }
-.reveal .slides section { height: 100%; }
-.animatic-slide { position: relative; }
-.media-zone { position:absolute; inset:0; }
-.slide-media { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-.dim { position:absolute; inset:0; background:#000; z-index:1; }
-.screen-body { position:relative; z-index:2; height:100%; display:flex;
-  flex-direction:column; align-items:center; justify-content:center;
-  text-align:center; padding:4vh 6vw; box-sizing:border-box; }
-.reveal h1, .reveal h2, .reveal h3 { font-weight:normal; text-shadow:0 2px 24px rgba(0,0,0,.55); }
-.slide-title { color:var(--ink); }
-.stat { font-size:1.9em; font-weight:bold; letter-spacing:.01em; line-height:1.15;
-  color:var(--ink); text-shadow:0 2px 24px rgba(0,0,0,.6); }
-blockquote { border-left:3px solid var(--accent); text-align:left; font-size:.85em; }
-.lower-third { position:absolute; left:5vw; bottom:12vh; text-align:left; z-index:3;
-  font-size:.6em; letter-spacing:.08em; text-transform:uppercase; color:var(--ink);
-  background:rgba(0,0,0,.45); padding:.5em 1em; border-left:2px solid var(--accent); }
-.credits-line { position:absolute; right:5vw; bottom:6vh; text-align:right; z-index:3;
-  font-size:.45em; color:var(--muted); }
-.notes { display:none; }
+PAGER_JS = """
+(function () {
+  "use strict";
+  var slides = Array.prototype.slice.call(
+    document.querySelectorAll(".animatic-slide"));
+  var panel = document.getElementById("notes-panel");
+  var fill = document.getElementById("progress-fill");
+  var curEl = document.getElementById("slide-cur");
+  var totalEl = document.getElementById("slide-total");
+  var cur = 0;
+  var lastCur = -1;
+  totalEl.textContent = String(slides.length);
+
+  function notesFor(i) {
+    var aside = slides[i].querySelector(".notes");
+    // notes HTML is builder-escaped (inline_md) static local output, safe
+    return aside ? aside.innerHTML : "";
+  }
+
+  function restartMotion(slide) {
+    // Ken Burns drift is a CSS animation on the kb image (compositor
+    // thread, translate only). Restart it fresh on every arrival so each
+    // visit begins in phase.
+    var els = slide.querySelectorAll(".kb-lens .kb-in, .kb-lens .kb-out");
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      el.style.animation = "none";
+      void el.offsetWidth;   // force reflow so the restart takes
+      el.style.animation = "";
+    }
+  }
+
+  function render() {
+    for (var i = 0; i < slides.length; i++) {
+      if (i === cur) { slides[i].classList.add("active"); }
+      else { slides[i].classList.remove("active"); }
+    }
+    if (cur !== lastCur) { lastCur = cur; restartMotion(slides[cur]); }
+    if (fill) fill.style.width = ((cur + 1) / slides.length * 100) + "%";
+    if (curEl) curEl.textContent = String(cur + 1);
+    if (panel && panel.classList.contains("open")) panel.innerHTML = notesFor(cur);
+    // autoplay the active slide's video; pause everything else
+    for (var i = 0; i < slides.length; i++) {
+      var v = slides[i].querySelector("video[data-autoplay]");
+      if (v) {
+        if (i === cur) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+        else { v.pause(); }
+      }
+    }
+  }
+
+  function go(i, updateHash) {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    render();
+    if (updateHash !== false) history.replaceState(null, "", "#" + (cur + 1));
+  }
+  function next() { go(cur + 1); }
+  function prev() { go(cur - 1); }
+
+  function toggleNotes() {
+    if (!panel) return;
+    panel.classList.toggle("open");
+    if (panel.classList.contains("open")) panel.innerHTML = notesFor(cur);
+  }
+
+  function fromHash() {
+    var m = /^#(\\d+)$/.exec(location.hash);
+    if (m) {
+      var n = parseInt(m[1], 10) - 1;
+      if (n >= 0 && n < slides.length) go(n, false);
+    }
+  }
+
+  var nextBtn = document.getElementById("next-slide");
+  var prevBtn = document.getElementById("prev-slide");
+  if (nextBtn) nextBtn.addEventListener("click", next);
+  if (prevBtn) prevBtn.addEventListener("click", prev);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case "ArrowRight": case "ArrowDown": case "PageDown":
+      case " ": e.preventDefault(); next(); break;
+      case "ArrowLeft": case "ArrowUp": case "PageUp":
+        e.preventDefault(); prev(); break;
+      case "Home": e.preventDefault(); go(0); break;
+      case "End": e.preventDefault(); go(slides.length - 1); break;
+      case "s": case "S": toggleNotes(); break;
+      case "Escape": if (panel) panel.classList.remove("open"); break;
+    }
+  });
+  window.addEventListener("hashchange", fromHash);
+
+  // basic swipe (tablets / touch surfaces)
+  var x0 = null;
+  document.addEventListener("pointerdown", function (e) { x0 = e.clientX; });
+  document.addEventListener("pointerup", function (e) {
+    if (x0 === null) return;
+    var dx = e.clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) > 60) { if (dx < 0) next(); else prev(); }
+  });
+
+  fromHash();
+  render();
+})();
 """
 
 
 def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
+    theme = resolve_theme(talk)
     sections = []
-    for screen in talk.screens:
-        sections.append(_present_section(talk, screen, resolver))
+    for i, screen in enumerate(talk.screens):
+        # slide 1 is statically active: a deck is never a blank page even
+        # before the pager script runs (progressive enhancement)
+        first = " active" if i == 0 else ""
+        sections.append(_present_section(talk, screen, resolver, first=first))
     meta = talk.meta
     title = html.escape(str(meta.get("title", deck_slug(talk))))
     doc = f"""<!DOCTYPE html>
@@ -190,24 +395,21 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} — present view</title>
-<link rel="stylesheet" href="{REVEAL_CDN}/dist/reveal.css">
-<link rel="stylesheet" href="{REVEAL_CDN}/dist/theme/black.css">
-<style>{PRESENT_CSS}</style>
+{theme_style_blocks(theme)}
 </head>
-<body>
-<div class="reveal">
-<div class="slides">
+<body class="view-present">
+<main class="stage" id="stage">
 {chr(10).join(sections)}
-</div>
-</div>
-<script src="{REVEAL_CDN}/dist/reveal.js"></script>
-<script src="{REVEAL_CDN}/dist/plugin/notes.js"></script>
+</main>
+<div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+<nav class="pager-ui" aria-label="slides">
+<button type="button" id="prev-slide" aria-label="previous">&#8249;</button>
+<span class="counter"><span id="slide-cur">1</span> / <span id="slide-total">1</span></span>
+<button type="button" id="next-slide" aria-label="next">&#8250;</button>
+</nav>
+<aside class="notes-panel" id="notes-panel" aria-live="polite"></aside>
 <script>
-  Reveal.initialize({{
-    width: 1920, height: 1080, margin: 0, minScale: 0.1, maxScale: 2,
-    hash: true, controls: true, progress: true, slideNumber: true,
-    center: false, transition: 'none', plugins: [RevealNotes]
-  }});
+{PAGER_JS}
 </script>
 </body>
 </html>
@@ -217,44 +419,91 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     return path
 
 
-def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver) -> str:
+def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
+                     first: str = "") -> str:
     mshot = screen.media_shot
     ref = resolver.resolve(mshot.slug) if (mshot and mshot.slug) else None
     flags = mshot.flags if mshot else {}
     cue_id = f"{deck_slug(talk)}-{screen.idx:02d}"
     mv = screen.movement
+    black = is_black_screen(screen)
+    credits_screen = is_credits_screen(screen)
+    # slide-level flags come from the screen's first shot (`fit` hero cards)
+    sflags = screen.shots[0].flags if screen.shots else {}
+    has_body = any(b.kind in ("heading", "stat", "quote", "list")
+                   for b in screen.blocks)
 
     inner = []
     if ref is not None:
-        media = media_html(ref, flags, css_class="slide-media")
-        inner.append(f'<div class="media-zone">{media}</div>')
+        mflags = dict(flags)
+        if "fit" in mflags and has_body:
+            mflags.pop("fit", None)  # on a text slide fit means hero TEXT
+        inner.append(media_zone_html(ref, mflags))
 
-    body = []
-    for b in screen.blocks:
-        # VO never renders on the slide body (cinematic slides; VO is spoken,
-        # shown in speaker notes only).
-        if b.kind == "vo":
-            continue
-        if b.kind == "heading":
-            lvl = min(b.level or 2, 3)
-            body.append(f"<h{lvl} class='slide-title'>{inline_md(b.text)}</h{lvl}>")
-        elif b.kind == "quote":
-            body.append(f"<blockquote><p>{inline_md(b.text)}</p></blockquote>")
-        elif b.kind == "list":
-            items = "".join(f"<li>{inline_md(i)}</li>" for i in b.items)
-            body.append(f"<ul>{items}</ul>")
-        elif b.kind == "stat":
-            body.append(f'<div class="stat">{inline_md(b.text)}</div>')
-        # lower / credits are absolutely positioned overlays (below)
+    if credits_screen:
+        # full end-roll: optional title + entries in balanced columns
+        entries = credits_entries(screen)
+        h = screen.first_heading
+        title = (
+            f'<h2 class="credits-title">{inline_md(h.text)}</h2>'
+            if h is not None and h.text.strip()
+            else ""
+        )
+        many = " many" if len(entries) >= 3 else " few"
+        items = "".join(
+            f'<p class="credits-entry">{inline_md(b.text)}</p>'
+            for b in entries
+        )
+        inner.append(
+            f'<div class="credits-screen{many}">{title}'
+            f'<div class="credits-columns">{items}</div></div>'
+        )
+    else:
+        body = []
+        i = 0
+        blocks = screen.blocks
+        while i < len(blocks):
+            b = blocks[i]
+            # VO never renders on the slide body (cinematic slides; VO is
+            # spoken, shown in speaker notes only).
+            if b.kind == "vo":
+                i += 1
+                continue
+            if b.kind == "heading":
+                lvl = min(b.level or 2, 3)
+                body.append(f"<h{lvl} class='slide-title'>{inline_md(b.text)}</h{lvl}>")
+            elif b.kind == "quote":
+                # quote + its attribution share one centered block, with the
+                # credit line hugging the block's right edge
+                nxt = blocks[i + 1] if i + 1 < len(blocks) else None
+                if nxt is not None and nxt.kind == "quote-source" and nxt.text.strip():
+                    src = f'<p class="quote-source">{inline_md(nxt.text)}</p>'
+                    i += 1
+                else:
+                    src = ""
+                body.append(
+                    f'<div class="quote-block">'
+                    f'<div class="quote-plate" aria-hidden="true"></div>'
+                    f"<blockquote><p>{inline_md(b.text)}</p></blockquote>"
+                    f"{src}</div>"
+                )
+            elif b.kind == "list":
+                items = "".join(f"<li>{inline_md(i)}</li>" for i in b.items)
+                body.append(f"<ul>{items}</ul>")
+            elif b.kind == "stat":
+                body.append(f'<div class="stat">{inline_md(b.text)}</div>')
+            # lower / credits overlays are positioned (below); credits entries
+            # on a credits screen were rendered above.
+            i += 1
 
-    if body:
-        inner.append(f'<div class="screen-body">{"".join(body)}</div>')
+        if body:
+            inner.append(f'<div class="screen-body">{"".join(body)}</div>')
 
-    for b in overlay_blocks(screen):
-        if b.kind == "lower" and b.text.strip():
-            inner.append(f'<div class="lower-third">{html.escape(b.text)}</div>')
-        elif b.kind == "credits" and b.text.strip():
-            inner.append(f'<div class="credits-line">{html.escape(b.text)}</div>')
+        for b in overlay_blocks(screen):
+            if b.kind == "lower" and b.text.strip():
+                inner.append(f'<div class="lower-third">{html.escape(b.text)}</div>')
+            elif b.kind == "credits" and b.text.strip():
+                inner.append(f'<div class="credits-line">{html.escape(b.text)}</div>')
 
     # speaker notes: VO + stage directions (never on the slide body)
     notes = []
@@ -265,8 +514,28 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver) -> str
             notes.append(f'<p class="stage">({html.escape(st)})</p>')
     notes_html = "".join(notes)
 
+    cls = "animatic-slide" + first
+    if "fit" in sflags and not credits_screen and (
+            screen.media_shot is None or has_body):
+        # `fit` = hero text as big as the slide allows — including OVER
+        # full-bleed media when the screen carries text (a media-only `fit`
+        # keeps its other meaning: letterbox-contain the image)
+        cls += " text-fit"
+    if sflags.get("duo") is not None and screen.media_shot is not None:
+        cls += " duo"
+    # per-slide text mode (shot flag `text=light|dark`): the author picks the
+    # text colour for the ground — light glyphs for dark imagery, ink for
+    # bright. Defaults to the room's identity colour (theme handles it).
+    if sflags.get("text") in ("light", "dark"):
+        cls += f" text-{sflags['text']}"
+    if ref is not None and flags.get("duo") is None and "piece" not in flags:
+        # full-bleed background media under screen text (image or video):
+        # the common case; themes style the text zone for this ground
+        cls += " over-media"
+    if black:
+        cls += " black-beat"
     return (
-        f'<section id="{cue_id}" class="animatic-slide" data-movement="{mv}">'
+        f'<section id="{cue_id}" class="{cls}" data-movement="{mv}">'
         f'{"".join(inner)}'
         f'<aside class="notes">{notes_html}</aside>'
         f"</section>"
@@ -277,45 +546,10 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver) -> str
 # DOCUMENT view (static HTML handout; print-to-PDF via @media print)
 # ---------------------------------------------------------------------------
 
-DOC_CSS = """
-:root { color-scheme: light; --ink:#1c1e21; --muted:#5b6066; --line:#d9d4cc;
-  --accent:#8a6a2f; --callout-bg:#f7f3ea; }
-* { box-sizing: border-box; }
-body { font-family: Georgia, 'Times New Roman', serif; color: var(--ink);
-  max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; line-height: 1.6; }
-header.doc-head { border-bottom: 1px solid var(--line); padding-bottom: 1rem; margin-bottom: 1.5rem; }
-header.doc-head h1 { font-size: 2.1rem; line-height: 1.15; margin: 0 0 .5rem; }
-.meta { color: var(--muted); font-size: .9rem; margin: 0; }
-.vo { margin: 1.1em 0; }
-.lead { margin: 1.1em 0; }
-h2.movement { font-size: 1.35rem; margin-top: 2.6rem; padding-top: 1.2rem;
-  border-top: 2px solid var(--line); }
-h3.screen-heading, h2.screen-heading { font-size: 1.15rem; margin: 1.8em 0 .4em; }
-figure.shot { margin: 1.6em 0; text-align: center; }
-figure.shot img, figure.shot video { max-width: 100%; border-radius: 4px; }
-figure.shot .media-placeholder { border: 1.5px dashed var(--line); border-radius: 4px;
-  padding: 2rem 1rem; color: var(--muted); display: flex; flex-direction: column; gap: .25rem; }
-.media-placeholder .ph-slug { font-family: ui-monospace, Menlo, monospace; color: var(--ink); }
-.media-placeholder .ph-note { font-size: .8rem; }
-figcaption, .screen-caption { color: var(--muted); font-size: .85rem; margin-top: .5rem; }
-blockquote { margin: 1.4em 0; padding: .2em 0 .2em 1.1em; border-left: 3px solid var(--accent);
-  font-style: italic; color: #3a3d41; }
-ul { padding-left: 1.4em; }
-.stat-callout { margin: 1.6em 0; padding: 1.1em 1.3em; background: var(--callout-bg);
-  border-left: 4px solid var(--accent); font-size: 1.3rem; font-weight: bold; }
-.stat-callout p { margin: 0; }
-.stage-note { display: none; }
-@media print {
-  @page { size: letter; margin: 16mm 15mm; }
-  body { max-width: none; padding: 0; }
-  h2.movement { page-break-before: always; }
-  figure.shot, .stat-callout, blockquote { page-break-inside: avoid; }
-}
-"""
-
 
 def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
+    theme = resolve_theme(talk)
     meta = talk.meta
     deck_title = str(meta.get("title", deck_slug(talk)))
     meta_bits = [str(v) for v in
@@ -326,6 +560,8 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     movement_sections = []
     current = {"idx": 0, "items": opening}
     for screen in talk.screens:
+        if is_black_screen(screen):
+            continue  # black beats have no prose: nothing to print
         if screen.movement != current["idx"]:
             m = next((m for m in talk.movements if m.index == screen.movement), None)
             current = {"idx": screen.movement, "items": []}
@@ -350,9 +586,9 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(deck_title)} — document view</title>
-<style>{DOC_CSS}</style>
+{theme_style_blocks(theme)}
 </head>
-<body>
+<body class="view-document">
 <article>
 <header class="doc-head">
 <h1>{html.escape(deck_title)}</h1>
@@ -374,6 +610,8 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
     out = []
     media_shot = screen.media_shot
     ref = resolver.resolve(media_shot.slug) if (media_shot and media_shot.slug) else None
+    credits_entries_ = credits_entries(screen)
+    is_credits = is_credits_screen(screen)
     # figure first (media shot leads the screen), then flow blocks
     consumed = set()
     if ref is not None:
@@ -398,16 +636,24 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             out.append(f"<h{lvl} class='screen-heading'>{inline_md(b.text)}</h{lvl}>")
         elif b.kind == "quote":
             out.append(f"<blockquote><p>{inline_md(b.text)}</p></blockquote>")
+        elif b.kind == "quote-source":
+            out.append(f'<p class="doc-quote-source">{inline_md(b.text)}</p>')
         elif b.kind == "list":
             items = "".join(f"<li>{inline_md(i)}</li>" for i in b.items)
             out.append(f"<ul>{items}</ul>")
         elif b.kind == "stat":
             if b.text.strip():
                 out.append(f'<div class="stat-callout"><p>{inline_md(b.text)}</p></div>')
-        elif b.kind in ("lower", "credits"):
+        elif b.kind in ("lower", "credits") and not is_credits:
             if b.text.strip():
                 out.append(f'<p class="screen-caption">{html.escape(b.text)}</p>')
         # stage notes never reach the handout
+    if is_credits and credits_entries_:
+        items = "".join(
+            f'<p class="credits-entry">{inline_md(b.text)}</p>'
+            for b in credits_entries_
+        )
+        out.append(f'<div class="doc-credits">{items}</div>')
     return "".join(out)
 
 
@@ -432,6 +678,8 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
                 text.append({"kind": "heading", "level": b.level, "text": b.text})
             elif b.kind == "quote":
                 text.append({"kind": "quote", "text": b.text})
+            elif b.kind == "quote-source":
+                text.append({"kind": "source", "text": b.text})
             elif b.kind == "list":
                 text.append({"kind": "list", "items": list(b.items)})
             elif b.kind in ("stat", "lower", "credits"):

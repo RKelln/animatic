@@ -1,0 +1,122 @@
+/* theme-workshop.css — animatic layer: theme "workshop".
+   Daylight room: the lights are on and the words matter. Warm paper
+   stage, ink text, olive-clay accent, sans-leaning UI for the
+   text-forward cards. The bright aerial Experimance photos frame
+   naturally on paper (frames, not full-bleed scrims).
+
+   Palette decision log: docs/tokens.md (Ryan, 2026-09-05). */
+
+@layer theme {
+  :root {
+    /* stage — a bright projection canvas */
+    --stage-bg: #f2ecdf;
+    --stage-ink: #262019;
+    --stage-muted: #6b6153;
+    --stage-accent: #7d5f2e;
+    --stage-accent-contrast: #f7f2e8;
+    --stage-overlay-bg: rgba(247, 242, 232, 0.72);
+    --quote-panel-bg: rgba(247, 242, 232, 0.55);   /* warm paper plate; blur does the legibility, keep the image visible */
+    --quote-panel-shadow: 0 22px 60px rgba(38, 32, 25, 0.2);
+    --stage-text-glow: none;
+    --stage-dim: #241f18;   /* warm dark scrim over bright imagery */
+
+    /* document (paper) */
+    --doc-bg: #f7f2e8;
+    --doc-ink: #262019;
+    --doc-muted: #6b6153;
+    --doc-accent: #7d5f2e;
+    --doc-line: #ddd3c2;
+    --doc-callout-bg: #ece3cf;
+
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    --font-body: Georgia, 'Times New Roman', serif;
+    --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --piece-border: rgba(38, 32, 25, 0.25);
+    --piece-shadow: 0 24px 70px rgba(38, 32, 25, 0.35);
+  }
+
+  /* character: paper stage, ink text, no glow. Text stays CENTERED like
+     the lecture room (Ryan 2026-09-05: the workshop difference is the
+     daylight palette and sans UI, not left-pinned type). */
+  .animatic-slide { background: var(--stage-bg); }
+  .animatic-slide h1.slide-title,
+  .animatic-slide h2.slide-title,
+  .animatic-slide h3.slide-title {
+    color: var(--stage-ink);
+    text-shadow: none;
+  }
+  .animatic-slide blockquote { color: var(--stage-ink); text-shadow: none; }
+  .animatic-slide .stat { color: var(--stage-ink); text-shadow: none; }
+  .stat::after {
+    content: ""; display: block;
+    width: 2.2em; height: 2px; margin: 0.4em auto 0;
+    background: var(--stage-accent);
+  }
+  .animatic-slide ul { color: var(--stage-ink); text-shadow: none; }
+
+  /* over full-bleed media, ink text still needs glyph pop: a pale paper
+     halo lifts dark glyphs off bright AND dark patches (the plate handles
+     quotes; this covers titles, stats, lists over imagery) */
+  .animatic-slide.over-media .slide-title,
+  .animatic-slide.over-media blockquote,
+  .animatic-slide.over-media .stat,
+  .animatic-slide.over-media ul {
+    text-shadow:
+      0 0 9px rgba(247, 242, 232, 0.9),
+      0 0 2px rgba(247, 242, 232, 0.75);
+  }
+
+  /* media default is full-bleed atmosphere in both themes; the framed
+     "piece" look is opt-in via the shot flag `piece` (components.css) */
+  .media-zone .dim { background: rgba(18, 16, 12, 0.4); }
+
+  /* lower third / chips: paper chip, ink text */
+  .lower-third {
+    left: auto; right: 6vw; bottom: 5vh;
+    background: var(--stage-overlay-bg);
+    color: var(--stage-ink);
+    border-left: 2px solid var(--stage-accent);
+  }
+
+  .credits-screen .credits-title { color: var(--stage-ink); text-shadow: none; }
+  .credits-screen .credits-entry { color: var(--stage-muted); }
+  .credits-screen .credits-entry strong { color: var(--stage-ink); }
+
+  .media-placeholder .ph-slug { color: var(--stage-ink); }
+  .media-placeholder .ph-type, .media-placeholder .ph-note { color: var(--stage-muted); }
+
+  /* fit cards (shot flag `fit`): hero words scale up and centre in both
+     rooms — on bare cards and over full-bleed media alike. */
+  .animatic-slide.text-fit .screen-body {
+    align-items: center; text-align: center;
+  }
+  .animatic-slide.text-fit .slide-title {
+    font-size: clamp(3.6em, 15vmin, 10em);
+    line-height: 1.04;
+    max-width: 92%;
+    color: var(--stage-ink);
+    text-shadow: none;
+  }
+
+  /* per-slide text mode (shot flag `text=light|dark`): the author picks the
+     text colour for the GROUND. workshop's default is ink (daylight room);
+     a dark image asks for light glyphs with text=light. Declared last so a
+     mode always beats the fit-card defaults above. */
+  .animatic-slide.text-light .slide-title,
+  .animatic-slide.text-light blockquote,
+  .animatic-slide.text-light .stat,
+  .animatic-slide.text-light ul {
+    color: #f7f2e8;
+    text-shadow:
+      0 2px 22px rgba(0, 0, 0, 0.65),
+      0 0 3px rgba(0, 0, 0, 0.5);
+  }
+  .animatic-slide.text-light .quote-source { color: rgba(247, 242, 232, 0.85); }
+  .animatic-slide.text-dark .slide-title,
+  .animatic-slide.text-dark blockquote,
+  .animatic-slide.text-dark .stat,
+  .animatic-slide.text-dark ul {
+    color: var(--stage-ink);
+    text-shadow: none;
+  }
+}

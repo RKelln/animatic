@@ -10,8 +10,15 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   the paragraph appears in the file, i.e. the screen opened by the shot that
   precedes them.  Text spoken while a screen is up sits between this screen's
   shot and the next screen's shot in file order.
-- A paragraph immediately following a role shot (stat / lower / credits) is
-  CONSUMED as that role's on-screen payload: screen text, not VO.
+- A paragraph immediately following a stat / lower shot (or a credits shot
+  merged as an overlay onto an unvoiced media screen) is CONSUMED as that
+  role's on-screen payload: screen text, not VO.
+- A credits shot that opens its OWN screen (a credits screen / end roll)
+  consumes every following paragraph, list item, and heading as screen
+  content until the next shot or movement boundary.
+- `<!-- shot: black -->` opens a deliberate black-beat screen: full-stage
+  silence, no payload, nothing consumed. Author a shot afterwards to
+  continue.
 - Parentheses `( ... )` are never spoken and never on screen (grammar rule 2).
   They are extracted into stage directions that travel with the cue.
 - `## Movement N · Title` headers are structural: they close the current
@@ -34,6 +41,7 @@ import yaml
 
 SHOT_RE = re.compile(r"^\s*<!--\s*shot(?::\s*(.*?))?\s*-->\s*$")
 ROLES = ("stat", "lower", "credits")
+BLACK_ROLE = "black"  # deliberate black beat: full-stage silence, no payload
 MOVEMENT_RE = re.compile(r"^Movement\s+(\d+)\s*[|.:\-\u00b7]?\s*(.*)$")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 QUOTE_RE = re.compile(r"^>\s?(.*)$")
@@ -346,11 +354,16 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
         return shot
     tokens = spec.split()
     first = tokens[0]
-    if first in ROLES:
+    if first in ROLES or first == BLACK_ROLE:
         shot.role = first
+    elif first in ("fit", "piece"):
+        # flag-only shot: no slug, carries slide flags only.
+        # e.g. `<!-- shot: fit -->` = hero card scaled to the slide.
+        pass
     else:
         shot.slug = first
-    for tok in tokens[1:]:
+    start = 0 if shot.slug is None and shot.role is None else 1
+    for tok in tokens[start:]:
         fm = FLAG_RE.match(tok)
         if fm:
             shot.flags[fm.group(1)] = fm.group(2) or ""
@@ -379,6 +392,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
     movement_index = 0            # 0 = opening/title zone, then 1..N
     pending_role: Optional[str] = None   # role shot waiting to consume a para
     role_line = 0
+    credits_open = False                 # credits screen: consume following content
 
     def new_screen(line: int) -> Screen:
         nonlocal cur
@@ -391,7 +405,8 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
 
         if kind == "shot":
             shot: Shot = rb["shot"]
-            overlay = shot.role in ("lower", "credits")
+            overlay = shot.role in ("lower", "credits", "stat")
+            merged = False
             if (
                 overlay
                 and cur is not None
@@ -400,6 +415,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
             ):
                 # role overlay on a media screen that has not voiced yet
                 cur.shots.append(shot)
+                merged = True
             else:
                 if cur is not None and cur.shots and not cur.has_content():
                     talk.warnings.append(
@@ -407,6 +423,9 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                         f"merge; second opens an empty screen"
                     )
                 new_screen(shot.line).shots.append(shot)
+            credits_open = False  # any new shot ends a credits region
+            if shot.role == "credits" and not merged:
+                credits_open = True  # a credits SCREEN: text follows as content
             if shot.is_role:
                 pending_role = shot.role
                 role_line = shot.line
@@ -419,6 +438,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
             mm = MOVEMENT_RE.match(rb["text"])
             if mm:
                 cur = None  # movement boundary closes any open screen
+                credits_open = False
                 movement_index = int(mm.group(1))
                 talk.movements.append(
                     Movement(index=movement_index,
@@ -434,7 +454,10 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 continue
 
         # --- content blocks ---------------------------------------------------
-        if pending_role is not None and kind not in ("para", "vo"):
+        # Role payloads (stat / lower / overlay credits) expect a paragraph.
+        # On a credits SCREEN (credits_open), paragraphs, list items, and
+        # headings are screen content, consumed until the next shot.
+        if pending_role is not None and kind not in ("para", "vo") and not credits_open:
             # role shot expects a payload paragraph; a non-paragraph arrived
             talk.warnings.append(
                 f"line {role_line}: '{pending_role}' shot not followed by a "
@@ -446,6 +469,9 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
             new_screen(rb.get("line", 0))
 
         assert cur is not None
+
+        if credits_open and kind in ("heading", "quote"):
+            pending_role = None  # screen content satisfies the credits role
 
         if kind == "heading":
             if pending_role is not None and rb["level"] == 2:
@@ -461,13 +487,34 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
             continue
 
         if kind == "list":
+            if credits_open:
+                for item in rb["items"]:
+                    spoken, stage = split_parens(item)
+                    cur.blocks.append(
+                        Block(kind="credits", text=spoken, stage=stage,
+                              line=rb.get("line", 0))
+                    )
+                pending_role = None
+                continue
             cur.blocks.append(Block(kind="list", items=rb["items"], line=rb.get("line", 0)))
             continue
 
         if kind == "para":
             spoken, stage = split_parens(rb["text"])
             bkind = "vo"
-            if pending_role is not None:
+            if (
+                pending_role is None
+                and not credits_open
+                and cur.blocks
+                and cur.blocks[-1].kind == "quote"
+                and (spoken.startswith("~ ") or spoken.startswith("Source: "))
+            ):
+                # quote attribution: screen text, never VO. Grammar: a
+                # "~ Name, venue" line directly under a quote blockquote
+                # (tilde stripped on screen; "Source: " accepted too).
+                bkind = "quote-source"
+                spoken = spoken[2:] if spoken.startswith("~ ") else spoken[len("Source: "):]
+            elif pending_role is not None:
                 bkind = pending_role
                 if not spoken:
                     talk.warnings.append(
@@ -475,6 +522,8 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                         f"after stripping parentheticals"
                     )
                 pending_role = None
+            elif credits_open:
+                bkind = "credits"   # credits screen entries: screen text, never VO
             cur.blocks.append(
                 Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0))
             )

@@ -23,6 +23,8 @@ import shutil
 import sys
 from pathlib import Path
 
+import yaml
+
 import talkparse
 from mediaresolve import MediaResolver
 from render import render_cues, render_document, render_manifest, render_present
@@ -34,6 +36,13 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="out", help="output directory (default: out/)")
     ap.add_argument("--keep", action="store_true",
                     help="do not wipe the output directory first")
+    ap.add_argument("--theme", default=None,
+                    help="override the talkfile's theme: frontmatter "
+                         "(e.g. --theme lecture) for style comparisons")
+    ap.add_argument("--media-remap", default=None, metavar="YAML",
+                    help="slug -> file stand-in map for unproduced media "
+                         "(see remaps/l01-standins.yaml); real art always "
+                         "beats a stand-in")
     args = ap.parse_args(argv)
 
     talk_path = Path(args.talkfile).expanduser().resolve()
@@ -42,13 +51,38 @@ def main(argv=None) -> int:
         return 2
 
     talk = talkparse.build_talk(talk_path)
+    if args.theme:
+        talk.meta["theme"] = args.theme
     resolver = MediaResolver(talk_dir=talk_path.parent, meta=talk.meta)
+    if args.media_remap:
+        remap_path = Path(args.media_remap).expanduser().resolve()
+        if not remap_path.is_file():
+            print(f"error: media-remap file not found: {remap_path}",
+                  file=sys.stderr)
+            return 2
+        raw = yaml.safe_load(remap_path.read_text(encoding="utf-8")) or {}
+        base = remap_path.parent
+        resolver.remap = {}
+        for k, v in raw.items():
+            if not isinstance(v, str):
+                continue
+            p = Path(v) if Path(v).is_absolute() else base / v
+            resolver.remap[str(k)] = p.resolve()
+        gone = [k for k, p in resolver.remap.items() if not p.is_file()]
+        for k in gone:
+            del resolver.remap[k]
+        if gone:
+            print(f"warn      : media-remap file(s) missing, ignored: "
+                  f"{', '.join(gone)}")
 
     out = Path(args.out).expanduser().resolve()
     if out.exists():
         if not args.keep:
             shutil.rmtree(out)
     out.mkdir(parents=True, exist_ok=True)
+
+    media_refs = referenced_media(talk, resolver)
+    resolver.publish(out, [r.slug for r in media_refs])
 
     present = render_present(talk, resolver, out / "present")
     document = render_document(talk, resolver, out / "document")
@@ -76,7 +110,6 @@ def main(argv=None) -> int:
           f"credits={roles['credits']} (payloads)")
     print(f"beats     : {empty_script} screen(s) carry no script (card/media "
           f"beat with no VO — see cues.json)")
-    media_refs = referenced_media(talk, resolver)
     found = [r for r in media_refs if r.found]
     missing = [r for r in media_refs if not r.found]
     print(f"media     : {len(media_refs)} referenced slugs; "

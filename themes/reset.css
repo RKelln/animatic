@@ -1,0 +1,27 @@
+/* reset.css — animatic layer: reset (lowest, above engine only).
+   Minimal modern reset: own the box model, kill UA margins, keep
+   semantics. No look decisions live here. */
+
+@layer reset {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  img, video, svg, canvas { display: block; max-width: 100%; height: auto; }
+
+  h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol, figure,
+  figcaption, dl, dd, pre { margin: 0; }
+
+  ul, ol { padding: 0; list-style-position: outside; }
+
+  button, input, textarea, select { font: inherit; color: inherit; }
+
+  a { color: inherit; }
+
+  strong { font-weight: 650; }
+}

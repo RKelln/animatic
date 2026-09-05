@@ -1,0 +1,86 @@
+/* theme-lecture.css — animatic layer: theme "lecture" (default).
+   Reference room: lamp light in the dark. Warm near-black stage,
+   brass accent, serif display. The dark ink-in-water media and the
+   deep aerial night shots live in this room.
+
+   Palette decision log: docs/tokens.md (Ryan, 2026-09-05). */
+
+@layer theme {
+  :root {
+    /* stage */
+    --stage-bg: #12100c;
+    --stage-ink: #f2ecdf;
+    --stage-muted: #a79e8e;
+    --stage-accent: #d8a95c;
+    --stage-accent-contrast: #17130b;
+    --stage-overlay-bg: rgba(8, 7, 5, 0.55);
+    --quote-panel-bg: rgba(16, 13, 9, 0.62);       /* frosted plate behind quotes over media */
+    --quote-panel-shadow: 0 22px 70px rgba(0, 0, 0, 0.4);
+    --stage-text-glow: 0 2px 26px rgba(0, 0, 0, 0.72), 0 1px 4px rgba(0, 0, 0, 0.5);
+
+    /* document (paper) */
+    --doc-bg: #f7f2e8;
+    --doc-ink: #26211a;
+    --doc-muted: #6b6153;
+    --doc-accent: #8a6a2f;
+    --doc-line: #ddd3c2;
+    --doc-callout-bg: #efe7d6;
+
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    --font-body: Georgia, 'Times New Roman', serif;
+    --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --piece-border: rgba(242, 236, 223, 0.22);
+    --piece-shadow: 0 26px 80px rgba(0, 0, 0, 0.6);
+  }
+
+  /* character */
+  .lower-third { border-left: 2px solid var(--stage-accent); }
+  .animatic-slide blockquote { border-left: 3px solid var(--stage-accent); padding-left: 1em; }
+  .animatic-slide .stat { font-variant-numeric: lining-nums; }
+
+  /* over full-bleed media, text always pops: the lecture glow does the
+     work — this group makes the guarantee structural, not inherited */
+  .animatic-slide.over-media .slide-title,
+  .animatic-slide.over-media blockquote,
+  .animatic-slide.over-media .stat,
+  .animatic-slide.over-media ul {
+    text-shadow: var(--stage-text-glow);
+  }
+
+  /* per-slide text mode (shot flag `text=light|dark`): the author picks the
+     text colour for the GROUND. lecture's default is light text; a bright
+     full-bleed aerial can ask for ink glyphs instead with text=dark. */
+  .animatic-slide.text-dark .slide-title,
+  .animatic-slide.text-dark blockquote,
+  .animatic-slide.text-dark .stat,
+  .animatic-slide.text-dark ul {
+    color: #241f18;
+    text-shadow:
+      0 0 9px rgba(247, 242, 232, 0.9),
+      0 0 2px rgba(247, 242, 232, 0.75);
+  }
+  .animatic-slide.text-dark .quote-source { color: #5c5344; }
+  .animatic-slide.text-light .slide-title,
+  .animatic-slide.text-light blockquote,
+  .animatic-slide.text-light .stat,
+  .animatic-slide.text-light ul {
+    color: var(--stage-ink);
+    text-shadow: var(--stage-text-glow);
+  }
+  .stat::after {
+    content: ""; display: block;
+    width: 3em; height: 2px; margin: 0.35em auto 0;
+    background: var(--stage-accent);
+    opacity: 0.85;
+  }
+  .credits-screen .credits-title strong,
+  .slide-title strong { color: var(--stage-accent); font-weight: 400; }
+
+  /* fit cards (shot flag `fit`): one or two hero words scaled as large as
+     the slide allows. Layer theme beats the components type ramp. */
+  .animatic-slide.text-fit .slide-title {
+    font-size: clamp(3.6em, 15vmin, 10em);
+    line-height: 1.04;
+    max-width: 92%;
+  }
+}
