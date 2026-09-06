@@ -57,8 +57,8 @@ Reference-to-video details:
 | `duration` | 5-15s | 5 |
 | `resolution` | `480P` / `768P` | `768P` |
 | `prompt_expansion_mode` | `balanced` (~1s rewrite) / `quality` (~30s richer) | `balanced` |
-| `aspect_ratio` | text-to-video: 21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16 | 16:9 (t2v), adaptive (r2v) |
-| `seed` | integer, INPUT ONLY (see below) | random when omitted |
+| `aspect_ratio` | t2v: 21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16; r2v: same + adaptive. **i2v has NO aspect_ratio param** — output aspect follows `image_url`, so crop/export the input to the aspect you want | 16:9 (t2v), adaptive (r2v) |
+| `seed` | integer, optional; per-endpoint return behavior, see below | random when omitted |
 | `sync_mode` | base64 response instead of CDN URL | false (keep false; download the URL) |
 | `enable_safety_checker` | bool | true |
 
@@ -73,13 +73,24 @@ Reference-to-video details:
   `<slug>-a<N>.expanded.txt` beside the output. It is null when expansion was
   disabled, left the prompt unchanged, or was done internally by MiniMax's
   hosted API — null is not an error.
+- `seed` — returned by **reference-to-video only** (required field, "Base seed
+  for reproducing the generation"). Record it per attempt; it is what makes an
+  r2v run reproducible even when you did not pass a seed.
 - `timings` — inference seconds (when the route reports them).
 
-**Seed correction (2026-09-06):** the 2026-09-05 recon claimed seed is
-"returned on output for exact reproduction". The live llms.txt output schema
-shows NO seed field — seed is input-only. To make a run reproducible, pass your
-own explicit seed and record it in gen-log yourself. Same prompt + seed + params
-should reproduce (provider-dependent; treat as best-effort, verify visually).
+**Seed behavior is per endpoint (verified against llms.txt 2026-09-06):**
+
+| Endpoint | seed in output schema? |
+|---|---|
+| text-to-video | NO — never echoed. Pass an explicit seed + record it yourself, or the run is unreproducible |
+| image-to-video | NO — same rule |
+| reference-to-video | YES — returned as `seed` ("Base seed for reproducing the generation") |
+
+The 2026-09-05 recon ("seed returned on output") was right for
+reference-to-video and over-generalized; an early draft of this doc made the
+opposite mistake (input-only everywhere). The per-endpoint truth above is what
+holds. If you omit the seed on t2v/i2v you cannot reproduce; on r2v the response
+tells you what was used.
 
 ### Pricing (llms.txt, 2026-09-06)
 
@@ -169,6 +180,8 @@ wedge. What holds now:
 ## Changelog
 
 - 2026-09-06 (E5, t_34a421d1): created. Moved + corrected the 2026-09-05 recon:
-  seed is input-only; promo split per endpoint; image-to-video gained
-  `end_image_url`; built-in toolset section added; engine-notes.md in
-  decks/_media reduced to a pointer.
+  seed is per-endpoint (r2v returns it; t2v/i2v do not); promo split per
+  endpoint; image-to-video gained `end_image_url` and has no aspect_ratio param;
+  built-in toolset section added; engine-notes.md in decks/_media reduced to a
+  pointer. Seed/aspect rows refined the same day after an independent review
+  pass confirmed the r2v output-schema seed against the full llms.txt text.
