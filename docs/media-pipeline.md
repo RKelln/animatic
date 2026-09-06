@@ -41,6 +41,10 @@ exploration, many candidates cheap, reviewed in the morning; then a FAL pass
 (fal.ai, H3 Max for video) for the shortlist and finals. Engines are per-attempt
 fields in gen-log.md, never part of the talk format.
 
+Engine mechanics (endpoints, params, pricing, expanded_prompt/seed behavior,
+the built-in Hermes toolset) live in `media-engines.md`; the two legs are
+operated by the `fal-gen` and `local-gen` Hermes skills.
+
 Defaults: video clips 10-15s max (engine cap 15s), 768p, 16:9, diegetic audio
 muted in deck backgrounds, seed recorded every attempt, prompt expansion
 balanced for iteration / quality for finals.
