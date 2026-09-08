@@ -31,6 +31,8 @@ The same file renders as:
 - `check.py` — the deterministic check suite: the full 1-28 check register
   (spec §6/§7/§10/§11) with the fatal/warning/info/report taxonomy and
   `--strict` (warnings fatal). See `python3 check.py --register`.
+- `corpus.yaml` — the machine-local content-root declaration the corpus
+  harness (check 21) scans; a shipped copy rewrites its paths.
 
 ### Build
 
@@ -43,6 +45,18 @@ The same file renders as:
 `check` exits 0 on a clean deck, 1 on any fatal (or, under `--strict`, any
 warning), 2 on usage errors. Importable: `from check import check_file` is the
 per-deck seam the future `animatic` wrapper and the corpus harness drive.
+
+### Corpus check (register 21)
+
+    python3 build.py --corpus              # roots declared in corpus.yaml
+    python3 build.py --corpus <root>       # scan one directory as a corpus
+
+Runs the full check over every deck under the declared content roots —
+per-deck PASS/FAIL with finding counts, cross-deck slug collisions (check 5)
+once, a shared-bank health sweep, and the tag drift / coverage reports
+(spec §10) across deck and wiki concept tags. Reads only; never writes into a
+content root; deterministic output. Strict variant: `python3 check.py
+--corpus [ROOT] --strict` (warnings become deck failures).
 
 Specimen (read-only input, TPL repo):
 

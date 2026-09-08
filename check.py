@@ -7,6 +7,7 @@ out dir.
 Run::
 
     python3 check.py TALKFILE [TALKFILE ...] [--strict] [--cues FILE] [--register]
+    python3 check.py --corpus [ROOT] [--strict]      # corpus mode (check 21)
 
 Exit codes:
     0  clean — no fatal finding (warnings are fine; a deck must always build)
@@ -38,26 +39,32 @@ Severity taxonomy (spec §10 as the register defines it):
 Register canonicalization (engine-decision §9/§10: "register canonicalization
 is T08").  The 1-28 register table with owner + status lives in REGISTER below
 and prints with --register.  Rows implemented here: 1-9, 11-16, 18 (model
-assert + artifact assert), 28.  Rows enforced by the parser/resolver ships
-from earlier tickets: 10 (mediaresolve), 17 (render, T02), 22-26 (talkparse),
-27 (T07 fixture).  Explicitly deferred with reason: 19 (est_seconds lands with
-T15's timing module; T15's file scope includes check.py), 20 (the --variant
-build lands with T14; T14's file scope includes check.py), 21 (the corpus
-harness needs a config-declared content root and the --corpus flag, T11).
+assert + artifact assert), 21 (corpus harness), 28.  Rows enforced by the
+parser/resolver ships from earlier tickets: 10 (mediaresolve), 17 (render,
+T02), 22-26 (talkparse), 27 (T07 fixture).  Explicitly deferred with reason:
+19 (est_seconds lands with T15's timing module; T15's file scope includes
+check.py), 20 (the --variant build lands with T14; T14's file scope includes
+check.py).
 
 Importable by build.py and a future `animatic` wrapper (there is no animatic
-CLI today).  check_file() is the per-deck seam T11's --corpus reuses; the
-suite never edits talkparse.py/render.py and never writes outside /tmp or the
-caller's chosen output.
+CLI today).  check_file() is the per-deck seam the --corpus driver (T11)
+reuses; corpus mode builds each deck's cues.json into a temp dir so the
+artifact assertions 17/18 fire per deck, and the suite never edits
+talkparse.py/render.py and never writes outside /tmp or the caller's chosen
+output.  Corpus content roots are declared in corpus.yaml (spec §6).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
 import sys
+import tempfile
 import warnings
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -110,7 +117,7 @@ REGISTER = [
     (18, "lexical sort of cue ids == ordinal order",                 FATAL,   "implemented"),
     (19, "sum(est_seconds) vs frontmatter dur divergence",           REPORT,  "deferred: T15"),
     (20, "variant build emits included/excluded manifest",           REPORT,  "deferred: T14"),
-    (21, "corpus: all decks parse/build/pass",                       REPORT,  "deferred: T11"),
+    (21, "corpus: all decks parse/build/pass",                       REPORT,  "implemented"),
     (22, "malformed Movement heading fatal",                         FATAL,   "enforced: talkparse.py (T05)"),
     (23, "nested parens warning",                                    WARNING, "enforced: talkparse.py (T06)"),
     (24, "attribution-shaped line with no quote warns",              WARNING, "enforced: talkparse.py (T06)"),
@@ -128,15 +135,11 @@ DEFERRED = {
     20: "check 20 needs the --variant build that emits the included/excluded "
         "manifest; that lands with T14 (dense renumbering + canonical remap), "
         "whose file scope includes check.py.",
-    21: "check 21 needs a config-declared content root and the --corpus flag; "
-        "that is T11, whose file scope is a check.py extension. T11 will drive "
-        "this module's check_file() per deck.",
 }
 
 
 DEFERRED_LINE = ("deferred : check 19 -> T15 (est_seconds/timing), check 20 -> "
-                 "T14 (variant manifest), check 21 -> T11 (corpus harness) — "
-                 "full reasons under --register")
+                 "T14 (variant manifest) — full reasons under --register")
 
 
 @dataclass
@@ -834,6 +837,504 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
                       cues_path=cues_path, report=report)
 
 
+# ---------------------------------------------------------------------------
+# Corpus harness (check 21, T11) — content roots -> per-deck pass/fail + drift
+# ---------------------------------------------------------------------------
+
+CORPUS_CONFIG = "corpus.yaml"            # repo-root content-root declaration
+BANK_STATUSES = frozenset({"brief", "to-find", "have", "prompting",
+                           "candidate", "shortlist", "approved", "rejected"})
+BANK_REQUIRED = ("slug", "status", "type")
+_TAG_FILE_SKIP = frozenset({"index.md", "log.md"})   # OKF reserved (§2)
+_RAW_SUBTREES = frozenset({"raw", "scrapes"})        # collected, not authored
+_SUGGEST_TOP = 3
+_MAX_PAIR_ROWS = 60
+_MAX_COVERAGE_ROWS = 40
+_WORD_RE = re.compile(r"[a-z0-9]{3,}")
+
+
+def _frontmatter_meta(path: Path) -> tuple:
+    """(meta dict, text head).  meta is None when the file has no YAML
+    frontmatter (not an OKF concept).  Text head feeds tag suggestions."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None, ""
+    head = text[:12000]
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None, head
+    end = None
+    for i in range(1, min(len(lines), 200)):
+        if lines[i].strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None, head
+    try:
+        meta = yaml.safe_load("\n".join(lines[1:end]))
+    except yaml.YAMLError:
+        meta = None
+    if not isinstance(meta, dict):
+        meta = {}
+    return meta, head
+
+
+def _meta_tags(meta: dict) -> list:
+    """Frontmatter `tags` (OKF shared field, spec §2) normalized: lowercase,
+    strings only, deduped, order preserved."""
+    if not isinstance(meta, dict):
+        return []
+    raw = meta.get("tags")
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        raw = re.split(r"[,\s]+", raw)
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for t in raw:
+        if isinstance(t, str):
+            t = t.strip().lower()
+            if t and t not in out:
+                out.append(t)
+    return out
+
+
+def _walk_md(root: Path, *, skip_media: bool, skip_raw: bool) -> list:
+    """Sorted .md files under root.  Always skips dot entries, node_modules
+    and stale build dirs (out/, out-*); optionally media/_media (deck scan)
+    or raw/scrapes (concept scan: machine-collected, never authored)."""
+    found = []
+    skip = {"node_modules"}
+    if skip_media:
+        skip |= {"media", "_media"}
+    if skip_raw:
+        skip |= set(_RAW_SUBTREES)
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(
+            d for d in dirnames
+            if not d.startswith(".")
+            and d not in skip
+            and d != "out" and not d.startswith("out-"))
+        for fn in sorted(filenames):
+            if not fn.startswith(".") and fn.endswith(".md"):
+                found.append(Path(dirpath) / fn)
+    return found
+
+
+def discover_corpus(roots: dict) -> dict:
+    """roots: {decks: [Path], concepts: [Path], banks: [Path]} -> found sets.
+
+    deck     = talk.md / *.talk.md under a deck root (media/_media, out/,
+               dot dirs skipped — those hold cards, gen-logs and stale
+               builds, never deck sources).
+    concept  = .md with frontmatter under a concept root, minus deck files
+               and OKF-reserved index.md/log.md.  Feeds tag drift/coverage.
+    bank     = explicit bank files from config + every library.yaml found
+               under deck roots (shared banks).  Per-deck media/cards.yaml
+               pools are owned by their deck's check run and are not swept
+               here (a dup slug there already fires check 1 on the deck).
+    All lists are sorted and deduped — deterministic iteration."""
+    decks: list = []
+    deck_roots = [Path(p) for p in roots.get("decks", [])]
+    for root in deck_roots:
+        for p in _walk_md(root, skip_media=True, skip_raw=False):
+            if p.name == "talk.md" or p.name.endswith(".talk.md"):
+                decks.append(p.resolve())
+    decks = sorted(set(decks))
+    deck_set = set(decks)
+
+    concepts: list = []
+    for root in [Path(p) for p in roots.get("concepts", [])]:
+        for p in _walk_md(root, skip_media=True, skip_raw=True):
+            if p.name in _TAG_FILE_SKIP or p.resolve() in deck_set:
+                continue
+            meta, _ = _frontmatter_meta(p)
+            if meta is not None:
+                concepts.append(p.resolve())
+    concepts = sorted(set(concepts))
+
+    banks: list = []
+    for root in deck_roots:
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = sorted(
+                d for d in dirnames if not d.startswith(".")
+                and d != "out" and not d.startswith("out-"))
+            for fn in sorted(filenames):
+                if fn == "library.yaml":
+                    banks.append((Path(dirpath) / fn).resolve())
+    for p in [Path(p) for p in roots.get("banks", [])]:
+        banks.append(p.resolve())
+    banks = sorted(set(banks))
+    return {"decks": decks, "concepts": concepts, "banks": banks}
+
+
+def _rel_label(root: Path, path: Path) -> str:
+    """Root-basename-prefixed relative path for display, e.g.
+    decks/L01-opening-talk/talk.md — roots are named dirs, so the prefix is
+    unambiguous when the same relative layout exists under two roots."""
+    try:
+        rel = path.relative_to(root)
+    except ValueError:
+        return str(path)
+    return f"{root.name}/{rel}"
+
+
+def _sweep_bank(path: Path, label: str, crep: Report) -> None:
+    """Shared-bank health row (REPORT: banks are content, never an exit
+    failure — a broken bank fails the deck that references it instead)."""
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        crep.add(None, REPORT, f"bank {label}: unreadable: {exc}")
+        return
+    except yaml.YAMLError as exc:
+        crep.add(None, REPORT, f"bank {label}: bad YAML: {exc}")
+        return
+    if not isinstance(raw, list):
+        crep.add(None, REPORT,
+                 f"bank {label}: top level is {type(raw).__name__}, not a "
+                 f"list of cards — the resolver never reads it")
+        return
+    cards = [c for c in raw if isinstance(c, dict) and c.get("slug")]
+    non_card = len(raw) - len(cards)
+    seen = {}
+    dups = []
+    missing_req = []
+    bad_status = []
+    hist = Counter()
+    for c in raw:
+        if not isinstance(c, dict) or not c.get("slug"):
+            continue
+        slug = str(c["slug"])
+        if slug in seen:
+            dups.append(slug)
+        else:
+            seen[slug] = True
+        for key in BANK_REQUIRED:
+            if key not in c or c.get(key) in (None, ""):
+                missing_req.append(f"{slug}:{key}")
+        status = c.get("status")
+        if status is not None and status not in BANK_STATUSES:
+            bad_status.append(f"{slug}:{status}")
+        if isinstance(status, str):
+            hist[status] += 1
+    parts = [f"{len(cards)} cards"]
+    if hist:
+        parts.append("status " + ", ".join(
+            f"{s}={hist[s]}" for s in sorted(hist)))
+    if non_card:
+        parts.append(f"{non_card} non-card entr{'y' if non_card == 1 else 'ies'} "
+                     f"ignored")
+    if dups:
+        crep.add(None, REPORT,
+                 f"bank {label}: duplicate slug(s) in one bank file — the "
+                 f"first entry wins for every referencing deck: "
+                 f"{', '.join(sorted(set(dups)))}")
+    if missing_req:
+        crep.add(None, REPORT,
+                 f"bank {label}: card(s) missing a required key "
+                 f"{'/'.join(BANK_REQUIRED)} (spec §11): "
+                 f"{', '.join(sorted(set(missing_req))[:8])}"
+                 + (" …" if len(set(missing_req)) > 8 else ""))
+    if bad_status:
+        crep.add(None, REPORT,
+                 f"bank {label}: unknown status value(s): "
+                 f"{', '.join(sorted(set(bad_status))[:8])}")
+    crep.add(None, REPORT, f"bank {label}: {'; '.join(parts)}")
+
+
+def _lev(a: str, b: str, cap: int = 2) -> int:
+    """Levenshtein distance with an early exit past `cap` (returns cap+1)."""
+    if a == b:
+        return 0
+    la, lb = len(a), len(b)
+    if abs(la - lb) > cap:
+        return cap + 1
+    prev = list(range(lb + 1))
+    for i in range(1, la + 1):
+        cur = [i] + [0] * lb
+        row_min = cur[0]
+        ca = a[i - 1]
+        for j in range(1, lb + 1):
+            cost = 0 if ca == b[j - 1] else 1
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+            if cur[j] < row_min:
+                row_min = cur[j]
+        if row_min > cap:
+            return cap + 1
+        prev = cur
+    return prev[lb]
+
+
+def _near_miss_pairs(vocab: Counter) -> list:
+    """[(dist, tag_a, tag_b)] sorted; same first char and length gap <= 2
+    prefilter keeps the scan linear-ish (spec §10 drift: catches
+    `#enclosive` beside `#enclosure`).
+
+    Two noise filters, because a drift report that cries wolf gets ignored:
+    - both tags must be >= 4 chars — 3-letter tags are acronym space where
+      edit-distance neighbours (ai/api/arc/art) are usually distinct legit
+      terms, not drift;
+    - a numbered family (l01/l02, phase-1/phase-2) is deliberate parallel
+      vocabulary, not a misspelling — equal alphabetic prefixes ending in
+      digits are skipped."""
+    by_first = defaultdict(list)
+    for t in vocab:
+        if len(t) >= 4:
+            by_first[t[0]].append(t)
+    pairs = []
+    for bucket in by_first.values():
+        bucket.sort(key=lambda t: (len(t), t))
+        for i in range(len(bucket)):
+            a = bucket[i]
+            for b in bucket[i + 1:]:
+                if len(b) - len(a) > 2:
+                    break
+                if _same_numbered_family(a, b):
+                    continue
+                d = _lev(a, b)
+                if 0 < d <= 2:
+                    pairs.append((d, a, b))
+    pairs.sort()
+    return pairs
+
+
+_NUM_FAMILY_RE = re.compile(r"^(.+?)[-_]?(\d{1,3})$")
+
+
+def _same_numbered_family(a: str, b: str) -> bool:
+    ma = _NUM_FAMILY_RE.fullmatch(a)
+    mb = _NUM_FAMILY_RE.fullmatch(b)
+    if not ma or not mb:
+        return False
+    return ma.group(1).rstrip("-_") == mb.group(1).rstrip("-_") \
+        and ma.group(2) != mb.group(2)
+
+
+def _suggest_tags(vocab2: Counter, meta: dict, head: str) -> list:
+    """Suggest existing corpus tags (use >= 2 only) for an untagged file, by
+    word overlap with its frontmatter prose + body head.  Suggest-only: the
+    agent proposes, Ryan confirms (spec §10.2); never auto-applied."""
+    if not vocab2:
+        return []
+    prose = " ".join(str(meta.get(k, "")) for k in
+                     ("title", "description", "logline", "session"))
+    words = set(_WORD_RE.findall((prose + " " + head).lower()))
+    scored = []
+    for tag, cnt in vocab2.items():
+        parts = [p for p in re.split(r"[^a-z0-9]+", tag) if len(p) >= 3]
+        if not parts:
+            continue
+        hits = sum(1 for p in parts if p in words)
+        if hits and hits * 2 >= len(parts):
+            scored.append((hits / len(parts), cnt, tag))
+    scored.sort(key=lambda t: (-t[0], -t[1], t[2]))
+    return [t for _, _, t in scored[:_SUGGEST_TOP]]
+
+
+def run_corpus(roots: dict, *, strict: bool = False,
+               label: str = "corpus") -> int:
+    """Corpus check (register 21): every deck under the declared roots gets
+    check_file() (full register, model checks 1-16/18/28 + parser-enforced
+    22-26); deck-slug collisions (check 5) fire once across the root; shared
+    banks get a health sweep; OKF concept files (decks + wiki) feed the tag
+    drift / coverage reports (spec §10).  Reads only — never writes into any
+    content root.  Deterministic: same roots, same output."""
+    found = discover_corpus(roots)
+    decks = found["decks"]
+    concepts = found["concepts"]
+    banks = found["banks"]
+
+    print(f"animatic corpus — {label}")
+    print(f"roots     : decks={len(roots.get('decks', []))} "
+          f"concepts={len(roots.get('concepts', []))} "
+          f"banks={len(roots.get('banks', []))}")
+    print(f"decks     : {len(decks)} found — per-deck check_file() (checks "
+          f"1-16, 18 model, 22-28); artifact asserts 17/18 live in the T10 "
+          f"golden suite where a real build exists")
+
+    deck_results = []
+    for p in decks:
+        report = check_file(p, strict=strict)
+        deck_results.append((p, report))
+
+    crep = Report(source="corpus")
+    check_5_deck_slug_collisions(decks, crep)
+    for p in banks:
+        root = next((r for r in [Path(x) for x in roots.get("decks", [])]
+                     if str(p).startswith(str(r))), None)
+        label_b = _rel_label(root, p) if root is not None else p.name
+        _sweep_bank(p, label_b, crep)
+
+    # -- per-deck verdicts ---------------------------------------------------
+    n_pass = 0
+    for p, report in deck_results:
+        rel = _rel_label(_root_of(p, roots), p)
+        counts = Counter(f.severity for f in report.findings)
+        if report.parse_error:
+            counts[FATAL] += 1
+        ok = report.exit_code == 0
+        n_pass += 1 if ok else 0
+        verdict = "PASS" if ok else "FAIL"
+        line = (f"deck  {rel:<52} {verdict}  "
+                f"fatal {counts[FATAL]} · warning {counts[WARNING]} · "
+                f"info {counts[INFO]} · report {counts[REPORT]}")
+        print(line)
+        if not ok:
+            if report.parse_error:
+                print(f"  fatal    parse error: {report.parse_error}")
+            for f in report.sorted():
+                if f.severity == FATAL or (strict and f.severity == WARNING):
+                    print("  " + f.render())
+    print()
+
+    if crep.findings:
+        print("corpus    : cross-deck + bank findings")
+        for f in crep.sorted():
+            print(f.render())
+        print()
+
+    # -- tag drift + coverage (spec §10, report taxonomy — never exit) ------
+    tag_files = []          # (label, tags, meta, head)
+    for p in decks:
+        meta, head = _frontmatter_meta(p)
+        if meta is not None:
+            tag_files.append((_rel_label(_root_of(p, roots), p),
+                              _meta_tags(meta), meta, head))
+    for p in concepts:
+        meta, head = _frontmatter_meta(p)
+        if meta is not None:
+            tag_files.append((_rel_label(_root_of(p, roots), p),
+                              _meta_tags(meta), meta, head))
+    tag_files.sort(key=lambda t: t[0])
+
+    vocab: Counter = Counter()
+    for _, tags, _, _ in tag_files:
+        for t in tags:
+            vocab[t] += 1
+    untagged = [(label, meta, head) for label, tags, meta, head in tag_files
+                if not tags]
+    vocab2 = Counter({t: c for t, c in vocab.items() if c >= 2})
+    n_single = sum(1 for c in vocab.values() if c == 1)
+
+    print(f"tags      : {len(tag_files)} concept file(s) · "
+          f"{len(vocab)} distinct tags · {sum(vocab.values())} uses · "
+          f"{n_single} single-use")
+    if vocab:
+        top = ", ".join(f"{t}({vocab[t]})"
+                        for t, _ in vocab.most_common(15))
+        print(f"  top      : {top}")
+    pairs = _near_miss_pairs(vocab)
+    if pairs:
+        print(f"  drift    : {len(pairs)} near-miss pair(s) "
+              f"(levenshtein <= 2):")
+        for d, a, b in pairs[:_MAX_PAIR_ROWS]:
+            print(f"    {a} ~ {b}   [{vocab[a]} vs {vocab[b]} use(s)]")
+        if len(pairs) > _MAX_PAIR_ROWS:
+            print(f"    … and {len(pairs) - _MAX_PAIR_ROWS} more")
+    else:
+        print("  drift    : no near-miss pairs — vocabulary is clean")
+    if untagged:
+        print(f"coverage  : {len(untagged)} untagged concept file(s) — "
+              f"suggest-only, never auto-applied (spec §10):")
+        for label, meta, head in untagged[:_MAX_COVERAGE_ROWS]:
+            sugg = _suggest_tags(vocab2, meta, head)
+            line = f"    {label}"
+            if sugg:
+                line += f"  suggest: {', '.join(sugg)}"
+            print(line)
+        if len(untagged) > _MAX_COVERAGE_ROWS:
+            print(f"    … and {len(untagged) - _MAX_COVERAGE_ROWS} more")
+    else:
+        print("coverage  : every concept file is tagged")
+    print()
+
+    crep_exit = crep.exit_code
+    code = 1 if any(report.exit_code for _, report in deck_results) \
+        else crep_exit
+    print(f"corpus summary: {n_pass}/{len(decks)} decks passed · "
+          f"banks {len(banks)} · exit {code}"
+          + ("  (warnings fatal under --strict)" if strict else ""))
+    return code
+
+
+def _root_of(path: Path, roots: dict) -> Path:
+    """The declared root that contains `path` (longest-prefix win); falls
+    back to path.parent.parent so labels stay stable for odd layouts."""
+    candidates = [Path(r) for r in (roots.get("decks", [])
+                                    + roots.get("concepts", []))]
+    best = None
+    for r in candidates:
+        if str(path).startswith(str(r)):
+            if best is None or len(str(r)) > len(str(best)):
+                best = r
+    return best if best is not None else Path(path).parent.parent
+
+
+def corpus_config_path() -> Path:
+    return Path(__file__).resolve().parent / CORPUS_CONFIG
+
+
+def load_corpus_config() -> Optional[dict]:
+    """{decks: [Path], concepts: [Path], banks: [Path]} from corpus.yaml.
+    None when the file is absent (the --corpus ROOT form needs no config)."""
+    p = corpus_config_path()
+    if not p.is_file():
+        return None
+    try:
+        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    roots = {}
+    for key in ("decks", "concepts", "banks"):
+        vals = data.get(key) or []
+        roots[key] = [Path(str(v)).expanduser().resolve()
+                      for v in vals
+                      if isinstance(v, str) and str(v).strip()]
+    return roots
+
+
+def corpus_main(root: Optional[str] = None, *, strict: bool = False) -> int:
+    """--corpus driver: no ROOT -> corpus.yaml content roots; ROOT -> that
+    directory scanned as one decks + concepts + banks root (the acceptance
+    form: `python3 build.py --corpus <root>` / `check.py --corpus <root>`)."""
+    if root is not None:
+        p = Path(root).expanduser().resolve()
+        if not p.is_dir():
+            print(f"check.py: error: corpus root not found: {p}",
+                  file=sys.stderr)
+            return 2
+        roots = {"decks": [p], "concepts": [p], "banks": []}
+        label = f"root {p}"
+    else:
+        cfg = load_corpus_config()
+        if cfg is None:
+            print(f"check.py: error: no {CORPUS_CONFIG} beside check.py "
+                  f"({corpus_config_path()}) — create it from the template or "
+                  f"pass --corpus ROOT", file=sys.stderr)
+            return 2
+        roots = cfg
+        label = f"{CORPUS_CONFIG} ({corpus_config_path()})"
+    missing = sorted({str(x) for key in ("decks", "concepts", "banks")
+                      for x in roots[key] if not x.exists()})
+    usable = {}
+    for key in ("decks", "concepts", "banks"):
+        usable[key] = [x for x in roots[key] if x.exists()]
+    if not any(usable.values()):
+        print(f"check.py: error: no usable corpus root under {label} — "
+              f"missing: {', '.join(missing) or 'none declared'}",
+              file=sys.stderr)
+        return 2
+    if missing:
+        print(f"warn      : corpus root(s) missing, skipped: "
+              f"{', '.join(missing)}", file=sys.stderr)
+    return run_corpus(usable, strict=strict, label=label)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         prog="check.py",
@@ -846,6 +1347,11 @@ def main(argv=None) -> int:
     ap.add_argument("--cues", metavar="JSON",
                     help="also check a built cues.json (register checks "
                          "17 + 18 artifact assertions)")
+    ap.add_argument("--corpus", nargs="?", const="__config__", metavar="ROOT",
+                    help="corpus mode (check 21): with ROOT, scan that "
+                         "directory as one decks+concepts+banks root; "
+                         "without, use the corpus.yaml content roots.  "
+                         "Exclusive with TALKFILE and --cues.")
     ap.add_argument("--register", action="store_true",
                     help="print the canonical 1-28 check register and exit")
     args = ap.parse_args(argv)
@@ -860,6 +1366,15 @@ def main(argv=None) -> int:
         for num in sorted(DEFERRED):
             print(f"  check {num}: {DEFERRED[num]}")
         return 0
+
+    if args.corpus is not None:
+        if args.talkfiles:
+            ap.error("--corpus is exclusive with TALKFILE arguments")
+        if args.cues:
+            ap.error("--corpus is exclusive with --cues (artifact checks "
+                     "live in the golden suite, T10)")
+        root = None if args.corpus == "__config__" else args.corpus
+        return corpus_main(root, strict=args.strict)
 
     files = [Path(a).expanduser() for a in args.talkfiles]
     if not files:

@@ -8,9 +8,16 @@ One talkfile in, three outputs out:
 
 Usage:
     python3 build.py TALKFILE [--out OUTDIR]
+    python3 build.py --corpus [ROOT]     # corpus check (register 21, T11)
 
 Example (specimen):
     python3 build.py ~/talks/decks/L01-opening-talk/talk.md
+
+--corpus without ROOT uses the corpus.yaml content roots; with ROOT it scans
+that directory (per-deck pass/fail + cross-deck slug collisions + tag drift
+and coverage reports).  The builder itself is never used in corpus mode —
+the corpus check parses and checks every deck read-only and never writes
+into a content root.
 
 The specimen talkfile and its media dir are READ-ONLY inputs: this builder
 never writes outside OUTDIR.  Deterministic output; out/ is gitignored.
@@ -32,8 +39,13 @@ from render import render_cues, render_document, render_manifest, render_present
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("talkfile", help="path to the talkfile (markdown)")
+    ap.add_argument("talkfile", nargs="?", help="path to the talkfile "
+                    "(markdown); omit when --corpus is used")
     ap.add_argument("--out", default="out", help="output directory (default: out/)")
+    ap.add_argument("--corpus", nargs="?", const="__config__", metavar="ROOT",
+                    help="corpus mode (check 21): with ROOT, scan that "
+                         "directory; without, use the corpus.yaml content "
+                         "roots.  Exclusive with TALKFILE.")
     ap.add_argument("--keep", action="store_true",
                     help="do not wipe the output directory first")
     ap.add_argument("--theme", default=None,
@@ -45,6 +57,15 @@ def main(argv=None) -> int:
                          "beats a stand-in")
     args = ap.parse_args(argv)
 
+    if args.corpus is not None:
+        if args.talkfile:
+            ap.error("--corpus is exclusive with TALKFILE")
+        import check
+        root = None if args.corpus == "__config__" else args.corpus
+        return check.corpus_main(root)
+
+    if not args.talkfile:
+        ap.error("a TALKFILE is required (or use --corpus [ROOT])")
     talk_path = Path(args.talkfile).expanduser().resolve()
     if not talk_path.is_file():
         print(f"error: talkfile not found: {talk_path}", file=sys.stderr)

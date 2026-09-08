@@ -12,6 +12,8 @@ Layers (spec §9):
   - fixtures/decks/<deck>/talk.md   composite decks (own media dirs + cards)
   - expected/<rel>/cues.json + media-manifest.json   byte goldens
   - properties/                     structural invariants (never goldened)
+  - corpus_props                    the corpus harness (check 21) over a
+    synthetic /tmp tree — real content roots are never committed
 
 Per fixture profile the runner: builds twice into temp dirs and requires the
 trees to be byte-identical (determinism, spec §8); diffs cues.json +
@@ -42,7 +44,8 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(TESTS))
 
 import build as build_mod  # noqa: E402
-from properties import check_props, cue_props, html_props, manifest_props  # noqa: E402
+from properties import (check_props, corpus_props, cue_props, html_props,  # noqa: E402
+                        manifest_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
 GOLDEN_FILES = ("cues.json", "media-manifest.json")
@@ -196,6 +199,22 @@ def main(argv=None) -> int:
                     print(f"ok    {label}  cues#{h} manifest#{h2}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+    # corpus harness (check 21 / T11): one synthetic corpus tree under /tmp —
+    # real content roots are never committed, but the harness machinery is
+    # regression-covered here (discovery, verdicts, drift, banks, determinism)
+    corpus_errors: list = []
+    corpus_props.check(corpus_errors)
+    if corpus_errors:
+        failed.append("corpus-harness")
+        print(f"FAIL  corpus-harness")
+        for e in corpus_errors[:12]:
+            print(f"      {e}")
+        if len(corpus_errors) > 12:
+            print(f"      ... and {len(corpus_errors) - 12} more")
+    else:
+        passed.append("corpus-harness")
+        print("ok    corpus-harness")
 
     print()
     print(f"profiles: {total_profiles}  passed: {len(passed)}  "
