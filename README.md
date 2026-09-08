@@ -28,10 +28,21 @@ The same file renders as:
   speaker notes), document view (static HTML handout, print-to-PDF via print CSS),
   cues.json (ordered slide id to script text for the future controller), plus a
   media-manifest.json resolution audit. Generated output lives in `out/` (gitignored).
+- `check.py` — the deterministic check suite: the full 1-28 check register
+  (spec §6/§7/§10/§11) with the fatal/warning/info/report taxonomy and
+  `--strict` (warnings fatal). See `python3 check.py --register`.
 
 ### Build
 
     python3 build.py <talkfile> [--out OUTDIR]
+
+### Check
+
+    python3 check.py <talkfile> [--strict] [--cues out/cues.json]
+
+`check` exits 0 on a clean deck, 1 on any fatal (or, under `--strict`, any
+warning), 2 on usage errors. Importable: `from check import check_file` is the
+per-deck seam the future `animatic` wrapper and the corpus harness drive.
 
 Specimen (read-only input, TPL repo):
 
