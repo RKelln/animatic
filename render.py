@@ -450,7 +450,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     mshot = screen.media_shot
     ref = resolver.resolve(mshot.slug) if (mshot and mshot.slug) else None
     flags = mshot.flags if mshot else {}
-    cue_id = f"{deck_slug(talk)}-{screen.idx:02d}"
+    cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"
     mv = screen.movement
     black = is_black_screen(screen)
     credits_screen = is_credits_screen(screen)
@@ -714,7 +714,7 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     by_movement: dict[int, list[str]] = {}
 
     for screen in talk.screens:
-        cue_id = f"{deck_slug(talk)}-{screen.idx:02d}"
+        cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"
         by_movement.setdefault(screen.movement, []).append(cue_id)
 
         screen_obj = {"kind": "screen"}
@@ -822,7 +822,7 @@ def render_manifest(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     referenced = []
     seen = set()
     for screen in talk.screens:
-        cue_id = f"{deck_slug(talk)}-{screen.idx:02d}"
+        cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"
         for s in screen.shots:
             if s.is_media and s.slug not in seen:
                 seen.add(s.slug)
