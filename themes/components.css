@@ -427,10 +427,23 @@
   .doc-credits .credits-entry { color: var(--doc-muted); font-size: 0.92rem; margin: 0.4em 0; }
   .doc-credits .credits-entry strong { color: var(--doc-ink); }
 
+  /* footnote receipts (spec §5): the handout citation list.  Same flow
+     weight as a movement — bordered heading, plain ink list, no box. */
+  h2.sources {
+    font-size: 1.35rem; margin: 2.6rem 0 0.6rem; padding-top: 1.2rem;
+    border-top: 2px solid var(--doc-line);
+  }
+  ol.doc-sources { margin: 0 0 1.5em; padding-left: 1.4em; }
+  ol.doc-sources li {
+    color: var(--doc-muted); font-size: 0.92rem;
+    line-height: 1.45; margin: 0.45em 0;
+  }
+
   @media print {
     @page { size: letter; margin: 16mm 15mm; }
     body.view-document { max-width: none; padding: 0; }
     h2.movement { page-break-before: always; }
     figure.shot, .stat-callout, blockquote, .doc-credits { page-break-inside: avoid; }
+    ol.doc-sources li { page-break-inside: avoid; }
   }
 }

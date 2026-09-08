@@ -182,6 +182,32 @@ def screen_script(screen: Screen) -> str:
     return "\n\n".join(parts)
 
 
+def cited_sources(talk: Talk) -> list[dict]:
+    """The handout citation list data: every referenced registry entry, in
+    first-appearance order (spec §5, Receipts).
+
+    `Talk.footnote_ids` carries the stripped `[^id]` references in document
+    order; each id keys into the frontmatter `sources:` registry (§2).  The
+    result is the shared payload behind both `deck.sources` in cues.json and
+    the document view's Sources list, so the frozen IR and the handout can
+    never disagree about what a deck cites.
+
+    A reference whose id has no registry entry is a parse-side defect (check
+    28, spec §10) — it is stripped and collected but never emitted here:
+    there is no registry value to cite, and the deck already warns.
+    """
+    registry = talk.meta.get("sources")
+    if not isinstance(registry, dict):
+        return []
+    cited = []
+    for rid in talk.footnote_ids:
+        value = registry.get(rid)
+        if value is None or not str(value).strip():
+            continue
+        cited.append({"id": rid, "source": str(value)})
+    return cited
+
+
 # ---------------------------------------------------------------------------
 # Media element HTML
 # ---------------------------------------------------------------------------
@@ -580,6 +606,27 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
         for i, (label, items) in enumerate(movement_sections, start=1)
     )
 
+    # Receipts surface once, as the handout citation list (spec §5): every
+    # referenced `sources:` registry entry, first-appearance order.  The
+    # registry value is the citation — ids are authoring keys and stay in
+    # cues.json, never on the page.  No receipts, no section.
+    sources_html = ""
+    cited = cited_sources(talk)
+    if cited:
+        items = "".join(
+            f'<li>{html.escape(src["source"])}</li>' for src in cited
+        )
+        sources_html = (
+            '<section class="sources">'
+            '<h2 class="sources">Sources</h2>'
+            f'<ol class="doc-sources">{items}</ol>'
+            "</section>"
+        )
+
+    # Blank-source decks must not gain a stray blank line: emit each section
+    # only when it has content, so receipt-free output stays byte-clean.
+    body_sections = "\n".join(s for s in (open_html, mov_html, sources_html) if s)
+
     doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -594,8 +641,7 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <h1>{html.escape(deck_title)}</h1>
 <p class="meta">{html.escape(" · ".join(b for b in meta_bits if b))}</p>
 </header>
-{open_html}
-{mov_html}
+{body_sections}
 </article>
 </body>
 </html>
@@ -732,6 +778,11 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             "theme": str(meta_get(talk, "theme", "")),
             "media_dir": str(meta_get(talk, "media", "media")),
             "bank": str(meta_get(talk, "bank", "")),
+            # `sources`: the handout citation list data — every referenced
+            # `[^id]` receipt id (first-appearance order) plus its frontmatter
+            # `sources:` registry value (spec §5).  Empty when the deck has
+            # no receipts.  The document view renders this same list.
+            "sources": cited_sources(talk),
             # no `source` key: talk.source is an absolute machine path and
             # cues.json is a portable artifact (register check 17). If source
             # provenance is ever needed it belongs in nav.json, not here.
