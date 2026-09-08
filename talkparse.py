@@ -27,6 +27,13 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   continue.
 - Parentheses `( ... )` are never spoken and never on screen (grammar rule 2).
   They are extracted into stage directions that travel with the cue.
+  Parens do not nest: a nested `(` is a warning (register check 23, spec §5)
+  — the strip recognizes one level only, and nesting would corrupt the
+  spoken text.
+- Footnote references `[^id]` are inert like parentheticals: stripped from
+  every text block — never spoken, never on screen, never verbatim in the
+  handout — and each referenced id is collected on Talk.footnote_ids in
+  first-appearance order, for the handout citation list (spec §5).
 - `## Movement N · Title` headers are structural: they close the current
   screen, open a new movement, and never become slides themselves.  An H2
   beginning with "Movement" (case-insensitive) that fails the pattern is a
@@ -71,6 +78,7 @@ QUOTE_RE = re.compile(r"^>\s?(.*)$")
 LIST_ITEM_RE = re.compile(r"^[-*+]\s+(.*)$")
 HR_RE = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
 PAREN_SPLIT_RE = re.compile(r"\(([^()]*)\)|([^()]+)")
+FOOTNOTE_REF_RE = re.compile(r"\[\^([a-z0-9][a-z0-9-]*)\](?!:)")
 FLAG_RE = re.compile(r"([A-Za-z][A-Za-z0-9_\-]*)(?:=([^\s]+))?")
 
 
@@ -123,7 +131,7 @@ class Shot:
 class Block:
     """One content block on a screen, in document order."""
 
-    kind: str                     # vo|heading|quote|list|stat|lower|credits
+    kind: str                     # vo|heading|quote|quote-source|list|stat|lower|credits
     text: str = ""                # for vo/heading/quote/stat/lower/credits
     level: Optional[int] = None   # heading depth (1..6)
     items: list = field(default_factory=list)   # list items
@@ -186,6 +194,7 @@ class Talk:
     movements: list = field(default_factory=list)   # list[Movement]
     screens: list = field(default_factory=list)     # list[Screen]
     warnings: list = field(default_factory=list)    # human-readable notes
+    footnote_ids: list = field(default_factory=list)   # `[^id]` refs, doc order (§5)
 
 
 # ---------------------------------------------------------------------------
@@ -197,8 +206,10 @@ def split_parens(text: str) -> tuple[str, list]:
     """Return (text with ( ... ) removed, list of parenthetical contents).
 
     Parentheticals are never spoken / never on screen; they travel as stage
-    notes.  Nesting is not expected in talkfiles; if present, the inner text
-    is kept inside the parenthetical verbatim.
+    notes.  Parens do NOT nest: the strip recognizes one level only — the
+    innermost pair wins and the outer markers vanish from the spoken text.
+    A nested `(` is a warning (register check 23, spec §5), never a silent
+    corruption; authors rewrite the parenthetical flat.
     """
     spoken_parts: list[str] = []
     stage: list[str] = []
@@ -210,6 +221,42 @@ def split_parens(text: str) -> tuple[str, list]:
     spoken = re.sub(r"\s+", " ", " ".join(spoken_parts)).strip()
     spoken = re.sub(r"\s+([.,;:!?])", r"\1", spoken)   # 'Residence (..).' -> 'Residence.'
     return spoken, [s for s in stage if s]
+
+
+def nested_paren_at(text: str) -> Optional[int]:
+    """Index of the first `(` that opens inside an already-open parenthetical,
+    or None.  Register check 23 (spec §5): parentheticals do not nest —
+    split_parens recognizes one level, so nesting silently corrupts the
+    spoken text unless it warns.
+    """
+    depth = 0
+    for i, ch in enumerate(text):
+        if ch == "(":
+            if depth:
+                return i
+            depth = 1
+        elif ch == ")":
+            if depth:
+                depth -= 1
+    return None
+
+
+def strip_footnote_refs(text: str, collected: list) -> str:
+    """Remove `[^id]` body-footnote references (spec §5) from text.
+
+    References are inert: never spoken, never on screen, never verbatim in
+    the handout.  Each referenced id is appended to `collected` on first
+    appearance (document order), giving the handout citation list its keys
+    into the frontmatter `sources:` registry.  The `(?!:)` guard leaves an
+    in-body `[^id]: …` definition line intact — receipts have no body-level
+    definition form; a definition is its `sources:` registry entry (§2).
+    """
+    def _drop(m):
+        rid = m.group(1)
+        if rid not in collected:
+            collected.append(rid)
+        return ""
+    return FOOTNOTE_REF_RE.sub(_drop, text)
 
 
 _INLINE_TOK = re.compile(r"(\*\*.+?\*\*|`[^`]+`|\*[^*\s][^*]*\*)")
@@ -655,50 +702,90 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
 
         assert cur is not None
 
-        if credits_open and kind in ("heading", "quote"):
-            pending_role = None  # screen content satisfies the credits role
+        if credits_open and kind == "heading":
+            # A credits screen consumes paragraphs, list items, and headings
+            # as screen content (spec §4).  A quote is NOT consumed: it stays
+            # a quote object, never satisfies the credits role, and the role
+            # keeps waiting — so a quote in the would-be payload position
+            # fires the never-consumed warning at the next boundary instead
+            # of silently absorbing into the end roll.
+            pending_role = None  # heading content satisfies the credits role
 
         if kind == "heading":
             if pending_role is not None and rb["level"] == 2:
                 pass  # handled above; defensive
             cur.blocks.append(
-                Block(kind="heading", text=rb["text"], level=rb["level"],
+                Block(kind="heading",
+                      text=strip_footnote_refs(rb["text"], talk.footnote_ids),
+                      level=rb["level"],
                       line=rb.get("line", 0))
             )
             continue
 
         if kind == "quote":
-            cur.blocks.append(Block(kind="quote", text=rb["text"], line=rb.get("line", 0)))
+            cur.blocks.append(
+                Block(kind="quote",
+                      text=strip_footnote_refs(rb["text"], talk.footnote_ids),
+                      line=rb.get("line", 0))
+            )
             continue
 
         if kind == "list":
             if credits_open:
                 for item in rb["items"]:
-                    spoken, stage = split_parens(item)
+                    clean = strip_footnote_refs(item, talk.footnote_ids)
+                    np = nested_paren_at(clean)
+                    if np is not None:
+                        talk.warnings.append(
+                            f"line {rb.get('line', 0)}: check 23: "
+                            f"parentheticals do not nest — "
+                            f"'...{clean[max(0, np - 12):np + 12].strip()}...' "
+                            f"in a credits entry; rewrite the parenthetical "
+                            f"flat (spec §5)"
+                        )
+                    spoken, stage = split_parens(clean)
                     cur.blocks.append(
                         Block(kind="credits", text=spoken, stage=stage,
                               line=rb.get("line", 0))
                     )
                 pending_role = None
                 continue
-            cur.blocks.append(Block(kind="list", items=rb["items"], line=rb.get("line", 0)))
+            cur.blocks.append(
+                Block(kind="list",
+                      items=[strip_footnote_refs(i, talk.footnote_ids)
+                             for i in rb["items"]],
+                      line=rb.get("line", 0))
+            )
             continue
 
         if kind == "para":
-            spoken, stage = split_parens(rb["text"])
+            clean = strip_footnote_refs(rb["text"], talk.footnote_ids)
+            spoken, stage = split_parens(clean)
+            np = nested_paren_at(clean)
+            if np is not None:
+                # check 23: the strip recognizes one level only — nesting
+                # half-speaks the outer parenthetical unless the author fixes
+                # it.  Warn once per paragraph, naming the collision site.
+                talk.warnings.append(
+                    f"line {rb.get('line', 0)}: check 23: parentheticals do "
+                    f"not nest — '...{clean[max(0, np - 12):np + 12].strip()}...'; "
+                    f"rewrite the parenthetical flat (spec §5)"
+                )
             bkind = "vo"
             if (
                 pending_role is None
                 and not credits_open
                 and cur.blocks
                 and cur.blocks[-1].kind == "quote"
-                and (spoken.startswith("~ ") or spoken.startswith("Source: "))
+                and spoken.startswith("~ ")
             ):
-                # quote attribution: screen text, never VO. Grammar: a
-                # "~ Name, venue" line directly under a quote blockquote
-                # (tilde stripped on screen; "Source: " accepted too).
+                # quote attribution: screen text, never VO.  Grammar: a
+                # "~ Name, venue" paragraph whose immediately preceding block
+                # is a quote (tilde stripped on screen).  `~` is the ONLY
+                # attribution form (spec §4; the `Source: ` shape was deleted
+                # — T03/D4 — and falls through to VO with a check-24 warning).
                 bkind = "quote-source"
-                spoken = spoken[2:] if spoken.startswith("~ ") else spoken[len("Source: "):]
+                spoken = spoken[2:]
             elif pending_role is not None:
                 bkind = pending_role
                 if not spoken:
@@ -709,6 +796,19 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 pending_role = None
             elif credits_open:
                 bkind = "credits"   # credits screen entries: screen text, never VO
+            if bkind == "vo" and (spoken.startswith("~ ")
+                                  or spoken.startswith("Source: ")):
+                # check 24: the line reads as an attribution but does not sit
+                # directly under a quote, so it will be SPOKEN — tilde and
+                # all.  Attribution is `~ ` on its own paragraph under the
+                # quote (spec §4); warn so the author never hears a credit
+                # line read aloud by accident.
+                talk.warnings.append(
+                    f"line {rb.get('line', 0)}: check 24: attribution-looking "
+                    f"line will be spoken — {spoken[:40]!r}; attribution is "
+                    f"'~ ' on its own paragraph directly under a quote "
+                    f"(spec §4)"
+                )
             cur.blocks.append(
                 Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0))
             )

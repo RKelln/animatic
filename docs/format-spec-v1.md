@@ -280,6 +280,22 @@ on position — the exact defect being eliminated in `fit` below.
 | parenthetical `(...)` | no | no | no (stage only) |
 | HTML comment | no | no | no (inert) |
 
+### Attribution — `~` only, its own paragraph under the quote
+
+Attribution is the `~` form only: a paragraph beginning `~ ` whose
+immediately preceding block is a quote.  It is screen text (right-aligned
+under the quote), never VO, and travels with the quote in the handout.
+(`Source: ` was deleted in T03 — it is not a grammar form.)
+
+- **Same-line attribution is unsupported.** `> The line. ~ Someone, 2026` is
+  not split: the whole line renders as one quote, attribution and all.
+  Attribution must be its own paragraph directly under the quote.
+- **An attribution-shaped paragraph anywhere else is spoken, with a
+  warning.** A `~ ` paragraph that does not directly follow a quote — and the
+  deleted `Source: ` shape — falls through to VO (check 24: "attribution-looking
+  line will be spoken").  The warning is the migration path: rewrite as `~ `
+  under the quote, or make it ordinary prose.
+
 ### Roles (Tier A — frozen, additive-only, never reinterpreted)
 
 - `stat` — big number. Payload is scripted.
@@ -289,6 +305,22 @@ on position — the exact defect being eliminated in `fit` below.
 
 To speak a credits line, place it as VO before the credits shot: credits
 payloads are screen text, never script.
+
+### Credits screens (end rolls)
+
+A bare `credits` shot opens a credits screen — an end roll — that consumes
+the blocks that follow it as screen entries until the next shot or movement
+boundary.  It consumes exactly these kinds:
+
+- a **paragraph** — one credits entry;
+- a **list** — one credits entry per item;
+- a **heading** — the roll's title.
+
+A **quote is not consumed**: a quote on a credits screen stays a quote
+object, never becomes a credits entry, and does not satisfy the credits
+role.  A credits screen whose would-be payload is a quote fires the
+never-consumed warning (§10) instead of silently absorbing the quote into
+the roll.
 
 ### Overlay merge — `+<role>` is the only form
 
@@ -323,9 +355,16 @@ matter what it contains — is stripped identically and travels as a stage note
 semantics: no prefix changes what happens to a parenthetical, and the parser
 routes none of them anywhere.
 
+**Parentheticals do not nest** (check 23).  A nested `(` inside a
+parenthetical is a warning — the strip recognizes one level only, and
+without the warning the nesting would corrupt the spoken text (the inner
+pair wins and the outer markers vanish).  The author rewrites the
+parenthetical flat.  Nothing in the registry below changes this: prefixes
+are authorial conventions, never behaviour.
+
 The prefix vocabulary below is a **Tier B registry, additive-only**: a set of
 authorial conventions that tools MAY act on (linting, timing, card drafting),
-listed for reference. Recognising a prefix never changes the parenthetical's
+listed for reference.  Recognising a prefix never changes the parenthetical's
 rendering behaviour, and a new or unrecognised prefix changes nothing — it
 still strips and still travels.
 
@@ -353,8 +392,14 @@ sources:
 
 - The reference sits where the claim sits — positionality is the point: the
   source is attached to the sentence it documents, not gathered at the end.
-- Footnote references are **inert**: never spoken, never on screen. The
-  handout renders a citation list of every referenced registry entry.
+- Footnote references are **inert**: stripped from every text block at parse
+  — never spoken, never on screen, never verbatim in any view.  The parser
+  collects each referenced id in first-appearance order; the handout renders
+  a citation list of every referenced registry entry.
+- A reference's definition is its `sources:` registry entry (§2): inert
+  agent-facing metadata — never spoken, never on screen, never in the
+  document body.  The handout citation list is its only output surface.
+  Receipts have no body-level definition form.
 - A `[^id]` whose id has no `sources:` entry is a warning.
 - Receipts are not comments and not parentheticals. A parenthetical matching
   a receipt pattern (`(✓ …)`, `(Source: …)`) is a **lint warning** naming the
@@ -556,7 +601,10 @@ both views).
 
 **Warning** — unknown flag name · a shot token matching no construct · a
 `+<role>` naming a role outside the §4 set · flag value out of range · unknown
-theme · possible receipt in parens · media unresolved.
+theme · possible receipt in parens · a nested `(` inside a parenthetical
+(check 23 — "parentheticals do not nest", §5) · an attribution-shaped
+paragraph with no preceding quote (check 24 — "attribution-looking line will
+be spoken", §4) · media unresolved.
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 
@@ -692,6 +740,7 @@ a pasted movement is renumbered by the author or agent.
 
 | Version | Date | Change | Compat impact |
 |---|---|---|---|
+| 1.0 (draft) | 2026-09-08 | Parser edge cases (T06): §5 states parentheticals do not nest — a nested `(` warns (check 23); §4 pins attribution to `~ ` on its own paragraph directly under the quote — same-line `> q ~ Name` is unsupported, the deleted `Source: ` shape is not consumed, and an attribution-shaped paragraph anywhere else is spoken with a warning (check 24); §4 lists exactly what a credits screen consumes (paragraph, list, heading — a quote is not consumed and never satisfies the credits role, so a would-be quote payload fires the never-consumed warning); footnote refs `[^id]` are stripped from every text block at parse and each referenced id is collected for the handout citation list, registry definitions staying inert metadata | none — warnings and clarifications; neither corpus file uses any warned shape; L01's `[^id]` markers leave scripts and screen text (the T03-promised strip lands) with screen/cue counts unchanged |
 | 1.0 (draft) | 2026-09-08 | Parser hardening (T05): §10 adds the check-22 fatal — an H2 beginning with `Movement` (case-insensitive) that fails the movement pattern is never silently treated as screen text; warning taxonomy gains the check-25 honesty rule — unknown flag names, `+<role>` outside the §4 set, and tokens matching no construct warn, nothing in a shot comment is silently dropped; unknown first tokens stay slugs and their cardless placeholders carry the "meant as a role or flag?" hint (§6/§8); the `+<role>` tokenizer lands (canonical `slug +<role>` and `+<role>`-only directives, §3/§4); valueless-`fit` and bare-consecutive-role did-you-mean warnings land (D7); movement recognition is case-insensitive (recognition-rule shape, not typography) | none — the parser implements what §3/§4/§7 already promised; the corpus was pre-migrated (T03); roles-demo's flag-only bare `fit` becomes `fit=hero` in the same change |
 | 1.0 (draft) | 2026-09-08 | Hygiene (T04): OKF frontmatter rewrite (§2 — `type: Talk`, ISO 8601 timestamps, `index.md`/`log.md` reserved); `format-version` + `content-version` replace the `grammar:` proposal (D1) and prose `format:` becomes `session:`; `sources:` registry anatomy + per-concept `generated`/`verified`; §5 prefix semantics frozen — all parentheticals strip identically, prefixes are a Tier B registry (additive-only); §11 adds `have` (D3), freezes the card path rule, restates the `type`-required posture (missing = error, never inferred), states the slugified-form rule; overlay stacking limited to one per role per screen (D5); placeholder visibility default present ON / document OFF / `--show-placeholders` (D10); §14 moved to `docs/shipping.md`, no-personal-paths kept as a §8 output invariant; open questions (a)/(e)/(f) resolved and the list renumbered; dead-layer sweep — `tokens.md` engine row + spare theme slot removed (D9), stale `docs/format-spec.md` marked superseded | none — additive or clarifications; renamed/removed frontmatter keys pass through as unknown keys; corpus frontmatter (type/session/version) catches up at freeze |
 | 1.0 (draft) | 2026-09-08 | Defect removal (T03): principles 3/4 rewritten (no lookahead semantics; non-directive comments inert); bare `fit`, implicit overlay merge, and `Source: ` attribution deleted — explicit forms only (`fit=cover|contain|hero`, `+<role>`, `~`); receipts become `[^id]` body footnotes keyed to a frontmatter `sources:` registry; identity boundary (no sub-screen ids); document view MAY omit black beats (`nav.json` records); cue-id format `<slug>-NNN`; flag-only shots + tolerance rules frozen; flag interaction table added | breaking for the removed forms — the two corpus files (L01, roles-demo) were rewritten to the explicit forms in the same change; engine-decision §8 |
