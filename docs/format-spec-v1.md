@@ -231,6 +231,11 @@ is frozen as written:
 - **Consecutive shots that do not merge** (the second is not a `+<role>`
   overlay) warn; the second opens a new screen, and the first, if it stayed
   empty, is dropped under the rule above.
+- **A shot directive MAY span multiple lines**; interior whitespace is
+  insignificant. A directive wrapped for readability (agents that wrap long
+  shot lines, humans breaking them) parses exactly as the same tokens on one
+  line — frozen with the multi-line-shot construct fixture (check 27) so a
+  lexer rewrite cannot silently drop it.
 
 ### Beats and units
 
@@ -612,6 +617,12 @@ Warnings are non-fatal (a deck must always build) but MUST appear in the build
 report, `cues.json warnings[]`, and the manifest. `--strict` makes warnings
 fatal for pre-delivery checks.
 
+**Every warning names the line that provoked it (check 26): no warning text
+contains `line 0`.** A warning exists to be acted on at 30+ screens; the
+parser threads each shot directive's source line into the shot at parse time
+(the consecutive-shot, empty-screen, role-payload, and tokenizer warnings all
+carry a real line).
+
 ### Unknown vocabulary
 
 - Unknown flag ⇒ warn, never fail.
@@ -740,6 +751,7 @@ a pasted movement is renumbered by the author or agent.
 
 | Version | Date | Change | Compat impact |
 |---|---|---|---|
+| 1.0 (draft) | 2026-09-08 | Warning line numbers + multi-line shot freeze (T07): `lineno` is threaded into `_parse_shot` at both lexer call sites, so every warning names its source line — no warning text contains "line 0" (check 26, §10); §3 freezes "a shot directive MAY span multiple lines; interior whitespace is insignificant" with the multi-line-shot construct fixture (check 27) | none — single-line directives (the whole corpus) parse identically; the change makes the no-line-0 invariant structurally true at parse time rather than patched in the assembler |
 | 1.0 (draft) | 2026-09-08 | Parser edge cases (T06): §5 states parentheticals do not nest — a nested `(` warns (check 23); §4 pins attribution to `~ ` on its own paragraph directly under the quote — same-line `> q ~ Name` is unsupported, the deleted `Source: ` shape is not consumed, and an attribution-shaped paragraph anywhere else is spoken with a warning (check 24); §4 lists exactly what a credits screen consumes (paragraph, list, heading — a quote is not consumed and never satisfies the credits role, so a would-be quote payload fires the never-consumed warning); footnote refs `[^id]` are stripped from every text block at parse and each referenced id is collected for the handout citation list, registry definitions staying inert metadata | none — warnings and clarifications; neither corpus file uses any warned shape; L01's `[^id]` markers leave scripts and screen text (the T03-promised strip lands) with screen/cue counts unchanged |
 | 1.0 (draft) | 2026-09-08 | Parser hardening (T05): §10 adds the check-22 fatal — an H2 beginning with `Movement` (case-insensitive) that fails the movement pattern is never silently treated as screen text; warning taxonomy gains the check-25 honesty rule — unknown flag names, `+<role>` outside the §4 set, and tokens matching no construct warn, nothing in a shot comment is silently dropped; unknown first tokens stay slugs and their cardless placeholders carry the "meant as a role or flag?" hint (§6/§8); the `+<role>` tokenizer lands (canonical `slug +<role>` and `+<role>`-only directives, §3/§4); valueless-`fit` and bare-consecutive-role did-you-mean warnings land (D7); movement recognition is case-insensitive (recognition-rule shape, not typography) | none — the parser implements what §3/§4/§7 already promised; the corpus was pre-migrated (T03); roles-demo's flag-only bare `fit` becomes `fit=hero` in the same change |
 | 1.0 (draft) | 2026-09-08 | Hygiene (T04): OKF frontmatter rewrite (§2 — `type: Talk`, ISO 8601 timestamps, `index.md`/`log.md` reserved); `format-version` + `content-version` replace the `grammar:` proposal (D1) and prose `format:` becomes `session:`; `sources:` registry anatomy + per-concept `generated`/`verified`; §5 prefix semantics frozen — all parentheticals strip identically, prefixes are a Tier B registry (additive-only); §11 adds `have` (D3), freezes the card path rule, restates the `type`-required posture (missing = error, never inferred), states the slugified-form rule; overlay stacking limited to one per role per screen (D5); placeholder visibility default present ON / document OFF / `--show-placeholders` (D10); §14 moved to `docs/shipping.md`, no-personal-paths kept as a §8 output invariant; open questions (a)/(e)/(f) resolved and the list renumbered; dead-layer sweep — `tokens.md` engine row + spare theme slot removed (D9), stale `docs/format-spec.md` marked superseded | none — additive or clarifications; renamed/removed frontmatter keys pass through as unknown keys; corpus frontmatter (type/session/version) catches up at freeze |

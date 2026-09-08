@@ -370,7 +370,8 @@ def _lex_blocks(lines: list, source: str) -> list:
                 if SHOT_RE.match(comment):
                     flush_para()
                     blocks.append(
-                        {"kind": "shot", "shot": _parse_shot(comment), "line": lineno}
+                        {"kind": "shot", "shot": _parse_shot(comment, lineno),
+                         "line": lineno}
                     )
             continue
         if line.lstrip().startswith("<!--"):
@@ -379,7 +380,9 @@ def _lex_blocks(lines: list, source: str) -> list:
                 continue
             if SHOT_RE.match(line):
                 flush_para()
-                blocks.append({"kind": "shot", "shot": _parse_shot(line), "line": lineno})
+                blocks.append(
+                    {"kind": "shot", "shot": _parse_shot(line, lineno), "line": lineno}
+                )
             continue
 
         # --- blank line ------------------------------------------------------
@@ -489,6 +492,14 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
 
 def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
     """Parse a full `<!-- shot ... -->` comment into a Shot.
+
+    `line` is the directive's 1-based source line, threaded from every
+    `_lex_blocks` call site so the Shot is never born with line 0: warnings
+    raised from a shot must name the directive's real line to be actionable
+    (check 26, spec §10 — no warning text contains "line 0").  A shot
+    directive MAY span multiple lines (spec §3, check 27); interior
+    whitespace is insignificant, and a multi-line directive is reported at
+    the line where it closes.
 
     Token vocabulary (spec §3/§4/§7): the FIRST token is the shot's slug, its
     role (stat/lower/credits/black), a `+<role>` overlay, or — for flag-only
