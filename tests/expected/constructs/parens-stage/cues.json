@@ -1,0 +1,42 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "parens-stage",
+    "title": "Parentheticals as stage",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "parens-stage-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "The spoken line survives its stage notes.\n\nParentheticals never nest and never speak.\n\nThe last paragraph was wholly parenthetical: nothing to speak, everything to stage.",
+      "stage": [
+        "Visual: a placeholder frame with the tree on the left.",
+        "Beat: a pause before the turn.",
+        "Demo: run the live example here.",
+        "Flesh out: an unwritten beat for a later pass."
+      ]
+    }
+  ],
+  "warnings": []
+}

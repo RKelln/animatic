@@ -1,0 +1,65 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "shot-role",
+    "title": "Bare role shots",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "shot-role-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "stat",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "stat",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "stat",
+          "text": "57 percent of everything."
+        }
+      ],
+      "script": "57 percent of everything.\n\nA stat payload is scripted: the speaker reads the number while the screen shows it.",
+      "stage": null
+    },
+    {
+      "id": "shot-role-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "lower",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "lower",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "lower",
+          "text": "The river, Toronto."
+        }
+      ],
+      "script": "A lower third names the image. Its payload is never spoken: the paragraph was consumed as screen text.",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

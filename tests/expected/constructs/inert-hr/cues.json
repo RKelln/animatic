@@ -1,0 +1,67 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "inert-hr",
+    "title": "Inert horizontal rules",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "inert-hr-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Before the rule",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Before the rule"
+        }
+      ],
+      "script": "A thematic break separates nothing: this paragraph still belongs to the screen opened by the shot above.",
+      "stage": null
+    },
+    {
+      "id": "inert-hr-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "After the rule",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "After the rule"
+        }
+      ],
+      "script": "The second shot opened this screen; the rules between the screens changed nothing.",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

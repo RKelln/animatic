@@ -1,0 +1,47 @@
+# media/cards.yaml for the media-resolution golden deck.
+# approved-art declares an approved output (deck-relative path rule, spec
+# §11); the others resolve by stage.  gen-log.md rows match the attempt
+# files so checks 13/14 stay silent.
+- slug: approved-art
+  status: approved
+  type: image
+  approved: media/approved-art/approved-art.png
+  alt: Approved art
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture art approved as a png
+- slug: deckdir-art
+  status: have
+  type: image
+  alt: Deck dir art
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture art found in the deck media dir
+- slug: attempt-art
+  status: have
+  type: image
+  alt: Attempt art
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture art found by highest attempt number
+- slug: both-art
+  status: have
+  type: image
+  alt: Both shapes present
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture art with both a direct file and an attempts file
+- slug: standin-only
+  status: brief
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture slug that only a stand-in remap can resolve
+- slug: hold-art
+  status: to-find
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture slug that stays a placeholder in every profile

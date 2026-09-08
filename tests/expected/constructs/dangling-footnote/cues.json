@@ -1,0 +1,42 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "dangling-footnote",
+    "title": "Dangling footnote warns",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": [
+      {
+        "id": "real-one",
+        "source": "A real source, 2026"
+      }
+    ]
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "dangling-footnote-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "A cited claim.\n\nA ghost claim.\n\nThe ghost reference warns; only the real one reaches the citation list.",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

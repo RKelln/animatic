@@ -1,0 +1,47 @@
+# tests/fixtures/constructs/media/cards.yaml — the construct-corpus media pool.
+#
+# Flat constructs share one deck dir (tests/fixtures/constructs/), so they
+# share one media pool.  Every media slug any construct references must be
+# carded here (register check 11: a media shot with no card is an orphaned
+# brief and warns).  All pool cards are status brief with no declared paths:
+# constructs pin grammar shapes, not resolution order (that lives in
+# tests/fixtures/decks/media-resolution/), so every construct slug renders a
+# placeholder whose reason carries no machine-local path.
+#
+# Add a card when a new construct references a new slug.  Never delete a row
+# a committed construct still references.
+- slug: sample-art
+  status: brief
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: pool placeholder for construct fixtures
+- slug: second-art
+  status: brief
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: pool placeholder for construct fixtures
+- slug: cons-a
+  status: brief
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: pool placeholder for construct fixtures
+- slug: cons-b
+  status: brief
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: pool placeholder for construct fixtures
+- slug: junk-host
+  status: brief
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: pool placeholder for construct fixtures

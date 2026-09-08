@@ -1,0 +1,55 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "black-beat",
+    "title": "Black beat",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "black-beat-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "A screen of voice before the silence.",
+      "stage": null
+    },
+    {
+      "id": "black-beat-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "black",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "black",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

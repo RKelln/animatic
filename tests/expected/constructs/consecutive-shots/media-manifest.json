@@ -1,0 +1,45 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "consecutive-shots",
+  "referenced": [
+    {
+      "slug": "cons-a",
+      "first_cue": "consecutive-shots-001",
+      "media": {
+        "slug": "cons-a",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'cons-a' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      }
+    },
+    {
+      "slug": "cons-b",
+      "first_cue": "consecutive-shots-002",
+      "media": {
+        "slug": "cons-b",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'cons-b' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      }
+    }
+  ],
+  "unreferenced_cards": [
+    "sample-art",
+    "second-art",
+    "junk-host"
+  ]
+}

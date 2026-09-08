@@ -1,0 +1,126 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "media-resolution",
+  "referenced": [
+    {
+      "slug": "approved-art",
+      "first_cue": "media-resolution-001",
+      "media": {
+        "slug": "approved-art",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/approved-art.png",
+        "source": "cards",
+        "alt": "Approved art",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture art approved as a png",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "deckdir-art",
+      "first_cue": "media-resolution-002",
+      "media": {
+        "slug": "deckdir-art",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/deckdir-art.svg",
+        "source": "deckdir",
+        "alt": "Deck dir art",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture art found in the deck media dir",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "attempt-art",
+      "first_cue": "media-resolution-003",
+      "media": {
+        "slug": "attempt-art",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/attempt-art.svg",
+        "source": "deckdir",
+        "alt": "Attempt art",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture art found by highest attempt number",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "both-art",
+      "first_cue": "media-resolution-004",
+      "media": {
+        "slug": "both-art",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/both-art.svg",
+        "source": "deckdir",
+        "alt": "Both shapes present",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture art with both a direct file and an attempts file",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "lib-owl",
+      "first_cue": "media-resolution-005",
+      "media": {
+        "slug": "lib-owl",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/lib-owl.svg",
+        "source": "library",
+        "alt": "",
+        "credit": "",
+        "licence": "",
+        "note": "shared library fixture entry",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "standin-only",
+      "first_cue": "media-resolution-006",
+      "media": {
+        "slug": "standin-only",
+        "type": "image",
+        "status": "brief",
+        "found": true,
+        "file": "_media/standin-only.svg",
+        "source": "standin",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture slug that only a stand-in remap can resolve",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "hold-art",
+      "first_cue": "media-resolution-007",
+      "media": {
+        "slug": "hold-art",
+        "type": "image",
+        "status": "to-find",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture slug that stays a placeholder in every profile",
+        "reason": "card 'hold-art' has no approved output (status: to-find); no file under deck media dir; not in shared library"
+      }
+    }
+  ],
+  "unreferenced_cards": []
+}

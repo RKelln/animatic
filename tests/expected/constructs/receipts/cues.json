@@ -1,0 +1,52 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "receipts",
+    "title": "Footnote receipts",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": [
+      {
+        "id": "prince-2026",
+        "source": "Cloudflare CEO Matthew Prince, June 3 2026"
+      },
+      {
+        "id": "spartoro-2026",
+        "source": "SparkToro and Similarweb, 2026"
+      }
+    ]
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "receipts-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "A cited heading",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A cited heading"
+        }
+      ],
+      "script": "Most web traffic is bots, not people. Searches end without a click.\n\nReceipts are inert: stripped from every text block, gathered in first-appearance order, and emitted once as deck.sources and the handout citation list.\n\nThe first claim repeats its receipt here; the order in the citation list does not change.",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

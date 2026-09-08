@@ -1,0 +1,58 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "flow-demo",
+  "referenced": [
+    {
+      "slug": "river-one",
+      "first_cue": "flow-demo-002",
+      "media": {
+        "slug": "river-one",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/river-one.svg",
+        "source": "deckdir",
+        "alt": "The river",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture art for the flow demo",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "title-wave",
+      "first_cue": "flow-demo-006",
+      "media": {
+        "slug": "title-wave",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture placeholder slug for the flow demo",
+        "reason": "card 'title-wave' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      }
+    },
+    {
+      "slug": "duo-one",
+      "first_cue": "flow-demo-008",
+      "media": {
+        "slug": "duo-one",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/duo-one.svg",
+        "source": "deckdir",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture art for the duo layout screen",
+        "reason": ""
+      }
+    }
+  ],
+  "unreferenced_cards": []
+}

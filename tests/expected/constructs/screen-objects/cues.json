@@ -1,0 +1,96 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "screen-objects",
+    "title": "Screen objects",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "screen-objects-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "A card heading",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A card heading"
+        }
+      ],
+      "script": "Headings after a shot are screen text, never spoken: one idea per card.",
+      "stage": null
+    },
+    {
+      "id": "screen-objects-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "A pull quote worth stopping on."
+        },
+        {
+          "kind": "source",
+          "text": "The specimen voice, 2026"
+        }
+      ],
+      "script": "The quote and its tilde attribution travel together; the voice underneath keeps moving.",
+      "stage": null
+    },
+    {
+      "id": "screen-objects-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "list",
+          "items": [
+            "first list item",
+            "second list item"
+          ]
+        }
+      ],
+      "script": "A list after a shot is one screen object; its items are never read aloud.",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

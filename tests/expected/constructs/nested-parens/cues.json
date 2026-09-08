@@ -1,0 +1,42 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "nested-parens",
+    "title": "Parentheticals do not nest",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "nested-parens-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "A flat parenthetical strips cleanly.\n\nA nested outer tail would corrupt the spoken text unless it warned.",
+      "stage": [
+        "Visual: a flat stage note.",
+        "inner"
+      ]
+    }
+  ],
+  "warnings": [
+    "line 5: check 23: parentheticals do not nest — '...sted (outer (inner) tail...'; rewrite the parenthetical flat (spec §5)"
+  ]
+}

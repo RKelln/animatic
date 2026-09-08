@@ -1,0 +1,77 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "end-roll",
+    "title": "Credits end roll",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "end-roll-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "One last voice before the roll.",
+      "stage": null
+    },
+    {
+      "id": "end-roll-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "credits",
+      "title": "The end roll",
+      "shots": [
+        {
+          "slug": null,
+          "role": "credits",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "The end roll"
+        },
+        {
+          "kind": "credits",
+          "text": "A paragraph credit line."
+        },
+        {
+          "kind": "credits",
+          "text": "first list credit"
+        },
+        {
+          "kind": "credits",
+          "text": "second list credit"
+        },
+        {
+          "kind": "credits",
+          "text": "A closing paragraph credit."
+        }
+      ],
+      "script": "",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

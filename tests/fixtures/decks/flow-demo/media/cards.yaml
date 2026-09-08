@@ -1,0 +1,25 @@
+# media/cards.yaml for the flow-demo golden deck.
+# river-one + duo-one resolve from deck-dir files; title-wave is a brief
+# placeholder (no file, no declared path) so the manifest pins placeholder
+# wording and the present view renders a placeholder figure.
+- slug: river-one
+  status: have
+  type: image
+  alt: The river
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture art for the flow demo
+- slug: title-wave
+  status: brief
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture placeholder slug for the flow demo
+- slug: duo-one
+  status: have
+  type: image
+  alt: ""
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture art for the duo layout screen

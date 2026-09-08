@@ -1,0 +1,55 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "junk-tokens",
+    "title": "The tokenizer is honest",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "junk-tokens-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "junk-host",
+          "role": null,
+          "flags": {
+            "kb": "out"
+          }
+        }
+      ],
+      "media": {
+        "slug": "junk-host",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'junk-host' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "The voice survives the junk tokens; each one warned instead of vanishing. The known flag applied.",
+      "stage": null
+    }
+  ],
+  "warnings": [
+    "line 1: check 25: '+bogus' is not an overlay role; overlays are +stat, +lower, +credits — token ignored",
+    "line 1: check 25: unknown flag 'wibble=3'; known flags: kb, dim, fit, piece, duo, text — token ignored",
+    "line 1: check 25: unknown flag 'wobble'; known flags: kb, dim, fit, piece, duo, text — token ignored"
+  ]
+}

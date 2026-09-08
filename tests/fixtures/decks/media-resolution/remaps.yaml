@@ -1,0 +1,8 @@
+# stand-in remap for the media-resolution deck (profile: standin).
+# standin-only resolves only here; the decoy entries for slugs that already
+# resolve must NOT move them: real art beats a stand-in, so those keep their
+# cards/deckdir/library source in this profile's manifest.
+standin-only: remaps/standin-art.svg
+approved-art: remaps/standin-art.svg
+deckdir-art: remaps/standin-art.svg
+lib-owl: remaps/standin-art.svg

@@ -1,0 +1,48 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "inert-comments",
+    "title": "Inert comments",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "inert-comments-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Screen one",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Screen one"
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Screen two"
+        }
+      ],
+      "script": "A paragraph between comments. None of the comment text speaks, renders, or warns.\n\nThis heading opened no new screen: a non-shot comment never closes one.",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

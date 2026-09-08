@@ -6,7 +6,7 @@ venue: Internal construct fixture
 format: Construct fixture
 dur: ~1 min
 theme: workshop
-status: construct fixture (spec §3, check 27) — a shot directive MAY span multiple lines; interior whitespace is insignificant. A lexer rewrite that drops wrapped directives breaks this deck's build.
+status: "construct fixture (spec §3, check 27) — a shot directive MAY span multiple lines; interior whitespace is insignificant. A lexer rewrite that drops wrapped directives breaks this deck's build."
 ---
 
 <!-- construct fixture, check 27: every shot directive below is wrapped across

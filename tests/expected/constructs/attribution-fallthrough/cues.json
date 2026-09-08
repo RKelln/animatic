@@ -1,0 +1,49 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "attribution-fallthrough",
+    "title": "Attribution shapes warn",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "attribution-fallthrough-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "A real quote with a real source."
+        },
+        {
+          "kind": "source",
+          "text": "The specimen voice, 2026"
+        }
+      ],
+      "script": "~ A lone tilde with no quote above it.\n\nSource: the deleted shape, 2026\n\nBoth stray shapes above are spoken, tilde and all, because the warning is the migration path.",
+      "stage": null
+    }
+  ],
+  "warnings": [
+    "line 5: check 24: attribution-looking line will be spoken — '~ A lone tilde with no quote above it.'; attribution is '~ ' on its own paragraph directly under a quote (spec §4)",
+    "line 7: check 24: attribution-looking line will be spoken — 'Source: the deleted shape, 2026'; attribution is '~ ' on its own paragraph directly under a quote (spec §4)"
+  ]
+}

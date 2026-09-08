@@ -1,0 +1,55 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "prose-before-shot",
+    "title": "Prose before the first shot",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "prose-before-shot-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Title before any shot",
+      "shots": [],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "Title before any shot"
+        }
+      ],
+      "script": "This opening screen was opened by prose, not by a shot directive: it carries no shots at all.",
+      "stage": null
+    },
+    {
+      "id": "prose-before-shot-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "A shot screen now; the boundary between the two is the shot itself.",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

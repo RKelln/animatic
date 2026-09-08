@@ -1,0 +1,72 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "shot-flag-only",
+    "title": "Flag-only shots",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "shot-flag-only-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Two words",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero",
+            "text": "light"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Two words"
+        }
+      ],
+      "script": "The first token is a known flag, so this screen carries no media slug and no role. Hero text scales with the slide.",
+      "stage": null
+    },
+    {
+      "id": "shot-flag-only-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Dark text card",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "text": "dark"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Dark text card"
+        }
+      ],
+      "script": "A flag-only shot may carry any known flag in first position; the flags speak for the screen.",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}
