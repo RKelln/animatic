@@ -2,9 +2,12 @@
 
 Resolution order (docs/media-pipeline.md):
   1. deck `media/cards.yaml`        — per-visual card: type, status, alt, credit,
-                                     licence, brief.  A card's `file:` or
-                                     `outputs:` entries, when present, point at
-                                     approved files.
+                                     licence, brief.  A card's `approved:`,
+                                     `file:` or `outputs[]` entries, when
+                                     present, declare its sign-off files.
+                                     Declared paths are DECK-relative
+                                     (`media/<slug>/...`) and are tried in that
+                                     order, first existing file wins.
   2. deck `media/` dir              — `media/<slug>.<ext>` directly, or
                                      `media/<slug>/attempts/<slug>-a<N>.<ext>`
                                      (gen-log convention).  When the card lists
@@ -35,6 +38,8 @@ from pathlib import Path
 from typing import Optional
 
 import shutil
+import warnings
+
 import yaml
 
 MEDIA_EXTS = {
@@ -70,6 +75,9 @@ class MediaResolver:
     cards_path: Optional[Path] = None
     library_path: Optional[Path] = None
     published: dict = field(default_factory=dict)  # slug -> out-root-relative path
+    declared_missing: list = field(default_factory=list)
+    # check-10 register: (slug, declared-path) pairs whose file does not exist.
+    # Filled in __post_init__; kept for the future `animatic check` runner.
 
     @classmethod
     def from_talk(cls, talk) -> "MediaResolver":
@@ -98,6 +106,25 @@ class MediaResolver:
                     self.library_path = lib
             except yaml.YAMLError:
                 pass
+
+        # check 10 (missing-checks register, frontier-review Part 4): every
+        # card-declared path (`approved:`/`file:`/`outputs[]`) must resolve to
+        # an existing file.  Warn naming the card + path; the finding also
+        # stays registered so `animatic check` can report it later.  Runs over
+        # ALL cards — a broken declared path on an unreferenced card is a
+        # defect, not silent authoring info.
+        for c in self.cards:
+            if not isinstance(c, dict) or not c.get("slug"):
+                continue
+            slug = c["slug"]
+            for raw in self._declared_paths(c):
+                if not (self.talk_dir / raw).is_file():
+                    self.declared_missing.append((str(slug), raw))
+                    warnings.warn(
+                        "check 10: card "
+                        f"'{slug}' declares path that does not resolve: {raw} "
+                        f"(joined to deck dir {self.talk_dir})",
+                        stacklevel=3)  # past __post_init__ + dataclass __init__
 
     # -- lookups -------------------------------------------------------------
 
@@ -144,23 +171,37 @@ class MediaResolver:
 
     # -- resolution ----------------------------------------------------------
 
+    def _declared_paths(self, card: dict) -> list:
+        """Card-declared media paths in spec §6 order: `approved:` then
+        `file:` then `outputs[]`.  Paths are DECK-relative strings (e.g.
+        `media/<slug>/attempts/<slug>-a2.mp4`); existence is the caller's
+        check.  Non-string / empty values are skipped."""
+        out = []
+        for key in ("approved", "file"):
+            v = card.get(key)
+            if isinstance(v, str) and v:
+                out.append(v)
+        outs = card.get("outputs")
+        if isinstance(outs, list):
+            out.extend(v for v in outs if isinstance(v, str) and v)
+        return out
+
     def _resolve(self, slug: str) -> MediaRef:
         card = self.card_for(slug)
         ctype = card.get("type") if card else None
         cstatus = card.get("status") if card else None
 
-        # 1) approved file declared on the card itself
+        # 1) card-declared paths — spec §6 order: `approved:` then `file:`
+        #    then `outputs[]`, first existing file wins.  Declared paths are
+        #    deck-relative (`media/<slug>/attempts/<slug>-a<N>.<ext>`), so they
+        #    join onto the DECK dir, never media_dir (media_dir / "media/..."
+        #    double-prefixes — the rainforest-canopy bug).  If none resolves,
+        #    the deck-dir / library / stand-in stages below still apply.
         if card:
-            file_hint = None
-            outs = card.get("outputs") or []
-            if isinstance(outs, list) and outs:
-                first = outs[0]
-                if isinstance(first, str):
-                    file_hint = self.media_dir / first
-            elif card.get("file"):
-                file_hint = self.media_dir / str(card["file"])
-            if file_hint and file_hint.is_file():
-                return self._make(slug, card, file_hint, "cards")
+            for raw in self._declared_paths(card):
+                p = self.talk_dir / raw
+                if p.is_file():
+                    return self._make(slug, card, p, "cards")
 
         # 2) deck media dir
         p = self._deckdir_file(slug)
@@ -199,12 +240,27 @@ class MediaResolver:
         )
         reasons = []
         if card is not None:
-            if cstatus == "have" or (card.get("outputs") or card.get("file")):
-                reasons.append(f"card '{slug}' declares media but no file resolves "
-                               f"under {self.media_dir}")
+            declared = self._declared_paths(card)
+            if declared or cstatus == "have":
+                missing = [raw for raw in declared
+                           if not (self.talk_dir / raw).is_file()]
+                if missing:
+                    # check-10 evidence: name the declared paths verbatim so
+                    # the manifest audit shows why nothing card-declared won.
+                    reasons.append(
+                        "card "
+                        f"'{slug}' declares path(s) that do not resolve: "
+                        + ", ".join(repr(r) for r in missing))
+                else:
+                    reasons.append(
+                        "card "
+                        f"'{slug}' is status '{cstatus}' but no file "
+                        f"resolves under {self.media_dir}")
             else:
-                reasons.append(f"card '{slug}' has no approved output (status: "
-                               f"{cstatus or '?'})")
+                reasons.append(
+                    "card "
+                    f"'{slug}' has no approved output (status: "
+                    f"{cstatus or '?'})")
         else:
             reasons.append(f"no card for '{slug}' in {self.cards_path or 'cards.yaml'}")
         reasons.append("no file under deck media dir")
