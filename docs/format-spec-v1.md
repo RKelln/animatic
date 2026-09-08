@@ -590,8 +590,8 @@ be re-blessed reflexively within a week, after which it catches nothing.
 ```
 tests/
   fixtures/constructs/*.talk.md      one minimal file PER construct
-  fixtures/decks/roles-demo/
-  fixtures/decks/l01/                pins its --media-remap
+  fixtures/decks/flow-demo/          composite deck, own media dir
+  fixtures/decks/media-resolution/   remaps.yaml pins its --media-remap
   expected/.../{cues,media-manifest}.json
   properties/
   run.py                             build all -> diff -> assert -> exit 0/1
