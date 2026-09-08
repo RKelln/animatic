@@ -39,31 +39,29 @@ The spoken words run underneath every screen. This paragraph is VO: it will neve
 
 (Fit: single-word and two-word statements scale up as big as the slide allows. Centered in both themes.)
 
-<!-- shot: roundabout kb=in dim=0.45 text=light -->
-<!-- shot: stat -->
+<!-- shot: roundabout kb=in dim=0.45 text=light +stat -->
 68% of what you read, you skim to the end.
 
 Numbers get a screen of their own, on paper or on the ground: same type, same size. This slide is the stat-over-image test.
 
-<!-- shot: roundabout piece -->
-(Visual: the Experimance roundabout from above. Bright geometry, busy colour.)
-<!-- shot: lower -->
+<!-- shot: roundabout piece +lower -->
 Experimance fieldwork, Toronto.
+
+(Visual: the Experimance roundabout from above. Bright geometry, busy colour.)
 
 A lower third names the image while the voice keeps moving. Transient: it leaves when the picture changes.
 
-<!-- shot: river kb=in dim=0.4 text=light fit -->
+<!-- shot: river kb=in dim=0.4 text=light fit=hero -->
 ### The river holds the room
 
 The dim scrim buys the words room over bright ground. This heading is the hero test: light hero words over the brightest ground in the folder.
 
-<!-- shot: ink-vortices kb=in -->
-<!-- shot: credits -->
+<!-- shot: ink-vortices kb=in +credits -->
 Ink study, generated. Placeholder for the closing image.
 
 A beat screen: media and an attribution line, no words spoken.
 
-<!-- shot: seaside fit -->
+<!-- shot: seaside fit=contain -->
 The seaside frames bright and busy. The voice does the work; the image holds the mood.
 
 <!-- shot: roundabout duo -->
