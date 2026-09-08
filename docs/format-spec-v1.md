@@ -591,7 +591,7 @@ archaeology. `media/style.md` — inherited defaults. Shared
 `_media/library.yaml` — cross-talk reuse + third-party credits.
 
 ```yaml
-# REQUIRED (builder reads)
+# REQUIRED (builder reads; missing = error)
 slug: <unique>          # slugified form (§2); matches the shot slug it serves
 status: brief | to-find | have | prompting | candidate | shortlist | approved | rejected
 type: image | video | chart | composite | audio    # Tier B, additive
@@ -614,11 +614,9 @@ directory (the directory containing the talkfile); all paths in
 card-declared path that resolves to no file is a warning naming the card and
 path — §6 resolves by this rule.
 
-`type` is required at the level the builder reads it, but a missing `type` is
-inferred from the resolved file's extension (`image`, `video`, or `file` for
-an unknown extension) with an info note — a card is never stranded on a
-missing type. A card with no file at all renders a placeholder typed by its
-declared `type`, else `unknown`.
+`type` is REQUIRED at the builder level; a missing `type` is an error, never
+inferred. A card with no file at all renders a placeholder typed by its
+declared `type`.
 
 `status: have` means the file is already in hand — nothing to find and nothing
 to generate. Shared-library entries are `have`; a deck card becomes `have`
@@ -681,7 +679,7 @@ a pasted movement is renumbered by the author or agent.
 
 | Version | Date | Change | Compat impact |
 |---|---|---|---|
-| 1.0 (draft) | 2026-09-08 | Hygiene (T04): OKF frontmatter rewrite (§2 — `type: Talk`, ISO 8601 timestamps, `index.md`/`log.md` reserved); `format-version` + `content-version` replace the `grammar:` proposal (D1) and prose `format:` becomes `session:`; `sources:` registry anatomy + per-concept `generated`/`verified`; §5 prefix semantics frozen — all parentheticals strip identically, prefixes are a Tier B registry (additive-only); §11 adds `have` (D3), freezes the card path rule, infers missing `type` from the resolved extension, states the slugified-form rule; overlay stacking limited to one per role per screen (D5); placeholder visibility default present ON / document OFF / `--show-placeholders` (D10); §14 moved to `docs/shipping.md`, no-personal-paths kept as a §8 output invariant; open questions (a)/(e)/(f) resolved and the list renumbered; dead-layer sweep — `tokens.md` engine row + spare theme slot removed (D9), stale `docs/format-spec.md` marked superseded | none — additive or clarifications; renamed/removed frontmatter keys pass through as unknown keys; corpus frontmatter (type/session/version) catches up at freeze |
+| 1.0 (draft) | 2026-09-08 | Hygiene (T04): OKF frontmatter rewrite (§2 — `type: Talk`, ISO 8601 timestamps, `index.md`/`log.md` reserved); `format-version` + `content-version` replace the `grammar:` proposal (D1) and prose `format:` becomes `session:`; `sources:` registry anatomy + per-concept `generated`/`verified`; §5 prefix semantics frozen — all parentheticals strip identically, prefixes are a Tier B registry (additive-only); §11 adds `have` (D3), freezes the card path rule, restates the `type`-required posture (missing = error, never inferred), states the slugified-form rule; overlay stacking limited to one per role per screen (D5); placeholder visibility default present ON / document OFF / `--show-placeholders` (D10); §14 moved to `docs/shipping.md`, no-personal-paths kept as a §8 output invariant; open questions (a)/(e)/(f) resolved and the list renumbered; dead-layer sweep — `tokens.md` engine row + spare theme slot removed (D9), stale `docs/format-spec.md` marked superseded | none — additive or clarifications; renamed/removed frontmatter keys pass through as unknown keys; corpus frontmatter (type/session/version) catches up at freeze |
 | 1.0 (draft) | 2026-09-08 | Defect removal (T03): principles 3/4 rewritten (no lookahead semantics; non-directive comments inert); bare `fit`, implicit overlay merge, and `Source: ` attribution deleted — explicit forms only (`fit=cover|contain|hero`, `+<role>`, `~`); receipts become `[^id]` body footnotes keyed to a frontmatter `sources:` registry; identity boundary (no sub-screen ids); document view MAY omit black beats (`nav.json` records); cue-id format `<slug>-NNN`; flag-only shots + tolerance rules frozen; flag interaction table added | breaking for the removed forms — the two corpus files (L01, roles-demo) were rewritten to the explicit forms in the same change; engine-decision §8 |
 | 1.0 (draft) | 2026-09-07 | Folded E3 (pager, theme layer, role overlays, remaps) into normative text; added conformance, design principles, error taxonomy, verification, units/tags/variant, generated nav sidecar | none — existing decks unchanged; all additions optional |
 | 0.5 | 2026-09-05 | Canonical home moved; grammar section left at v0.3 (defect) | — |
