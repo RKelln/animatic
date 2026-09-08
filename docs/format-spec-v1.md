@@ -549,11 +549,14 @@ regression names it.
 ## 10. Error / warning taxonomy
 
 **Fatal** — frontmatter never closed · bad YAML · unparseable shot · duplicate
-unit id · slug equal to a role name.
+unit id · slug equal to a role name · an H2 whose text begins with `Movement`
+(case-insensitive) that fails the movement pattern (check 22 — the author
+intended structure; guessing wrong silently corrupts screen boundaries and
+both views).
 
-**Warning** — unknown flag · unknown role-like token in first position (never
-silent coercion) · flag value out of range · unknown theme · possible receipt
-in parens · media unresolved.
+**Warning** — unknown flag name · a shot token matching no construct · a
+`+<role>` naming a role outside the §4 set · flag value out of range · unknown
+theme · possible receipt in parens · media unresolved.
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 
@@ -566,6 +569,16 @@ fatal for pre-delivery checks.
 - Unknown flag ⇒ warn, never fail.
 - Unknown **tag** ⇒ do not warn. Tags only affect search, which degrades
   gracefully; flags affect rendering, which does not. Different blast radius.
+- **A shot's tokenizer is honest (check 25): nothing in a shot comment is
+  silently dropped.** Every token must be a slug (first position only), a
+  role, a `+<role>` overlay, or a known flag; any other token warns (see the
+  warning list above) and is not applied.
+- **Unknown first token** stays a slug (token-position rule, §1) and never
+  warns at parse — the default reading of an unrecognized first token is
+  media. When such a slug is cardless and resolves to nothing, the
+  placeholder reason carries the hint "if 'X' was meant as a role or flag, it
+  is neither" — added only for single-word slugs, the only shape that could
+  have been a role or flag (§6, §8).
 - **Reserved:** a word that has ever been a valid slug in an authored deck MUST
   NOT become a role, and vice versa. Before promoting any Tier B token to Tier
   A, grep the corpus for it as a slug.
@@ -679,6 +692,7 @@ a pasted movement is renumbered by the author or agent.
 
 | Version | Date | Change | Compat impact |
 |---|---|---|---|
+| 1.0 (draft) | 2026-09-08 | Parser hardening (T05): §10 adds the check-22 fatal — an H2 beginning with `Movement` (case-insensitive) that fails the movement pattern is never silently treated as screen text; warning taxonomy gains the check-25 honesty rule — unknown flag names, `+<role>` outside the §4 set, and tokens matching no construct warn, nothing in a shot comment is silently dropped; unknown first tokens stay slugs and their cardless placeholders carry the "meant as a role or flag?" hint (§6/§8); the `+<role>` tokenizer lands (canonical `slug +<role>` and `+<role>`-only directives, §3/§4); valueless-`fit` and bare-consecutive-role did-you-mean warnings land (D7); movement recognition is case-insensitive (recognition-rule shape, not typography) | none — the parser implements what §3/§4/§7 already promised; the corpus was pre-migrated (T03); roles-demo's flag-only bare `fit` becomes `fit=hero` in the same change |
 | 1.0 (draft) | 2026-09-08 | Hygiene (T04): OKF frontmatter rewrite (§2 — `type: Talk`, ISO 8601 timestamps, `index.md`/`log.md` reserved); `format-version` + `content-version` replace the `grammar:` proposal (D1) and prose `format:` becomes `session:`; `sources:` registry anatomy + per-concept `generated`/`verified`; §5 prefix semantics frozen — all parentheticals strip identically, prefixes are a Tier B registry (additive-only); §11 adds `have` (D3), freezes the card path rule, restates the `type`-required posture (missing = error, never inferred), states the slugified-form rule; overlay stacking limited to one per role per screen (D5); placeholder visibility default present ON / document OFF / `--show-placeholders` (D10); §14 moved to `docs/shipping.md`, no-personal-paths kept as a §8 output invariant; open questions (a)/(e)/(f) resolved and the list renumbered; dead-layer sweep — `tokens.md` engine row + spare theme slot removed (D9), stale `docs/format-spec.md` marked superseded | none — additive or clarifications; renamed/removed frontmatter keys pass through as unknown keys; corpus frontmatter (type/session/version) catches up at freeze |
 | 1.0 (draft) | 2026-09-08 | Defect removal (T03): principles 3/4 rewritten (no lookahead semantics; non-directive comments inert); bare `fit`, implicit overlay merge, and `Source: ` attribution deleted — explicit forms only (`fit=cover|contain|hero`, `+<role>`, `~`); receipts become `[^id]` body footnotes keyed to a frontmatter `sources:` registry; identity boundary (no sub-screen ids); document view MAY omit black beats (`nav.json` records); cue-id format `<slug>-NNN`; flag-only shots + tolerance rules frozen; flag interaction table added | breaking for the removed forms — the two corpus files (L01, roles-demo) were rewritten to the explicit forms in the same change; engine-decision §8 |
 | 1.0 (draft) | 2026-09-07 | Folded E3 (pager, theme layer, role overlays, remaps) into normative text; added conformance, design principles, error taxonomy, verification, units/tags/variant, generated nav sidecar | none — existing decks unchanged; all additions optional |

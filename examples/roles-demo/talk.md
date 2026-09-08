@@ -34,7 +34,7 @@ Headings are the rare on-screen text. One idea per card, sentence case, no em da
 
 The spoken words run underneath every screen. This paragraph is VO: it will never appear on the slide, only in the speaker notes and in the handout.
 
-<!-- shot: fit -->
+<!-- shot: fit=hero -->
 ### Two words
 
 (Fit: single-word and two-word statements scale up as big as the slide allows. Centered in both themes.)

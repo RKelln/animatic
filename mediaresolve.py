@@ -40,6 +40,8 @@ from typing import Optional
 import shutil
 import warnings
 
+import re
+
 import yaml
 
 MEDIA_EXTS = {
@@ -263,6 +265,14 @@ class MediaResolver:
                     f"{cstatus or '?'})")
         else:
             reasons.append(f"no card for '{slug}' in {self.cards_path or 'cards.yaml'}")
+            # Unknown-first-token hint (report §6.8 / register check 25):
+            # a single-word, cardless slug may be a role or flag typo that
+            # the token-position rule turned into a media slug (`hero`).
+            # Hyphenated/digit slugs cannot be roles or flags, so only the
+            # word-shaped ones carry the hint.
+            if re.fullmatch(r"[a-z]+", slug):
+                reasons.append(
+                    f"if {slug!r} was meant as a role or flag, it is neither")
         reasons.append("no file under deck media dir")
         if not self.library_entry_for(slug):
             reasons.append("not in shared library")
