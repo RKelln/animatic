@@ -18,12 +18,13 @@ The same file renders as:
 
 ## Repo layout
 
-- `docs/format-spec.md` — the talkfile grammar (authoritative, v0.5, migrated 2026-09-05)
+- `docs/format-spec-v1.md` — the talkfile grammar (normative; v1.0 draft, hardening 2026-09-08)
+- `docs/format-spec.md` — retired v0.5 (superseded marker only; see v1)
 - `docs/media-pipeline.md` — media cards, generation log, style cascade, engine posture
 - `docs/engine-decision.md` — builder spike decision record (engine, PDF path, parse model)
-- `templates/` — starter media card set (style, cards, gen-log) copied from the L01 instance
+- `templates/` — starter media card set (style, cards, gen-log)
 - `build.py` + `talkparse.py` + `mediaresolve.py` + `render.py` — the builder (E2 spike):
-  one talkfile in, three outputs out: present view (reveal.js stand-in deck, VO in
+  one talkfile in, three outputs out: present view (own-pager deck, VO in
   speaker notes), document view (static HTML handout, print-to-PDF via print CSS),
   cues.json (ordered slide id to script text for the future controller), plus a
   media-manifest.json resolution audit. Generated output lives in `out/` (gitignored).
@@ -46,8 +47,8 @@ Deterministic output; re-running rebuilds the same bytes. See
 ## Related
 
 - Hermes skill `talkfile-decks` (creative/) — authoring workflow (draft decks from content banks)
-- Kanban board `animatic` — build tickets (E1-E5)
+- Kanban board `animatic` — build tickets (E1-E5, T01-T15 hardening)
 - Controller (Phase 2): live captions + voice/script advance, designed as a Peripherous plugin family — design brief t_dc90108c on the `peripherous` board
 
-Status: format v0.5 experiment, Ryan's feel-check in progress. Grammar is the
-deliverable in flux, not a locked standard.
+Status: format v1.0 draft in hardening (`docs/format-spec-v1.md`); the
+grammar freezes behind a Ryan gate (kanban T12), then v1.0 ships.

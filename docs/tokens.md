@@ -1,9 +1,11 @@
 # Animatic design tokens and themes
 
 Status: E3 baseline (2026-09-05, committed) — A (lecture) and C (workshop)
-feel-tested on the roles-demo specimen and L01 and locked for now; open
-questions below remain live. Docs move when the deck does: this file is the
-human spec, the CSS in themes/ is the machine source. Propose, never lock.
+feel-tested on the roles-demo specimen and L01 and locked for now; swept
+2026-09-08 (engine layer row removed, spare slot deleted, placeholder default
+decided — see decision log). Open questions below remain live. Docs move when
+the deck does: this file is the human spec, the CSS in themes/ is the machine
+source. Propose, never lock.
 
 ## The layer contract
 
@@ -11,15 +13,13 @@ Every view inlines the same four stylesheet layers, in order:
 
 | Layer | File | Job |
 |---|---|---|
-| engine | (reveal.css, imported) | Third-party layout only. Lowest priority: it can never fight our look. |
 | reset | themes/reset.css | Box model, UA margins, media defaults. No look. |
 | base | themes/base.css | Element defaults, font stacks, view scopes (`body.view-present` / `body.view-document`). Everything reads tokens. |
 | components | themes/components.css | The animatic kit: role styles and both view surfaces. Also token-only, theme-agnostic. |
 | theme | themes/theme-<slug>.css | Tokens + character. Last layer: restyles any component with plain rules, no specificity war, no `!important`. |
 
-Why layers: order-of-source no longer beats intent, third-party css cannot
-leak upward, and a theme is a swap, not a patch. Switch the theme file and
-the whole deck re-skins.
+Why layers: order-of-source no longer beats intent, and a theme is a
+swap, not a patch. Switch the theme file and the whole deck re-skins.
 
 The builder selects the theme from frontmatter (`theme: lecture`). Unknown
 or `TBD` themes fall back to `lecture` with one build warning. See
@@ -86,12 +86,6 @@ default in every theme); the framed "piece" look is opt-in per shot.
   media sit on a warm paper plate (`--quote-panel-bg` 0.55 alpha; the blur
   carries the legibility)
 
-### spare
-
-Palette direction B (green room / commons) parked: `#0e1410` black-green,
-moss-white ink, verdigris accent with brass secondary. Fits talks whose
-own imagery is the commons. Build it when a deck wants it, not before.
-
 ## Palette decision log
 
 - 2026-09-05 (Ryan + agent): three directions proposed from standing
@@ -151,6 +145,15 @@ own imagery is the commons. Build it when a deck wants it, not before.
   remaps/l01-standins.yaml = temporary L01 set (3 stand-ins + 1 real
   video; 10 placeholders remain by design: charts/composites have no
   honest stand-in).
+- 2026-09-08 (T04 hygiene sweep): (1) the `engine` layer row is gone from
+  the table above — E3 removed reveal.js and the builder inlines exactly
+  reset/base/components/theme (`@layer reset, base, components, theme;` in
+  render.py); (2) the `spare` third-theme slot is deleted (D9) — direction B
+  returns only when a deck actually wants it, never as an empty slot (an
+  empty slot in a spec invites an agent to invent a theme); (3) placeholder
+  visibility default decided (D10): present ON, document OFF,
+  `--show-placeholders` opts a document build in. The look, when shown,
+  stays a feel-test question below.
 
 ## Add a theme
 
@@ -169,8 +172,10 @@ own imagery is the commons. Build it when a deck wants it, not before.
   section grouping, not a flat list.
 - Lower third position and size on 1920x1080 (currently bottom left chip).
 - Whether the reveal fade is the right inter-screen motion (vs hard cuts).
-- Placeholder look in the document view: currently builder transparency
-  leaks into a shareable handout (engine-decision open question 5).
+- Placeholder look when shown: placeholders now default OUT of document
+  builds (D10, 2026-09-08 — present ON, document OFF, `--show-placeholders`
+  overrides); the look itself, when a document build opts in, is still a
+  feel-test question.
 - Duo object side: book covers may read better with the object on the LEFT
   (left-to-right reading); specimen tests object-right only (asked Ryan,
   unanswered).
