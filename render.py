@@ -732,7 +732,9 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             "theme": str(meta_get(talk, "theme", "")),
             "media_dir": str(meta_get(talk, "media", "media")),
             "bank": str(meta_get(talk, "bank", "")),
-            "source": talk.source,
+            # no `source` key: talk.source is an absolute machine path and
+            # cues.json is a portable artifact (register check 17). If source
+            # provenance is ever needed it belongs in nav.json, not here.
         },
         "movements": movements_out,
         "cues": cues,
