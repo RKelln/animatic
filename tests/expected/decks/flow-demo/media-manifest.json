@@ -8,7 +8,7 @@
       "media": {
         "slug": "river-one",
         "type": "image",
-        "status": "have",
+        "status": "file",
         "found": true,
         "file": "_media/river-one.svg",
         "source": "deckdir",
@@ -42,7 +42,7 @@
       "media": {
         "slug": "duo-one",
         "type": "image",
-        "status": "have",
+        "status": "file",
         "found": true,
         "file": "_media/duo-one.svg",
         "source": "deckdir",

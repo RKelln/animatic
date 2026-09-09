@@ -25,7 +25,7 @@
       "media": {
         "slug": "deckdir-art",
         "type": "image",
-        "status": "have",
+        "status": "file",
         "found": true,
         "file": "_media/deckdir-art.svg",
         "source": "deckdir",
@@ -42,7 +42,7 @@
       "media": {
         "slug": "attempt-art",
         "type": "image",
-        "status": "have",
+        "status": "file",
         "found": true,
         "file": "_media/attempt-art.svg",
         "source": "deckdir",
@@ -59,7 +59,7 @@
       "media": {
         "slug": "both-art",
         "type": "image",
-        "status": "have",
+        "status": "file",
         "found": true,
         "file": "_media/both-art.svg",
         "source": "deckdir",

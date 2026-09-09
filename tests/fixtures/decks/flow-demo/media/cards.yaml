@@ -3,7 +3,7 @@
 # placeholder (no file, no declared path) so the manifest pins placeholder
 # wording and the present view renders a placeholder figure.
 - slug: river-one
-  status: have
+  status: file
   type: image
   alt: The river
   credit: Ryan Kelln (fixture)
@@ -17,7 +17,7 @@
   licence: CC BY-SA
   brief: fixture placeholder slug for the flow demo
 - slug: duo-one
-  status: have
+  status: file
   type: image
   alt: ""
   credit: Ryan Kelln (fixture)

@@ -1,7 +1,7 @@
 # shared library home for the decks/ fixtures (sibling of each deck dir).
 # file: paths are relative to this library file's directory (spec §11).
 - slug: lib-owl
-  status: have
+  status: file
   type: image
   file: shared/owl.svg
   alt: Library owl

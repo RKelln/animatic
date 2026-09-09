@@ -11,21 +11,21 @@
   licence: CC BY-SA
   brief: fixture art approved as a png
 - slug: deckdir-art
-  status: have
+  status: file
   type: image
   alt: Deck dir art
   credit: Ryan Kelln (fixture)
   licence: CC BY-SA
   brief: fixture art found in the deck media dir
 - slug: attempt-art
-  status: have
+  status: file
   type: image
   alt: Attempt art
   credit: Ryan Kelln (fixture)
   licence: CC BY-SA
   brief: fixture art found by highest attempt number
 - slug: both-art
-  status: have
+  status: file
   type: image
   alt: Both shapes present
   credit: Ryan Kelln (fixture)

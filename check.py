@@ -881,7 +881,7 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
 # ---------------------------------------------------------------------------
 
 CORPUS_CONFIG = "corpus.yaml"            # repo-root content-root declaration
-BANK_STATUSES = frozenset({"brief", "to-find", "have", "prompting",
+BANK_STATUSES = frozenset({"brief", "to-find", "file", "url", "prompting",
                            "candidate", "shortlist", "approved", "rejected"})
 BANK_REQUIRED = ("slug", "status", "type")
 _TAG_FILE_SKIP = frozenset({"index.md", "log.md"})   # OKF reserved (§2)
