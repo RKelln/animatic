@@ -1,708 +1,557 @@
-# Animatic format spec — talkfile v1.0 (draft, 2026-09-07)
+# Animatic — the talkfile format (v1.0)
 
-> **Status:** proposed normative rewrite. Supersedes `docs/format-spec.md` (v0.5,
-> 2026-09-05) and folds in E3 supersessions from `docs/engine-decision.md` §6,
-> the style grammar from `docs/tokens.md`, and the review additions of
-> 2026-09-07. Nothing here is history; history lives in the decision logs.
-> A decision is not landed until it is written here in the present tense; the
-> logs record why, this spec records what.
->
-> **Animatic is general-purpose**: it is a system for talks, lectures, and
-> workshops. The TPL Applied AI residency (Oct–Dec 2026) is its first
-> deployment, not its definition.
+A **talkfile** is a single markdown file that describes an entire talk or
+lecture. It is the only source of truth. Parse it once and it renders three
+ways:
 
-A talk is one plain-text file that reads like a **video-essay narration
-script**. Spoken text is the default river; shots drop in where the image
-changes; on-screen text is an explicit, rare, designed object. The handout is
-the VO as prose, so a lecture can be pure image-and-few-words on screen.
+- **Present view** — the cinematic slides: full-bleed media, spoken words in
+  the speaker notes.
+- **Document view** — the handout: the spoken words as readable prose, with
+  figures and citations.
+- **cues.json** — the machine contract: the structured form every tool reads.
+
+A talkfile reads like a **video-essay narration script**. The spoken words are
+the default river. Shots drop in where the image changes. On-screen text is an
+explicit, rare, designed object. Because the handout is the voice-over as
+prose, a lecture can be almost pure image-and-few-words on screen and still
+read as a complete document.
 
 ---
 
-## 0. Design principles (normative — rules are judged against these)
+## The model
+
+A talkfile is a sequence of **screens**. A screen is the atomic unit: one
+slide in the present view, one cue in cues.json, one step in the document
+view.
+
+- A **shot** is a directive (`<!-- shot … -->`) that opens a screen. The word
+  *shot* names the directive; *screen* names the output unit it opens. Most
+  shots open a screen; a text role is written onto a media shot's own
+  directive (see "The shot directive").
+- A screen closes when the next shot appears, or at a movement boundary.
+- Text and media attach to the screen that is open when they appear, in file
+  order.
+- A `## Movement N · Title` heading is **structure, not a slide**: it closes
+  the current screen and appears in the document view as a section header. The
+  present view has no divider slides; to make one, put a shot before the
+  heading.
+
+Every piece of text in a talkfile is exactly one of three kinds:
+
+| Kind | Spoken? | On screen? | In the handout? |
+|---|---|---|---|
+| **Voice-over** — a plain paragraph | yes | no | yes, as prose |
+| **Screen text** — a role payload, heading, quote, or list after a shot | role-dependent | yes | yes, at its level |
+| **Stage note** — a parenthetical `(…)` | no | no | no (speaker notes only) |
+
+A line's fate is decided by two things, in order: its **markdown shape**, then
+its **position**.
+
+1. **Shape decides the default.** A paragraph is spoken. A heading, quote, or
+   list is screen text — on screen, never spoken. A parenthetical is a stage
+   note. This is the whole rule for headings, quotes, and lists: they are
+   always screen text, with or without a role.
+2. **Position overrides a paragraph's default.** A paragraph directly after a
+   `role=` shot becomes that role's payload (on screen; `stat` is also spoken,
+   `lower` and `credits` are not). A paragraph on a credits screen becomes a
+   credits entry. A `~ ` paragraph directly under a quote becomes attribution.
+
+So a role changes only the one paragraph that follows it. With no role,
+paragraphs stay spoken and headings, quotes, and lists stay on screen. Four
+outcomes are possible: spoken (voice-over), on screen (screen text), both
+(`stat` reads the number it shows), or neither (a stage note). Voice-over is
+spoken to the audience; speaker notes are private to the presenter — different
+things.
+
+---
+
+## Design principles
+
+Rules are judged against these. When the format is ambiguous, the reading that
+serves them wins.
 
 1. **One source, every output.** No output-specific authoring. If a fact must
    appear in two outputs, it is written once.
 2. **The default river is speech.** Anything unmarked is spoken.
 3. **No lookahead semantics.** A directive's meaning must be decidable from
-   the directive itself and the content of its own screen. A directive MUST
-   NOT change meaning based on blocks that appear after it. (Backward
-   attachment is the river: a paragraph belongs to the screen open before it.
-   That is the model, not a violation of it.)
-4. **Non-directive comments are inert, always.** Any `<!-- -->` comment other
-   than the `shot` directive this spec defines may be added, moved, or removed
-   without changing any output. (Inertness is what makes provenance comments,
-   append markers, and other tool conventions safe to edit mechanically.)
-5. **File format and semantics are expensive; code is cheap.** Grammar/format 
-   changes cost re-authoring. Rendering changes cost a rebuild. Carefully 
-   consider changes that affect backwards compatibility, use format versioning 
-   and support rendering of older formats.
+   the directive itself and the content of its own screen; it must not change
+   meaning based on blocks that appear after it. (Backward attachment is the
+   model: a paragraph belongs to the screen open before it. That is not a
+   violation of this principle.)
+4. **Non-directive comments are inert, always.** Any `<!-- … -->` comment
+   other than the `shot` directive may be added, moved, or removed without
+   changing any output.
+5. **Format and semantics are expensive; code is cheap.** A grammar change
+   costs re-authoring of every existing talk. Prefer changes that keep old
+   files building.
 6. **Agent-first, human-readable.** Every construct must be machine-addressable
-   without being machine-only: an agent must be able to seek, extract, lint,
-   and verify; humans must be able to edit the file at 11pm without a tool.
+   (an agent can seek, extract, lint, verify) without being machine-only (a
+   human can edit the file at 11pm without a tool).
 
 ---
 
-## 1. Conformance
+## Frontmatter
 
-A talkfile declares the format version it was written against (and, when
-kept, the revision of its own content — §2):
+A talkfile is YAML frontmatter followed by the talk itself.
 
 ```yaml
 ---
-format-version: 1.0      # REQUIRED — the animatic format this file targets (§2)
-content-version: 4       # RECOMMENDED — this talk's own content revision (§2)
+type: Talk                # the concept kind (Open Knowledge Format)
+format-version: 1.0       # REQUIRED — the grammar this file targets
+content-version: 4        # this talk's own content revision
+slug: l01-opening         # REQUIRED — cue ids derive from its slugified form
+title: "AI Everywhere, All At Once"   # REQUIRED
+theme: lecture            # REQUIRED — visual identity
+media: media              # OPTIONAL — the deck's local media dir (default "media")
+timestamp: 2026-09-08T14:30:00-04:00  # ISO 8601, last meaningful change
+logline: "One sentence: the thesis."  # what `animatic search` returns
 ---
 ```
 
-- A builder MUST parse any `animatic-1.0` file and produce the same screen
-  sequence, cue ids, and media resolution this spec describes.
-- An `animatic-1.0` file MUST NOT require editing to build under any later
-  1.x builder.
-- Missing `format-version` ⇒ assume the current version, warn once (files
-  written before the field existed still build).
-- Unknown *major* `format-version` ⇒ refuse to build, do not guess.
+### Required fields
 
-### Frozen in 1.x (breaking change requires 2.0)
+- **`type: Talk`** — the concept kind, and only `Talk`. A talk is a *flat*
+  concept: the file itself is the output, not a header pointing at
+  sub-concepts. A file with no `type:` builds and is treated as `Talk`.
+- **`format-version`** — the grammar the file was written against. Missing
+  means "assume the current version," with one warning.
+- **`slug`** — slugified at parse: lowercased, every run of characters outside
+  `[a-z0-9]` collapsed to `-`. `L01-Opening` and `l01-opening` are the same
+  deck.
+- **`title`** — the talk's title.
+- **`theme`** — selects the visual identity (the theme layer every view
+  inlines). Two themes ship with the system: `lecture` (default — a warm dark
+  room, image-forward) and `workshop` (a daylight room, text-forward). Missing,
+  unknown, or pending values fall back to `lecture` with one warning. The full
+  token contract lives in `docs/tokens.md`.
 
-The shot comment and its regex · token position (a shot's first token is
-its slug, its role, or — for flag-only shots — a known flag) · flag-only
-shots · default-text-is-VO · parens never spoken · non-directive comments
-inert · screen as the unit of screens and cues (the document view may omit
-black beats; §3) · `## Movement N` as structure · extensionless slugs ·
-media resolution order with stand-ins last · role payload VO rules ·
-`~` attribution (the only attribution form) · cue-id format `<slug>-NNN` ·
-tolerance rules (prose-before-shot fallback · inert `---` · dropped empty
-screens · consecutive-shot warnings) · parentheticals strip identically,
-with prefixes a Tier B registry (§5) · the card path rule (§11) · one
-overlay per role per screen (§4).
+### Media directory
 
-### Unfrozen (may change in any 1.x)
-
-The visual meaning of any flag · motion timings and amplitudes · theme token
-sets and the required-token list · present-view markup, pager, and CSS · PDF
-driver · output file layout · cues.json fields beyond the invariants in §8 ·
-CLI surface.
-
----
-
-## 2. Frontmatter
-
-A talkfile is an **OKF concept document** — one markdown file with YAML
-frontmatter, per the Open Knowledge Format. `type: Talk` declares the concept
-kind; the fields below are animatic's typed extension on top of the OKF
-shared fields (`title`, `description`, `timestamp`, `tags`).
-
-```yaml
----
-type: Talk                # OKF REQUIRED — this format defines one concept type
-format-version: 1.0       # REQUIRED — the animatic format this file targets (§1)
-content-version: 4        # RECOMMENDED — this talk's own content revision
-slug: l01-opening         # REQUIRED; cue ids derive from its slugified form (§3.3)
-title: "AI Everywhere, All At Once"   # REQUIRED (also the OKF title)
-theme: lecture            # REQUIRED; unknown/TBD -> lecture + one warning
-media: media              # OPTIONAL, default "media"
-timestamp: 2026-09-08T14:30:00-04:00  # OKF recommended — ISO 8601, last meaningful change
-logline: "..."            # RECOMMENDED: one sentence, the thesis
----
-```
-
-### Theme and media
-
-`theme:` selects the deck's visual identity — the theme layer
-(`themes/theme-<slug>.css`) that every view inlines. Two starter themes ship
-with the system:
-
-- `lecture` — the default. A reference room: lamp light in the dark. Warm
-  near-black stage, warm ink, brass accent, serif display; text glows over
-  media. Built for image-forward talks where the media is the light source.
-- `workshop` — a daylight room: the lights are on and the words matter.
-  Warm paper stage, ink text, olive-clay accent, sans-leaning UI. Built for
-  text-forward cards in a bright room.
-
-`theme:` is REQUIRED. Missing, unknown, or pending (`TBD`) values fall back
-to `lecture`; an unrecognised value warns once. A theme is a swap, never a
-patch — no look value lives outside the theme layer, and a deck's meaning is
-identical under any theme (§1 unfrozen list: theme token sets may change in
-any 1.x). The full token contract and character notes live in
-`docs/tokens.md`.
-
-`media:` names the deck's local media directory — home of `cards.yaml` and
-the deck's media files — default `media`. The frozen resolution order (§6)
-and the card path rule (§11) are written against that default name; the key
-exists so a deck may point the directory elsewhere.
-
-### OKF conformance
-
-- **`type: Talk`, and only `Talk`.** A talk is a *flat* concept: the file
-  itself is the output — script, shots, and on-screen text in one document —
-  not a bundle header pointing at sub-concepts. A file with no `type:` builds
-  and is treated as `Talk` (OKF: absence carries meaning but is never
-  rejected); conformance is declared, not enforced.
-- **Reserved filenames.** OKF reserves `index.md` and `log.md` at every tree
-  level: a file with either name is read as a directory listing or an update
-  log, never as a concept. A talkfile MUST NOT be named `index.md` or
-  `log.md`.
-- **Timestamps.** Every timestamp-valued key (`timestamp`, `generated.at`,
-  `verified[].at`) is ISO 8601 with an explicit offset. `date` (the talk's
-  delivery date) is ISO 8601 calendar form (`2026-09-05`). No other
-  date/time forms.
+`media:` names the deck's local media directory — the home of `cards.yaml` and
+the deck's media files — default `media`. The resolution order ("Media") and
+the card path rule ("Media pipeline contract") are written against that name.
 
 ### Version fields
 
-`format-version` names the grammar the file was written against (§1): it
-changes only when the format changes. `content-version` is the talk's own
-revision — a monotonically increasing integer that the author or agent bumps
-on any meaningful content change, never on cosmetic edits. Format and content
-versions are independent axes, and derived artifacts that depend on content
-state (recordings, `timing.yaml` overrides, goldens) MAY record the
-`content-version` they were produced from. A talk drafted twenty minutes
-before delivery is a valid talk: `date`, `venue`, `dur`, and `content-version`
-are all optional, and missing ones MUST NOT fail a build.
-
-### Slug and identity
-
-`slug` is REQUIRED and is slugified at parse time: lowercased, every run of
-characters outside `[a-z0-9]` collapsed to `-`. `L01-Opening` and
-`l01-opening` are therefore the same deck. The slugified form is what cue ids
-(§3.3), lookups, and deck paths use.
-
-### Recommended, unenforced
-
-`date`, `venue`, `dur`, `status`, `description` (OKF), `tags` (OKF),
-`timestamp`, `logline`. Unknown keys pass through untouched and are never an
-error.
-
-`logline:` exists so `animatic search` across a dozen decks returns something
-an author can scan. It is free to write and is the single highest-value
-one-liner in the file.
+`format-version` names the grammar; `content-version` is the talk's own
+revision, a monotonically increasing integer bumped on any meaningful content
+change, never on cosmetic edits. The two are independent axes. A talk drafted
+twenty minutes before delivery is a valid talk: `date`, `venue`, `dur`, and
+`content-version` are all optional and must not fail a build.
 
 ### Receipts and provenance
 
-Per-claim attribution is a body footnote `[^id]` placed at the claim site
-(§5); the `sources:` registry those footnotes key into, plus the per-concept
-`generated` / `verified` blocks saying who wrote the file and who confirmed
-it, all live in frontmatter:
+Per-claim attribution is a body footnote `[^id]` at the claim site (see
+"Receipts"); the registry those footnotes key into lives in frontmatter, next
+to the per-concept provenance:
 
 ```yaml
-sources:                  # per-claim receipts key here; id = footnote label (§5)
+sources:                  # id = footnote label
   prince-2026: "Cloudflare CEO Matthew Prince, June 3 2026"
 generated: { by: agent, at: 2026-09-08T10:00:00-04:00 }
-verified:                 # who confirmed the content against its sources
+verified:
   - { by: human:ryan, at: 2026-09-09T18:00:00-04:00 }
 ```
 
-- `sources:` is a flat map — `id: "one-line attribution"`. Ids are lowercase
-  `[a-z0-9-]+`; a `[^id]` footnote with no registry entry is a warning.
-- `generated:` and `verified:` are **per-concept** (whole talk), distinct from
-  per-claim footnotes: `generated` says how the current content was produced,
-  `verified` records who confirmed it against its sources. `by` follows the
-  OKF actor convention (`human:<name>` for people, `<producer>/<version>` for
-  agents).
-- None of the three blocks is required for a build. `sources:` is the one the
-  builder reads, and only for the entries a `[^id]` reference names — the
-  handout citation list and `deck.sources` are built from referenced entries
-  alone (§5); an unreferenced entry never surfaces in any view. `generated:`
-  and `verified:` are never read by the builder.
+- `sources:` is a flat map `id: "one-line attribution"`; ids are lowercase
+  `[a-z0-9-]+`. This is the only block the builder reads, and only for the
+  entries a `[^id]` reference names.
+- `generated:` and `verified:` record who wrote and who confirmed the content;
+  the builder never reads them.
+
+### Recommended, unenforced
+
+`date`, `venue`, `dur`, `status`, `description`, `tags`, `timestamp`,
+`logline`. Unknown keys pass through untouched and are never an error.
+
+### OKF conformance
+
+- **Reserved filenames.** A talkfile must not be named `index.md` or `log.md`
+  — those names are read as a directory listing and an update log, never as a
+  concept.
+- **Timestamps.** Every timestamp-valued key is ISO 8601 with an explicit
+  offset; `date` is ISO 8601 calendar form (`2026-09-05`). No other form.
 
 ---
 
-## 3. Screens — the unit of everything
+## The shot directive
 
-A **shot** is the directive; a **screen** is the output unit (one slide in
-the present view, one cue in cues.json). The two are not the same thing, and
-the mapping is not one-to-one: most shots open a screen, and a shot that
-carries only a role — a `role=` shot — attaches to the screen already open
-instead of opening one (§4). The deck's first screen, the **opening
-screen** — the title slide — has no shot at all: it is the prose before the
-first shot (tolerance rules below).
+A shot is the `<!-- shot … -->` comment. Its first token decides what kind of
+screen opens; the remaining tokens are flags.
 
-1. A **screen** opens when a `<!-- shot ... -->` directive appears and closes
-   when the next shot or a movement boundary appears. The two exceptions are
-   stated above: the opening screen opens without a shot, and a `role=` shot
-   attaches rather than opening.
-2. One screen ⇒ one present-view section and one cue. Screen and cue counts
-   are identical, always. The document view MAY omit screens that carry no
-   document content (black beats); when it does, `nav.json` records the
-   omission. Document step count is therefore ≤ screen count, and that is the
-   invariant.
-3. Cue ids are `<slug>-NNN`: the slugified frontmatter `slug`, a hyphen, and
-   the 1-based screen ordinal zero-padded to three digits. Ids are unique,
-   sort lexically in presentation order up to 999 screens, and are stable for
-   a given file. One cue id per present-view section.
-4. `## Movement N · Title` is **structure, not a slide**. It closes the current
-   screen and appears only in document view as a section header. Present view
-   has no divider slides; to get one, put a `<!-- shot -->` before the header.
-5. Paragraphs attach to the screen whose shot precedes them. A screen may
-   therefore have no VO (a "beat screen"); that is the mechanical reading and
-   is normative. No-VO is the default: a beat screen needs no marker, and a
-   paragraph always belongs to the screen open before it.
+| Directive | Opens |
+|---|---|
+| `<!-- shot: <slug> -->` | a media screen — the slug resolves to an image or video |
+| `<!-- shot: <slug> role=<role> -->` | a media screen carrying that text role |
+| `<!-- shot: role=<role> -->` | a screen with only that text role |
+| `<!-- shot: black -->` | a black beat — deliberate silence, no media, no payload |
+| `<!-- shot: <flag> -->` | a card-only screen — no media, no role; the flags speak for it |
 
-### Identity boundary — no sub-screen ids
+An unknown first token is a slug (it names media); a slug that resolves to
+nothing surfaces honestly as a placeholder.
 
-The screen is the smallest addressable unit. Nothing below it carries an id:
-role overlays, text blocks, VO paragraphs, and media objects are addressed
-positionally relative to the screen (cue ordinal, then position within the
-screen). Content that needs its own address is promoted to its own screen —
-never given a sub-screen id.
+A shot directive may span multiple lines; interior whitespace is insignificant.
 
-### Flag-only shots and tolerance rules (frozen)
+### Flags and layout
 
-A shot whose first token is a **known flag** (not a slug, not a role) opens a
-card-only screen: no media slug, no role — the flags speak for the screen
-(`<!-- shot: fit=hero -->` is a hero text card). This is the flag-only
-exception to the token-position rule.
+Flags are the per-shot knobs. The top-level namespace is fixed:
 
-The parser tolerates, without erroring, a small set of authoring shapes; each
-is frozen as written:
+| Flag | Values | Meaning |
+|---|---|---|
+| `fit` | `cover` / `contain` / `hero` | how media fits the frame |
+| `kb` | `in` / `out` | slow drift of the media layer inside a static lens |
+| `dim` | `0`–`1` | a dark scrim at that opacity |
+| `text` | `light` / `dark` | per-screen text treatment, overriding the theme default |
+| `role` | a `roles.yaml` name | the screen's text role (see "Roles") |
+| `layout` | a `layouts.yaml` name | the screen's config-driven layout |
 
-- **Prose before the first shot is the opening screen.** A heading with no
-  preceding shot starts a screen where it stands, before any shot exists; the
-  title slide is the prose that opens the deck.
-- **`---` horizontal rules are inert.** They may separate movements or
-  screens; they never create or close anything.
-- **A shot that opens a screen with no content by EOF is dropped** with a
-  warning; an empty trailing screen never reaches any view.
-- **Consecutive shots that do not merge** (the second is not a `+<role>`
-  overlay) warn; the second opens a new screen, and the first, if it stayed
-  empty, is dropped under the rule above.
-- **A shot directive MAY span multiple lines**; interior whitespace is
-  insignificant. A directive wrapped for readability (agents that wrap long
-  shot lines, humans breaking them) parses exactly as the same tokens on one
-  line — frozen with the multi-line-shot construct fixture (check 27) so a
-  lexer rewrite cannot silently drop it.
+**`fit` — explicit values only.** `fit=cover` fills the frame and crops
+overflow (default for media). `fit=contain` shows the whole image, letterboxed
+on the stage colour (default for charts and composites). `fit=hero` scales
+on-screen text as large as the slide allows. A shot must not carry two `fit=`
+values; a valueless `fit` is a warning with a did-you-mean hint.
 
-### Units — a post-freeze additive (not in this grammar)
+**`layout=`** names an entry in `layouts.yaml`:
 
-Speech does not respect shot boundaries, and an optional addressable layer
-above the screen is planned — but not in this grammar. A **unit** — several
-screens grouped under one stable id for addressing, discovery, and variant
-filtering — is a post-freeze additive (D6: ids belong on the shot, never on
-a standalone directive). It lands as an `id=` field on the shot that opens
-the unit's first screen, spans until the next unit's shot or a movement
-boundary, and feeds `nav.json` (§8). Until it lands:
+```yaml
+layouts:
+  piece: {description: "media floats as a framed object"}
+  duo: {description: "object + text layout; implies piece"}
+```
 
-- the screen is the smallest addressable unit (identity boundary above; cue
-  ids §3.3);
-- no unit directive, unit id, unit tag, or unit marker exists — a comment
-  that looks like one is inert (§0.4);
-- remix granularity is the shot, not a span (§13).
+Layouts are config, not grammar: the vocabulary grows by adding entries to
+`layouts.yaml` (`duo_right`, `duo_left`, …), never by editing the parser. A
+layout that implies another (as `duo` implies `piece`) records that in its
+description. If a layout ever needs parameters, the reserved form is a
+function call — `layout=duo(side=…, object=…)` — and the parameter names are
+`side=` / `object=`, never `text=` (which collides with the colour flag).
 
-The unit additive is why headings are not reused as markers when it lands: a
-heading inside a shot is already on-screen card text, and the same glyph
-meaning two different things by position is the defect class this format
-eliminates.
+**Flag interactions.** `dim` is ignored on `layout=piece` (a full-zone scrim
+would paint a box around the framed object). `kb` drift is not applied on
+`layout=piece` (the lens wraps full-bleed media only). Slide-level flags
+(`fit`, `layout=`, `text=`) are read from the screen's first shot; the same
+flag on a `role=` shot is read but never duplicated. Media flags (`kb`, `dim`,
+`fit`) read from the media shot.
 
 ---
 
-## 4. Text roles
+## Screens
 
-| Construct | Spoken? | On screen | In handout |
+- **One screen = one present-view section = one cue.** Counts are identical,
+  always. The document view may omit screens that carry no content (black
+  beats); `nav.json` records the omission. Document step count ≤ screen count
+  is the invariant.
+- **Cue ids** are `<slug>-NNN`: the slugified `slug`, a hyphen, and the
+  1-based screen ordinal zero-padded to three digits. Ids are unique, sort
+  lexically in presentation order up to 999 screens, and are stable for a
+  given file.
+- **No sub-screen ids.** The screen is the smallest addressable unit; nothing
+  below it carries an id. Role overlays, text blocks, and media objects are
+  addressed positionally (cue ordinal, then position within the screen).
+  Content that needs its own address is promoted to its own screen.
+
+### Movements
+
+A talk is divided into **movements** — its parts — marked by a heading:
+`## Movement N · Title`.
+
+- **When to use them.** At argumentative boundaries — where the talk turns
+  from one idea to the next. Sparingly: a handful per talk, not one per screen
+  (a fifty-screen talk uses four). Numbered in order, 1, 2, 3, …
+- **Why they exist.** A talk longer than a handful of screens needs coarse
+  structure: the handout reads as prose with sections rather than fifty
+  undifferentiated steps; "movement 3" is a chunk worth naming and seeking to;
+  and the talk's own argument has parts the structure should mirror.
+- **What they do.** A movement heading closes the current screen and labels
+  everything after it as that movement. It appears in the document view as a
+  section header; the present view has no divider slide for it (to make one,
+  put a shot before the heading). The opening — everything before the first
+  movement heading — is movement 0, the title zone.
+- **What they are not.** A movement is not a slide, and text never attaches to
+  it. Text attaches to screens; a movement only closes the current screen and
+  renames the section.
+
+### Tolerance rules
+
+The parser tolerates a fixed set of authoring shapes, each as written here:
+
+- **Prose before the first shot is the opening screen** — the title slide.
+- **`---` horizontal rules are inert** — they separate, never create or close.
+- **A shot that opens a screen with no content by end of file is dropped**
+  with a warning; an empty trailing screen never reaches any view.
+- **Consecutive shots with no content between them warn** — the second opens a
+  new screen and the first stays an empty beat. (There is no implicit merge: a
+  text role that overlays media is written on the media shot itself, as
+  `role=`, not as a second shot.)
+- **A bare `role=` shot directly after another shot warns** — the would-be
+  implicit merge — with a hint to write `role=` on the media shot instead. It
+  still opens its own screen.
+
+---
+
+## Text
+
+### Voice-over
+
+A plain paragraph is spoken. It belongs to the screen open before it. A screen
+with no paragraphs has no voice-over (a "beat screen") — that is the default
+and needs no marker.
+
+### Roles
+
+Roles are the kinds of on-screen text. They exist because a video essay is
+text layered over media: some text is spoken (the number you read out), some
+is a label that names the image, some is a credit that sits in the corner.
+Roles let a script distinguish these with one word, and let the renderer treat
+each kind the way it should.
+
+The role vocabulary is config, not grammar. Three roles ship in `roles.yaml`;
+`black` is built in:
+
+| Role | Spoken? | On screen | Form |
 |---|---|---|---|
-| default paragraph | yes | no | yes, as prose |
-| heading / quote / list after a shot | no | yes | yes, at its level |
-| `~` attribution under a quote | no | yes (right-aligned) | with the quote |
-| `stat` payload | **yes** (speaker reads the number) | yes | callout box |
-| `lower` payload | no (attribution) | yes, transient | figcaption |
-| `credits` payload | no | yes, persistent | figcaption |
-| parenthetical `(...)` | no | no | no (stage only) |
-| HTML comment | no | no | no (inert) |
+| `stat` | yes | yes | callout — a big number the speaker reads |
+| `lower` | no | yes | lower-third — a transient label naming the image |
+| `credits` | no | yes | end-roll — persistent attribution |
+| `black` | — | — | a deliberate black beat, no payload |
 
-### Attribution — `~` only, its own paragraph under the quote
+```yaml
+# roles.yaml (shared default; a deck may override at deck/roles.yaml)
+roles:
+  stat: {spoken: true, on_screen: true, form: callout}
+  lower: {spoken: false, on_screen: true, form: lower-third}
+  credits: {spoken: false, on_screen: true, form: end-roll}
+```
 
-Attribution is the `~` form only: a paragraph beginning `~ ` whose
-immediately preceding block is a quote.  It is screen text (right-aligned
-under the quote), never VO, and travels with the quote in the handout.
-(`Source: ` was deleted in T03 — it is not a grammar form.)
+A role is written with the `role=` flag:
 
-- **Same-line attribution is unsupported.** `> The line. ~ Someone, 2026` is
-  not split: the whole line renders as one quote, attribution and all.
-  Attribution must be its own paragraph directly under the quote.
-- **An attribution-shaped paragraph anywhere else is spoken, with a
-  warning.** A `~ ` paragraph that does not directly follow a quote — and the
-  deleted `Source: ` shape — falls through to VO (check 24: "attribution-looking
-  line will be spoken").  The warning is the migration path: rewrite as `~ `
-  under the quote, or make it ordinary prose.
-
-### Roles (Tier A — frozen, additive-only, never reinterpreted)
-
-- `stat` — big number. Payload is scripted.
-- `lower` — transient overlay naming the image. Never script.
-- `credits` — persistent attribution. Never script.
-- `black` — deliberate black beat, full-stage silence, no payload.
-
-To speak a credits line, place it as VO before the credits shot: credits
-payloads are screen text, never script.
-
-### Credits screens (end rolls)
-
-A bare `credits` shot opens a credits screen — an end roll — that consumes
-the blocks that follow it as screen entries until the next shot or movement
-boundary.  It consumes exactly these kinds:
-
-- a **paragraph** — one credits entry;
-- a **list** — one credits entry per item;
-- a **heading** — the roll's title.
-
-A **quote is not consumed**: a quote on a credits screen stays a quote
-object, never becomes a credits entry, and does not satisfy the credits
-role.  A credits screen whose would-be payload is a quote fires the
-never-consumed warning (§10) instead of silently absorbing the quote into
-the roll.
-
-### Roles as flags (Tier A — config vocabulary in `roles.yaml`)
-
-Roles are a `role=<name>` flag backed by `roles.yaml` (shared default +
-per-deck override). The syntax is frozen (`stat`, `lower`, `credits`, `black`);
-the vocabulary grows via yaml, not the grammar. The `+<role>` overlay syntax
-is removed: use `role=` on the screen's own shot (attaches to that screen) or
-as a bare role shot (`<!-- shot: stat -->`, opens its own screen). The payload
-paragraph consumption rules are unchanged.
-
-```markdown
+```
 <!-- shot: river-personhood role=credits -->
 <!-- shot: letters dim=0.5 role=lower -->
 ```
 
+**The vocabulary grows by yaml, never by grammar.** Add a `quote` entry to
+`roles.yaml` with its `spoken` / `on_screen` / `form`, and `role=quote` works
+— no parser change. The four names above are the frozen starting set; the
+mechanism is additive.
+
+**The payload** is the paragraph that directly follows the role shot. It
+becomes that role's screen text (for `stat`, it is also spoken — the speaker
+reads the number). A role shot whose payload never arrives warns.
+
 **One role per screen.** A second `role=` of the same value on one screen
-warns; an unknown value warns against the effective yaml (determined from
-deck `deck/roles.yaml` → shared `roles.yaml`), never fails.
+warns; an unknown role warns against the effective yaml and never fails.
 
----
+To speak a credits line, place it as voice-over before the credits shot:
+credits payloads are screen text, never script.
 
-## 5. Directions (parentheticals)
+### Credits (end rolls)
 
-Parentheses are never spoken and never on screen. Every parenthetical — no
-matter what it contains — is stripped identically and travels as a stage note
-(speaker notes in present view, `stage` list in cues.json). That is the frozen
-semantics: no prefix changes what happens to a parenthetical, and the parser
-routes none of them anywhere.
+A bare `credits` shot (`<!-- shot: role=credits -->`) opens an end-roll screen
+that consumes what follows as screen entries until the next shot or movement
+boundary. It consumes exactly: a paragraph (one entry), a list (one entry per
+item), a heading (the roll's title). A quote is not consumed — it stays a
+quote, and the would-be payload fires the never-consumed warning instead of
+silently absorbing into the roll.
 
-**Parentheticals do not nest** (check 23).  A nested `(` inside a
-parenthetical is a warning — the strip recognizes one level only, and
-without the warning the nesting would corrupt the spoken text (the inner
-pair wins and the outer markers vanish).  The author rewrites the
-parenthetical flat.  Nothing in the registry below changes this: prefixes
-are authorial conventions, never behaviour.
+### Attribution
 
-The prefix vocabulary below is a **Tier B registry, additive-only**: a set of
-authorial conventions that tools MAY act on (linting, timing, card drafting),
-listed for reference.  Recognising a prefix never changes the parenthetical's
-rendering behaviour, and a new or unrecognised prefix changes nothing — it
+Attribution is the `~` form only: a paragraph beginning `~ ` whose immediately
+preceding block is a quote. It is screen text (right-aligned under the quote),
+never spoken, and travels with the quote. Same-line attribution (`> q ~ Name`)
+is unsupported — the whole line renders as the quote. An attribution-shaped
+paragraph anywhere else is spoken, with a warning.
+
+### Directions (parentheticals)
+
+Parentheses are never spoken and never on screen. Every parenthetical is
+stripped identically and travels as a stage note (speaker notes in the present
+view, `stage` in cues.json). Parentheticals do not nest — a nested `(` warns.
+
+A prefix is an authorial convention, never behaviour:
+
+| Prefix | Convention |
+|---|---|
+| `(Visual: …)` | brief for media generation |
+| `(Beat.)` | timing / pause |
+| `(Demo: …)` | live demo plan, speaker notes only |
+| `(Flesh out: …)` | unwritten beat, speaker notes only |
+| `(Note: …)` | note-to-self about the argument |
+
+Recognising a prefix never changes what happens to the parenthetical — it
 still strips and still travels.
 
-| Prefix | Meaning (convention) |
-|---|---|
-| `(Visual: …)` | human brief for media generation → tool MAY draft the card brief |
-| `(Beat.)` | timing / pause → tool MAY use it in timing estimates |
-| `(Demo: …)` | live demo plan; speaker notes only |
-| `(Flesh out: …)` | unwritten beat; speaker notes only |
-| `(Note: …)` | note-to-self about the argument; speaker notes only |
+### Receipts
 
-### Receipts — body footnotes keyed to `sources:`
-
-A claim's source is a **body footnote reference** `[^id]` placed at the claim
-site, keyed to the frontmatter `sources:` registry (registry anatomy: §2):
+A claim's source is a body footnote reference `[^id]` at the claim site, keyed
+to the frontmatter `sources:` registry:
 
 ```markdown
 57.5% of web traffic is bots, not people.[^prince-2026]
 ```
 
-```yaml
-sources:
-  prince-2026: "Cloudflare CEO Matthew Prince, June 3 2026"
-```
-
 - The reference sits where the claim sits — positionality is the point: the
   source is attached to the sentence it documents, not gathered at the end.
-- Footnote references are **inert**: stripped from every text block at parse
-  — never spoken, never on screen, never verbatim in any view.  The parser
-  collects each referenced id in first-appearance order.  The document view
-  ends with a **Sources** list — the citation list — carrying every
-  referenced registry entry in first-appearance order; cues.json mirrors the
-  same payload verbatim under `deck.sources` (§8), so the frozen IR and the
-  handout can never disagree about what a deck cites.
-- A reference's definition is its `sources:` registry entry (§2): inert
-  agent-facing metadata — never spoken, never on screen, never woven into
-  the document's prose.  Its only output surface is the handout Sources list
-  (whose data cues.json carries as `deck.sources`).  Receipts have no
-  body-level definition form.
-- A `[^id]` whose id has no `sources:` entry is a warning.
-- Receipts are not comments and not parentheticals. A parenthetical matching
-  a receipt pattern (`(✓ …)`, `(Source: …)`) is a **lint warning** naming the
-  line ("possible receipt in parens — move to a footnote"). It still builds
-  and still strips; the warning is the migration path.
+- Footnote references are **inert**: stripped from every text block at parse —
+  never spoken, never on screen, never verbatim in any view. The document view
+  ends with a **Sources** list carrying every referenced registry entry in
+  first-appearance order; cues.json mirrors the same payload as `deck.sources`.
+- A `[^id]` with no `sources:` entry is a warning.
 
 ---
 
-## 6. Media: slugs and resolution
+## Media
 
-Shots reference **extensionless slugs**. Type and file format live in the card,
-never in the script.
+Shots reference **extensionless slugs** — `jungle-plantation`, not
+`jungle-plantation.jpg`. Type and file format live in the card, never in the
+script.
 
-```markdown
-<!-- shot: jungle-plantation kb=in dim=0.35 -->
-(Visual: same trees twice; jungle left, plantation right.)
-```
+The indirection exists for two reasons:
+
+- **Remix.** The script names an idea, not a file. Swap the file behind the
+  slug and the talk does not change; a slug pasted into another deck resolves
+  against that deck's media.
+- **Output freedom.** The same slug can be a video in the present view and a
+  still — or an entirely different image — in the PDF. The slides and the
+  handout need not carry the same art.
 
 ### Resolution order (frozen)
 
-1. deck `media/cards.yaml` — `approved:` then `file:` then `outputs[]`
+1. deck `media/cards.yaml` — `approved:`, then `file:`, then `outputs[]`
 2. deck `media/<slug>/attempts/<slug>-a<N>.<ext>` — highest N
 3. deck `media/<slug>.<ext>`
 4. shared `_media/library.yaml` (sibling of the deck dir)
 5. `--media-remap` stand-in (deliberately last — real art always wins)
-6. placeholder (grey box carrying slug, status, and reason)
-
-Stand-ins are last on purpose: a stand-in evaporates automatically the day real
-art lands. The manifest records `source: standin` so the audit stays honest.
-
-**Placeholder visibility.** Placeholders are the build's honesty: an
-unresolved referenced slug always renders one — never silently nothing — and
-the manifest records `status` and `reason` for every placeholder. Visibility
-default: present view ON, document view OFF; `--show-placeholders` includes
-them in a document build (a handout with placeholders is a draft, not a
-deliverable).
-
-The shared library's default home is `_media/` beside the deck dir. Content
-roots are config-declared (`docs/shipping.md`), so that home is a convention
-with an escape hatch, not a hardwired path; wherever the library file lives,
-its own `file:` paths are relative to the library file's directory (§11).
+6. placeholder (a grey box carrying slug, status, and reason)
 
 ### Slug scope and uniqueness
 
 - Charset `[a-z0-9-]`, 3–40 chars, no leading/trailing `-`.
-- MUST NOT equal a role name or `black`. Leading `_` is reserved.
-- Unique within a deck. A deck-local card **shadows** a library entry of the
-  same slug; the builder records `shadowed_library: true` (informational).
-- Cross-deck collisions are not an error: the shared library is a lookup by
-  slug, and two decks may reuse one entry by design.
+- Must not equal a role name or `black`. A leading `_` is reserved.
+- Unique within a deck. A deck-local card shadows a library entry of the same
+  slug (recorded, informational).
+- Cross-deck reuse is fine: the library is a lookup by slug.
+
+### Placeholders
+
+An unresolved slug always renders a placeholder — never silently nothing — and
+the manifest records `status` and `reason`. Default: present view on, document
+view off; `--show-placeholders` includes them in a document build (a handout
+with placeholders is a draft, not a deliverable).
 
 ### Highest-N is a convenience, not an approval
 
-The moment a card has an output Ryan has signed off on, record it:
-
-```yaml
-approved: media/<slug>/attempts/<slug>-a2.mp4
-```
-
-`approved:` outranks the attempts heuristic. Deleting or renaming attempt files
-is a last resort — it damages the archaeology.
-
-### Two-tier flag rule (§7 redesign, 2026-09-09)
-
-Top-level flat namespace (the per-shot workhorses): `fit`, `kb`, `dim`,
-`text`, `layout`. Everything else is grouped under one of these flags or
-moved into config (`roles.yaml`, `layouts.yaml`). Promotion of a token to
-top-level is an explicit spec edit — the §5 Tier-B registry pattern — never
-an implicit promotion.
-
-The `layout=` flag (`piece` | `duo`) is backed by `layouts.yaml`; `piece`/`duo`
-were demoted out of the flat namespace (they collide with nothing else, but
-keeping vocabulary in yaml makes it additively growable). The documented
-function-call param form — `layout=duo(side=..., object=...)` — is noted in
-`docs/engine-decision.md` as the documented extension path (NOT frozen; no
-param parser is built in this redesign). If a param is ever needed, it is
-`side=` / `object=`, never `text=` (collides with the `text=light|dark` color
-flag).
+The moment a card has a signed-off output, record `approved:`; it outranks the
+attempts heuristic. Deleting or renaming attempt files is a last resort — it
+damages the archaeology.
 
 ---
 
-## 7. Flags (Tier B — additive-only, config-layered)
+## Outputs
 
-| Flag | Values | Meaning |
+Three views and two sidecars, all generated from the one talkfile.
+
+| Artifact | What it is | Why it exists |
 |---|---|---|
-| `kb` | `in` \| `out` | slow drift of the media layer inside a static lens. Opposite starting phases, not speeds. Duration/amplitude are theme business and are NOT guaranteed across versions. Ignored on video (info note). Disabled under reduced-motion. |
-| `dim` | `0`–`1` | solid `--stage-dim` scrim at that opacity |
-| `fit` | `cover` \| `contain` \| `hero` | see below |
-|| `layout` | `piece` \| `duo` | config-driven layout (`layout=piece` / `layout=duo`); backed by `layouts.yaml`; replaces the flat `piece`/`duo` flags (§7 demotion). `duo` implies `piece` (same layering). `layout=` never collides with `text=` (color flag). |
-| `text` | `light` \| `dark` | per-screen text treatment; overrides theme default |
-
-### `fit` — explicit values only
-
-- `fit=cover` — fill the frame, crop overflow. Default for media.
-- `fit=contain` — show the whole image, letterboxed on the stage colour.
-  **Default for `type: chart` and `type: composite` cards.**
-- `fit=hero` — on-screen text scales as large as the slide allows.
-
-A shot MUST NOT carry two `fit=` values, and a valueless `fit` has no meaning
-of its own: it is a warning with a did-you-mean hint naming the three values.
-(The historic bare `fit` took its meaning from what followed the shot —
-"contain" on media, "hero" once text appeared. That lookahead is removed with
-the bare form.)
-
-### `text=` default
-
-Themes MUST declare `--stage-over-media-ink-default` (absent from the required
-token set today). A screen relying on contrast over media SHOULD set `text=`
-explicitly; the same deck built under two themes without `text=` may
-legitimately look different.
-
-### Flag interactions (frozen)
-
-| Combination | Behaviour |
-|---|---|
-|| `layout=piece` + `dim` | `dim` is ignored on `layout=piece` — same layering reason (full-zone scrim would paint a box around the framed object). Info note. |
-|| `kb` + `layout=piece` | drift is not applied — camera lens wraps full-bleed media only. Info note. |
-| slide-level flags (`fit`, `layout=`, `text=`) on a role flag | read from the screen's FIRST shot; same flags on a `role=` shot are read but never duplicated. Info note. |
-
-Media flags (`kb`, `dim`, `fit`) are read from the screen's media shot; on
-every ordinary screen that is also the first shot, so the two reads agree.
-
----
-
-## 8. Outputs
-
-| Artifact | Schema | Invariants |
-|---|---|---|
-| `cues.json` | `animatic.cues.v1` | flat ordered array; one entry per screen; `id`, `ordinal`, `script`; ids unique; ordinals 1..N; 1:1 with present sections; `deck.sources` carries the handout citation list — every referenced receipt id (first-appearance order) plus its registry value (§5) |
-| `media-manifest.json` | `animatic.media.v1` | per-slug `found`/`source`/`file`/`status`/`reason`; lists unreferenced cards |
-| `nav.json` / `nav.md` | `animatic.nav.v1` | unit + cue id → line range, movement, kind, tags, variant, first words |
-
-**`nav.*` is generated, never embedded in the talkfile.** An embedded nav block
-in a file being actively rewritten goes stale and stops being trusted; the
-builder already tracks lines on `Screen` and `Block`, so it emits the map as a
-sidecar. Zero maintenance, and it knows about shots, roles, and slugs — strictly
-more than a heading-derived map can.
+| **present/** | the cinematic slides | the thing you speak from — full-bleed media, speaker notes, keyboard navigation |
+| **document/** | the handout (printable HTML, then PDF) | the talk as readable prose — the voice-over with figures and citations |
+| **cues.json** | the structured form | the machine contract every tool reads (schema `animatic.cues.v1`) |
+| **media-manifest.json** | the per-slug resolution audit | honesty about what resolved and what is still a placeholder |
+| **nav.json** | cue id → line range, movement, kind, tags | addressability — an agent told "insert after cue 17" seeks instead of counting |
 
 ### Determinism
 
-Builds are deterministic: no timestamps, no set-iteration ordering, byte-identical
-output across runs. Required, because the golden suite (§9) depends on it.
+Builds are deterministic — no timestamps, no set-iteration ordering —
+byte-identical across runs. Required, because the golden suite depends on it.
 
 ### No personal paths
 
-No emitted artifact — `cues.json`, `media-manifest.json`, `nav.*`, or the
-HTML views — may contain a machine-local absolute path (build host, user
-home, mount point). Paths in emitted artifacts are relative: to the deck, the
-out root, or the library file — never absolute. A build that would leak a
-personal path is a defect, not a warning.
+No emitted artifact may contain a machine-local absolute path. Paths in
+emitted artifacts are relative to the deck, the out root, or the library file —
+never absolute. A build that would leak a personal path is a defect, not a
+warning.
 
 ### Addressable positions
 
-Each cue carries `src_line`. An agent told "insert after cue 17" seeks
-instead of counting shots.
+Each cue carries `src_line`. An agent told "insert after cue 17" seeks instead
+of counting shots.
 
 ---
 
-## 9. Verification (`animatic check`)
+## Verification
 
-Deterministic checks. Agent-first: one command, one exit code.
-
-**Property assertions (not goldens):**
+`animatic check` is the deterministic verifier: one command, one exit code.
+Property assertions (not goldens):
 
 ```
-no remote assets      no http(s):// in src/href/@import   (the reveal.js failure)
-first slide active    slide 1 carries class="active" server-side
+no remote assets      no http(s):// in src/href/@import
 video attributes      autoplay muted loop playsinline, no controls
 cue invariants        ids unique, ordinals 1..N, len(cues) == len(sections)
 determinism           build twice, compare hashes
 theme completeness    every required token defined in each theme CSS
 screen-text hygiene   no em-dashes in screen_text (public-copy rule)
-placeholder policy    present ON; document OFF; --show-placeholders overrides
+placeholder policy    present on; document off; --show-placeholders overrides
 ```
 
-**Golden files (byte-diff only on the semantic layers):**
-
-| Layer | Golden? | Why |
-|---|---|---|
-| `cues.json` | yes | the semantic contract — what breaks decks |
-| `media-manifest.json` | yes | resolution order regresses silently |
-| `document/index.html` | no | style churn |
-| `present/index.html` | no | highest churn rate in the system |
-
-You tune in small dials (plate alpha, max-width), and CSS is inlined per deck
-at build time — a byte-diff on HTML invalidates on every feel-round and would
-be re-blessed reflexively within a week, after which it catches nothing.
-
-**Layout:**
-
-```
-tests/
-  fixtures/constructs/*.talk.md      one minimal file PER construct
-  fixtures/decks/flow-demo/          composite deck, own media dir
-  fixtures/decks/media-resolution/   remaps.yaml pins its --media-remap
-  expected/.../{cues,media-manifest}.json
-  properties/
-  run.py                             build all -> diff -> assert -> exit 0/1
-```
-
-`--update-goldens` re-blesses. Construct-per-fixture matters more than
-deck-per-fixture as the format grows: a new flag gets one tiny file, and a
-regression names it.
+Golden files byte-diff only the semantic layers — `cues.json` (the semantic
+contract) and `media-manifest.json` (resolution order regresses silently). The
+HTML views are deliberately not golden: CSS is inlined per deck and changes
+with every feel-round, so a byte-diff would be re-blessed reflexively and
+catch nothing. `--update-goldens` re-blesses.
 
 ---
 
-## 10. Error / warning taxonomy
+## Error and warning taxonomy
 
-**Fatal** — frontmatter never closed · bad YAML · unparseable shot · duplicate
-unit id · slug equal to a role name · an H2 whose text begins with `Movement`
-(case-insensitive) that fails the movement pattern (check 22 — the author
-intended structure; guessing wrong silently corrupts screen boundaries and
-both views).
+**Fatal** — frontmatter never closed · bad YAML · unparseable shot · slug
+equal to a role name · a heading that begins with `Movement`
+(case-insensitive) but does not match `Movement <integer> [separator]
+<title>` (the author intended structure; guessing wrong silently corrupts
+screen boundaries).
 
-**Warning** — unknown flag name · a shot token matching no construct · a
-`+<role>` naming a role outside the §4 set · flag value out of range · unknown
-theme · possible receipt in parens · a nested `(` inside a parenthetical
-(check 23 — "parentheticals do not nest", §5) · an attribution-shaped
-paragraph with no preceding quote (check 24 — "attribution-looking line will
-be spoken", §4) · media unresolved.
+**Warning** — unknown flag · a token matching no construct · flag value out of
+range · unknown theme · possible receipt in parens · a nested `(` inside a
+parenthetical · an attribution-shaped paragraph with no preceding quote ·
+media unresolved.
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 
-Warnings are non-fatal (a deck must always build) but MUST appear in the build
+**Report** — attempt/gen-log drift · numbering gaps · licence-before-public-use
+· corpus coverage. Reports print but never fail: a deck carrying archaeology is
+not defective.
+
+Warnings are non-fatal (a deck must always build) but must appear in the build
 report, `cues.json warnings[]`, and the manifest. `--strict` makes warnings
 fatal for pre-delivery checks.
 
-**Every warning names the line that provoked it (check 26): no warning text
-contains `line 0`.** A warning exists to be acted on at 30+ screens; the
-parser threads each shot directive's source line into the shot at parse time
-(the consecutive-shot, empty-screen, role-payload, and tokenizer warnings all
-carry a real line).
+**Every warning names the line that provoked it** — no warning text contains
+"line 0". A warning exists to be acted on at thirty screens.
 
-### Unknown vocabulary
+**Unknown vocabulary.** An unknown flag warns, never fails. An unknown tag does
+not warn — tags only affect search, which degrades gracefully; flags affect
+rendering, which does not. Nothing in a shot comment is silently dropped:
+every token must be a slug, a role, a layout, or a known flag; any other token
+warns. An unknown first token stays a slug and never warns at parse; when it
+resolves to nothing, the placeholder reason carries the hint that the word is
+neither a role nor a flag.
 
-- Unknown flag ⇒ warn, never fail.
-- Unknown **tag** ⇒ do not warn. Tags only affect search, which degrades
-  gracefully; flags affect rendering, which does not. Different blast radius.
-- **A shot's tokenizer is honest (check 25): nothing in a shot comment is
-  silently dropped.** Every token must be a slug (first position only), a
-  role, a `+<role>` overlay, or a known flag; any other token warns (see the
-  warning list above) and is not applied.
-- **Unknown first token** stays a slug (token-position rule, §1) and never
-  warns at parse — the default reading of an unrecognized first token is
-  media. When such a slug is cardless and resolves to nothing, the
-  placeholder reason carries the hint "if 'X' was meant as a role or flag, it
-  is neither" — added only for single-word slugs, the only shape that could
-  have been a role or flag (§6, §8).
-- **Reserved:** a word that has ever been a valid slug in an authored deck MUST
-  NOT become a role, and vice versa. Before promoting any Tier B token to Tier
-  A, grep the corpus for it as a slug.
-
-### Tag hygiene (reports, never build warnings)
-
-1. **Drift** — `animatic tags` prints every tag with counts; near-miss pairs by
-   edit distance and singletons are surfaced. Catches `#enclosive` beside
-   `#enclosure`.
-2. **Coverage** — untagged units, with suggested tags derived from VO text. The
-   agent proposes; Ryan confirms. Suggest-only, never auto-applied.
-
-Untagged units are a **report, not a diagnostic**. "Unit 17 is untagged" as a
-build warning trains you to ignore warnings, and the real ones (unknown flag,
-unresolved media) matter.
+**Reserved.** A word that has ever been a valid slug in an authored deck must
+not become a role, and vice versa. Before promoting any token, grep the corpus
+for it as a slug.
 
 ---
 
-## 11. Media pipeline contract
+## Media pipeline contract
 
 `media/cards.yaml` — current state. `media/gen-log.md` — append-only
-archaeology. `media/style.md` — inherited defaults. Shared
-`_media/library.yaml` — cross-talk reuse + third-party credits.
+archaeology. `media/style.md` — inherited defaults. `_media/library.yaml` —
+cross-talk reuse and third-party credits.
 
 ```yaml
 # REQUIRED (builder reads; missing = error)
-slug: <unique>          # slugified form (§2); matches the shot slug it serves
+slug: <unique>          # matches the shot slug it serves
 status: brief | to-find | file | url | prompting | candidate | shortlist | approved | rejected
-type: image | video | chart | composite | audio    # Tier B, additive
+type: image | video | chart | composite | audio
 
 # OPTIONAL, builder-consumed
 approved: <path>        # outranks the attempts heuristic
@@ -710,98 +559,56 @@ file: <path>            # then outputs[]
 outputs: []
 alt / credit / licence / brief / prompts.{image,video}
 
-# FREE / agent-facing — never read, never validated
-style: {}   notes:  refs:  source:  keep:  surprise:  ...any future key
+# FREE — never read, never validated
+style: {}   notes:  refs:  source:  keep:  surprise:  …any future key
 ```
+
+- **`status: file`** means a local media file is in hand — buildable now.
+  **`status: url`** means a verified remote source is recorded but not yet
+  fetched — the deck renders a placeholder until it is. **`status: approved`**
+  asserts sign-off on the output file, not the card. Resolution is by file
+  presence, never by status: a card may be `approved`, `file`, or `url` with no
+  file on disk, and that renders a placeholder, not an error.
+- **`type`** is required and never inferred; a missing `type` is an error. A
+  card with no file renders a placeholder typed by its declared `type`.
+- **Path rule.** All paths in `cards.yaml` are relative to the deck directory;
+  all paths in `library.yaml` are relative to the library file's own directory.
+  A card-declared path that resolves to no file is a warning.
 
 Unknown keys are never an error at any level of the card.
 
-**Path rule (frozen).** All paths in `cards.yaml` are relative to the deck
-directory (the directory containing the talkfile); all paths in
-`library.yaml` are relative to the library file's own directory. A
-card-declared path that resolves to no file is a warning naming the card and
-path — §6 resolves by this rule.
-
-`type` is REQUIRED at the builder level; a missing `type` is an error, never
-inferred. A card with no file at all renders a placeholder typed by its
-declared `type`.
-
-`status: file` means a local media file is in hand — buildable now, nothing
-to find and nothing to generate. Shared-library entries are `file`; a deck
-card becomes `file` when media is supplied rather than produced. `status:
-url` means a verified remote source is recorded but not yet fetched to a
-file: the deck renders a placeholder until the source is fetched (resolution
-order, §6). The split revises D3: the old `have` could not say whether the
-media was on disk or only located. `status: approved` asserts sign-off on
-the **output file**, not on the card. Resolution is by file presence, never
-by status: a card may be `approved`, `file`, or `url` with no file on disk —
-deleted, never fetched, or a `url` awaiting its fetch — and that renders a
-placeholder, not an error.
-
-`gen-log.md` is append-only; entries are never reordered, renumbered, or edited.
-Minimum entry: `## <ISO date> · <slug> · a<N>` with `intent`, `delta`,
-`verdict`, `keep`, `surprise`. `keep`/`surprise` SHOULD be present even when
-empty (write `—`); they are the mining surface. Attempt numbers are per-slug
-and monotonic. The starter template (`templates/gen-log.md`) documents the
-fuller SHOULD-level anatomy (prompt text, engine and params, output refs)
-that deck logs add on top of this minimum; the minimum here is the contract.
+`gen-log.md` is append-only; entries are never reordered, renumbered, or
+edited. Minimum entry: `## <ISO date> · <slug> · a<N>` with `intent`, `delta`,
+`verdict`, `keep`, `surprise`. Attempt numbers are per-slug and monotonic.
 
 ---
 
-## 12. Open questions (human calls — not decided here)
+## Remix
 
-(a) **Duo object side** — object-right only is tested; book covers may read
-    better object-left.
+The remix unit is the **shot** — the screen its directive opens — falling back
+to the movement. Movements are usually too coarse: wanting the Titanic lifeboat
+beat does not mean wanting the whole movement.
 
-Resolved in this draft and moved to normative text (2026-09-08): version
-field name → `format-version` + `content-version` (§1/§2); placeholder
-visibility → present ON, document OFF, `--show-placeholders` (§6/§9); third
-theme slot → deleted (`tokens.md`, D9).
+Extraction carries the shot's slug (which resolves against the destination
+deck) plus its card and the media file or library entry. A shot pasted without
+its card renders placeholders by design and must still build — that is what
+makes remixing safe.
 
-Resolved at the T12 read (2026-09-08), normative text updated in place:
-(a) closing credits line — the spoken closing thanks is ordinary VO prose
-placed before the credits shot; the credits *list* itself is never spoken.
-No new grammar form: §4 already carries the rule ("place it as VO before the
-credits shot"); (b) beat screens — no-VO stays the default and needs no
-marker; paragraphs always belong to the screen open before them (§3.5).
-Corpus re-measured on a second deck before any change to the default;
-(c) stat parentheticals — not a deliberate pattern; question deleted, the
-parens rule (§5) stands unsplit; (d) unit marker word — deleted: ids belong
-on the shot (`id=`), never on a standalone marker (D6), and units are a
-post-freeze additive (§3 Units). The single remaining question — duo object
-side — is renumbered to (a) above; the (a)–(d) letters in this paragraph
-name the questions as they stood before resolution.
+Movement ordinals are presentation order and are not preserved across talks; a
+pasted movement is renumbered by the author or agent.
 
 ---
 
-## 13. Remix
+## Stability
 
-The remix unit is the **shot** — the screen its directive opens — falling
-back to the movement. (A remix *span* — several consecutive shots under one
-`id=` — is the post-freeze unit additive, §3 "Units"; remix granularity
-widens when it lands.) Movements are usually too coarse: wanting the Titanic
-lifeboat beat does not mean wanting the whole movement.
+Everything in this document is the frozen 1.0 contract. A breaking change
+requires a 2.0. The only surface that may change within 1.x:
 
-Extraction carries: the shot's slug (which resolves per the destination
-deck) + its card + the media file or a library entry. A shot pasted without
-its card renders placeholders **by design** and must still build — that is
-what makes remixing safe.
-
-Movement ordinals are presentation order and are not preserved across talks;
-a pasted movement is renumbered by the author or agent.
-
----
-
-## Changelog
-
-| Version | Date | Change | Compat impact |
-|---|---|---|---|
-| 1.0 (draft) | 2026-09-08 | Spec hygiene from the T12 read: §0 header trimmed and principles 5/6 reframed (format versioning + rendering of older formats; "humans" replaces "Ryan"); §2 frontmatter drops `session` and `bank`, fleshes out `theme` (names the two starter themes — `lecture`/`workshop` — and what each is; missing/unknown/pending falls back to `lecture` with one warning) and `media` (the deck's local media dir, default `media`); §3 opens with the shot-vs-screen distinction (shot = directive, screen = output unit; a `role=` shot attaches to the current screen instead of opening one; the opening screen has no shot), renames "shotless screen" to **opening screen** (the title slide — prose before the first shot), resolves the beat-screen question inline at §3.5 (no-VO is the default, no marker), and deletes the unit-marker teaching — units become a post-freeze additive (`id=` on the shot, D6) and §3 describes no unit markers; §11 splits `have` into `file` + `url` (revises D3): `file` = local media in hand (buildable now), `url` = verified remote source still needing a fetch (placeholder until fetched); §12 open questions (a)–(d) resolved (credits: spoken thanks are ordinary VO before the credits shot, the credits list is never spoken — no new form; beat screens: default kept; stat parentheticals: not a pattern, deleted; unit marker word: moot under D6) and the survivor renumbered to (a); §13's remix unit is the shot, with the `id=` span deferred to the additive | none — no corpus deck changes meaning: roles-demo and L01 frontmatter drop the removed keys (`format:` — the pre-T04 name of the `session` prose slot — and L01's `bank:`); unknown keys pass through; media cards still say `have` until the media statuses migrate to `file`/`url` (code + library sweep follow in a later ticket) |
-| 1.0 (draft) | 2026-09-08 | Handout citation list (receipt emission, closes the T06 gap): the document view ends with a **Sources** list rendering every referenced `sources:` registry entry in first-appearance order, and cues.json carries the same payload as `deck.sources` — the §5 promise ("the handout renders a citation list") becomes literally true in code. §5 names the emission shape; §2 stops claiming the builder never reads `sources:` (it reads referenced entries only; `generated:`/`verified:` are still never read); §8 pins `deck.sources` on the cues.json row. Registry values are plain text, escaped, never markdown; a referenced id with no registry entry stays out of the list until its parse warning (check 28, T08) lands | none for decks without receipts — roles-demo's structure is byte-identical outside the inlined stylesheet and its cues.json merely gains an empty `deck.sources` (CSS is inlined into every deck at build, so the new .sources rules travel into all HTML); L01 additionally gains the Sources section in the document view and 15 `deck.sources` entries — no cue, script, screen, or present-view change |
-| 1.0 (draft) | 2026-09-08 | Warning line numbers + multi-line shot freeze (T07): `lineno` is threaded into `_parse_shot` at both lexer call sites, so every warning names its source line — no warning text contains "line 0" (check 26, §10); §3 freezes "a shot directive MAY span multiple lines; interior whitespace is insignificant" with the multi-line-shot construct fixture (check 27) | none — single-line directives (the whole corpus) parse identically; the change makes the no-line-0 invariant structurally true at parse time rather than patched in the assembler |
-| 1.0 (draft) | 2026-09-08 | Parser edge cases (T06): §5 states parentheticals do not nest — a nested `(` warns (check 23); §4 pins attribution to `~ ` on its own paragraph directly under the quote — same-line `> q ~ Name` is unsupported, the deleted `Source: ` shape is not consumed, and an attribution-shaped paragraph anywhere else is spoken with a warning (check 24); §4 lists exactly what a credits screen consumes (paragraph, list, heading — a quote is not consumed and never satisfies the credits role, so a would-be quote payload fires the never-consumed warning); footnote refs `[^id]` are stripped from every text block at parse and each referenced id is collected for the handout citation list, registry definitions staying inert metadata | none — warnings and clarifications; neither corpus file uses any warned shape; L01's `[^id]` markers leave scripts and screen text (the T03-promised strip lands) with screen/cue counts unchanged |
-| 1.0 (draft) | 2026-09-08 | Parser hardening (T05): §10 adds the check-22 fatal — an H2 beginning with `Movement` (case-insensitive) that fails the movement pattern is never silently treated as screen text; warning taxonomy gains the check-25 honesty rule — unknown flag names, `+<role>` outside the §4 set, and tokens matching no construct warn, nothing in a shot comment is silently dropped; unknown first tokens stay slugs and their cardless placeholders carry the "meant as a role or flag?" hint (§6/§8); the `+<role>` tokenizer lands (canonical `slug +<role>` and `+<role>`-only directives, §3/§4); valueless-`fit` and bare-consecutive-role did-you-mean warnings land (D7); movement recognition is case-insensitive (recognition-rule shape, not typography) | none — the parser implements what §3/§4/§7 already promised; the corpus was pre-migrated (T03); roles-demo's flag-only bare `fit` becomes `fit=hero` in the same change |
-| 1.0 (draft) | 2026-09-08 | Hygiene (T04): OKF frontmatter rewrite (§2 — `type: Talk`, ISO 8601 timestamps, `index.md`/`log.md` reserved); `format-version` + `content-version` replace the `grammar:` proposal (D1) and prose `format:` becomes `session:`; `sources:` registry anatomy + per-concept `generated`/`verified`; §5 prefix semantics frozen — all parentheticals strip identically, prefixes are a Tier B registry (additive-only); §11 adds `have` (D3), freezes the card path rule, restates the `type`-required posture (missing = error, never inferred), states the slugified-form rule; overlay stacking limited to one per role per screen (D5); placeholder visibility default present ON / document OFF / `--show-placeholders` (D10); §14 moved to `docs/shipping.md`, no-personal-paths kept as a §8 output invariant; open questions (a)/(e)/(f) resolved and the list renumbered; dead-layer sweep — `tokens.md` engine row + spare theme slot removed (D9), stale `docs/format-spec.md` marked superseded | none — additive or clarifications; renamed/removed frontmatter keys pass through as unknown keys; corpus frontmatter (type/session/version) catches up at freeze |
-| 1.0 (draft) | 2026-09-08 | Defect removal (T03): principles 3/4 rewritten (no lookahead semantics; non-directive comments inert); bare `fit`, implicit overlay merge, and `Source: ` attribution deleted — explicit forms only (`fit=cover|contain|hero`, `+<role>`, `~`); receipts become `[^id]` body footnotes keyed to a frontmatter `sources:` registry; identity boundary (no sub-screen ids); document view MAY omit black beats (`nav.json` records); cue-id format `<slug>-NNN`; flag-only shots + tolerance rules frozen; flag interaction table added | breaking for the removed forms — the two corpus files (L01, roles-demo) were rewritten to the explicit forms in the same change; engine-decision §8 |
-| 1.0 (draft) | 2026-09-07 | Folded E3 (pager, theme layer, role overlays, remaps) into normative text; added conformance, design principles, error taxonomy, verification, units/tags/variant, generated nav sidecar | none — existing decks unchanged; all additions optional |
-| 0.5 | 2026-09-05 | Canonical home moved; grammar section left at v0.3 (defect) | — |
+- the visual meaning of any flag;
+- motion timings and amplitudes;
+- theme token sets and the required-token list;
+- present-view markup, pager, and CSS;
+- the PDF driver;
+- output file layout;
+- cues.json fields beyond the invariants above;
+- the CLI surface.
