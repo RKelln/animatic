@@ -16,10 +16,6 @@ script**. Spoken text is the default river; shots drop in where the image
 changes; on-screen text is an explicit, rare, designed object. The handout is
 the VO as prose, so a lecture can be pure image-and-few-words on screen.
 
-The 5_directions failure was not the engine: every talk was a giant bespoke
-file fusing argument, rendering directives, and media plumbing. This format
-separates them.
-
 ---
 
 ## 0. Design principles (normative — rules are judged against these)
@@ -36,12 +32,13 @@ separates them.
    than the `shot` directive this spec defines may be added, moved, or removed
    without changing any output. (Inertness is what makes provenance comments,
    append markers, and other tool conventions safe to edit mechanically.)
-5. **File format and semantics are expensive; code is cheap.** Grammar changes
-   cost human re-authoring. Rendering changes cost a rebuild. Bias the freeze
-   toward the file.
+5. **File format and semantics are expensive; code is cheap.** Grammar/format 
+   changes cost re-authoring. Rendering changes cost a rebuild. Carefully 
+   consider changes that affect backwards compatibility, use format versioning 
+   and support rendering of older formats.
 6. **Agent-first, human-readable.** Every construct must be machine-addressable
    without being machine-only: an agent must be able to seek, extract, lint,
-   and verify; Ryan must be able to edit the file at 11pm without a tool.
+   and verify; humans must be able to edit the file at 11pm without a tool.
 
 ---
 
@@ -105,10 +102,34 @@ title: "AI Everywhere, All At Once"   # REQUIRED (also the OKF title)
 theme: lecture            # REQUIRED; unknown/TBD -> lecture + one warning
 media: media              # OPTIONAL, default "media"
 timestamp: 2026-09-08T14:30:00-04:00  # OKF recommended — ISO 8601, last meaningful change
-session: "Talk with live demos"       # RECOMMENDED prose — what kind of session this is
 logline: "..."            # RECOMMENDED: one sentence, the thesis
 ---
 ```
+
+### Theme and media
+
+`theme:` selects the deck's visual identity — the theme layer
+(`themes/theme-<slug>.css`) that every view inlines. Two starter themes ship
+with the system:
+
+- `lecture` — the default. A reference room: lamp light in the dark. Warm
+  near-black stage, warm ink, brass accent, serif display; text glows over
+  media. Built for image-forward talks where the media is the light source.
+- `workshop` — a daylight room: the lights are on and the words matter.
+  Warm paper stage, ink text, olive-clay accent, sans-leaning UI. Built for
+  text-forward cards in a bright room.
+
+`theme:` is REQUIRED. Missing, unknown, or pending (`TBD`) values fall back
+to `lecture`; an unrecognised value warns once. A theme is a swap, never a
+patch — no look value lives outside the theme layer, and a deck's meaning is
+identical under any theme (§1 unfrozen list: theme token sets may change in
+any 1.x). The full token contract and character notes live in
+`docs/tokens.md`.
+
+`media:` names the deck's local media directory — home of `cards.yaml` and
+the deck's media files — default `media`. The frozen resolution order (§6)
+and the card path rule (§11) are written against that default name; the key
+exists so a deck may point the directory elsewhere.
 
 ### OKF conformance
 
@@ -147,11 +168,9 @@ characters outside `[a-z0-9]` collapsed to `-`. `L01-Opening` and
 
 ### Recommended, unenforced
 
-`date`, `venue`, `dur`, `bank` (the content bank the talk composes from),
-`status`, `description` (OKF), `tags` (OKF), `timestamp`, `session`,
-`logline`. `session:` is prose — "Talk with live demos" — a description of
-the session, never a machine field. Unknown keys pass through untouched and
-are never an error.
+`date`, `venue`, `dur`, `status`, `description` (OKF), `tags` (OKF),
+`timestamp`, `logline`. Unknown keys pass through untouched and are never an
+error.
 
 `logline:` exists so `animatic search` across a dozen decks returns something
 an author can scan. It is free to write and is the single highest-value
@@ -189,8 +208,18 @@ verified:                 # who confirmed the content against its sources
 
 ## 3. Screens — the unit of everything
 
+A **shot** is the directive; a **screen** is the output unit (one slide in
+the present view, one cue in cues.json). The two are not the same thing, and
+the mapping is not one-to-one: most shots open a screen, and a shot that
+carries only a role — a `role=` shot — attaches to the screen already open
+instead of opening one (§4). The deck's first screen, the **opening
+screen** — the title slide — has no shot at all: it is the prose before the
+first shot (tolerance rules below).
+
 1. A **screen** opens when a `<!-- shot ... -->` directive appears and closes
-   when the next shot or a movement boundary appears.
+   when the next shot or a movement boundary appears. The two exceptions are
+   stated above: the opening screen opens without a shot, and a `role=` shot
+   attaches rather than opening.
 2. One screen ⇒ one present-view section and one cue. Screen and cue counts
    are identical, always. The document view MAY omit screens that carry no
    document content (black beats); when it does, `nav.json` records the
@@ -205,15 +234,16 @@ verified:                 # who confirmed the content against its sources
    has no divider slides; to get one, put a `<!-- shot -->` before the header.
 5. Paragraphs attach to the screen whose shot precedes them. A screen may
    therefore have no VO (a "beat screen"); that is the mechanical reading and
-   is normative. See §12 open question (b).
+   is normative. No-VO is the default: a beat screen needs no marker, and a
+   paragraph always belongs to the screen open before it.
 
 ### Identity boundary — no sub-screen ids
 
 The screen is the smallest addressable unit. Nothing below it carries an id:
 role overlays, text blocks, VO paragraphs, and media objects are addressed
 positionally relative to the screen (cue ordinal, then position within the
-screen). Content that needs its own address is promoted to a unit or to its
-own screen — never given a sub-screen id.
+screen). Content that needs its own address is promoted to its own screen —
+never given a sub-screen id.
 
 ### Flag-only shots and tolerance rules (frozen)
 
@@ -225,8 +255,9 @@ exception to the token-position rule.
 The parser tolerates, without erroring, a small set of authoring shapes; each
 is frozen as written:
 
-- **Prose before the first shot** opens a shotless screen (a heading with no
-  preceding shot starts a screen where it stands).
+- **Prose before the first shot is the opening screen.** A heading with no
+  preceding shot starts a screen where it stands, before any shot exists; the
+  title slide is the prose that opens the deck.
 - **`---` horizontal rules are inert.** They may separate movements or
   screens; they never create or close anything.
 - **A shot that opens a screen with no content by EOF is dropped** with a
@@ -240,38 +271,26 @@ is frozen as written:
   line — frozen with the multi-line-shot construct fixture (check 27) so a
   lexer rewrite cannot silently drop it.
 
-### Beats and units
+### Units — a post-freeze additive (not in this grammar)
 
-Speech does not respect shot boundaries, so the file also carries an optional
-addressable layer:
+Speech does not respect shot boundaries, and an optional addressable layer
+above the screen is planned — but not in this grammar. A **unit** — several
+screens grouped under one stable id for addressing, discovery, and variant
+filtering — is a post-freeze additive (D6: ids belong on the shot, never on
+a standalone directive). It lands as an `id=` field on the shot that opens
+the unit's first screen, spans until the next unit's shot or a movement
+boundary, and feeds `nav.json` (§8). Until it lands:
 
-```markdown
-<!-- unit: bots-traffic tags=enclosure,bots variant=workshop -->
-<!-- shot: bots-traffic fit=contain dim=0.5 -->
-<!-- shot: stat -->
-57.5% of web traffic is bots, not people.
-```
+- the screen is the smallest addressable unit (identity boundary above; cue
+  ids §3.3);
+- no unit directive, unit id, unit tag, or unit marker exists — a comment
+  that looks like one is inert (§0.4);
+- remix granularity is the shot, not a span (§13).
 
-A **unit** runs from its marker to the next `<!-- unit:`, `## Movement`, or
-EOF. Fields:
-
-| Field | Axis | Job | Required |
-|---|---|---|---|
-| `bots-traffic` | address | stable id; extraction boundary; cross-reference target | yes, if the marker is present |
-| `tags=` | discovery | many-to-many, groups across decks | no |
-| `variant=` | filtering | which builds include this unit | no |
-
-- Units are **optional**. Unnamed screens stay addressable by cue ordinal.
-- Unit ids MUST be unique within a deck. Two units with the same id is an error.
-- A unit's meaning does not depend on what follows it (principle 3).
-- Tags use the existing flag tokenizer (`FLAG_RE`), so commas are the only new
-  surface. Tag vocabulary is **open** — no controlled list. See §10 for hygiene.
-- `variant=` filtering is a build-time concept. A build MUST emit a manifest of
-  included/excluded units so the deck's shape is visible before delivery.
-
-**Why not headings:** a heading inside a shot is on-screen card text; using
-H1–6 for units would make the same glyph mean two different things depending
-on position — the exact defect being eliminated in `fit` below.
+The unit additive is why headings are not reused as markers when it lands: a
+heading inside a shot is already on-screen card text, and the same glyph
+meaning two different things by position is the defect class this format
+eliminates.
 
 ---
 
@@ -672,7 +691,7 @@ archaeology. `media/style.md` — inherited defaults. Shared
 ```yaml
 # REQUIRED (builder reads; missing = error)
 slug: <unique>          # slugified form (§2); matches the shot slug it serves
-status: brief | to-find | have | prompting | candidate | shortlist | approved | rejected
+status: brief | to-find | file | url | prompting | candidate | shortlist | approved | rejected
 type: image | video | chart | composite | audio    # Tier B, additive
 
 # OPTIONAL, builder-consumed
@@ -697,12 +716,17 @@ path — §6 resolves by this rule.
 inferred. A card with no file at all renders a placeholder typed by its
 declared `type`.
 
-`status: have` means the file is already in hand — nothing to find and nothing
-to generate. Shared-library entries are `have`; a deck card becomes `have`
-when media is supplied rather than produced. `status: approved` asserts
-sign-off on the **output file**, not on the card. Resolution is by file
-presence, never by status: a card may be `approved` or `have` with no file —
-that renders a placeholder and is not an error.
+`status: file` means a local media file is in hand — buildable now, nothing
+to find and nothing to generate. Shared-library entries are `file`; a deck
+card becomes `file` when media is supplied rather than produced. `status:
+url` means a verified remote source is recorded but not yet fetched to a
+file: the deck renders a placeholder until the source is fetched (resolution
+order, §6). The split revises D3: the old `have` could not say whether the
+media was on disk or only located. `status: approved` asserts sign-off on
+the **output file**, not on the card. Resolution is by file presence, never
+by status: a card may be `approved`, `file`, or `url` with no file on disk —
+deleted, never fetched, or a `url` awaiting its fetch — and that renders a
+placeholder, not an error.
 
 `gen-log.md` is append-only; entries are never reordered, renumbered, or edited.
 Minimum entry: `## <ISO date> · <slug> · a<N>` with `intent`, `delta`,
@@ -716,38 +740,42 @@ that deck logs add on top of this minimum; the minimum here is the contract.
 
 ## 12. Open questions (human calls — not decided here)
 
-(a) **Is the closing credits line spoken?** L01's last screen is a promise to
-    the audience and is currently screen-only.
-(b) **Beat screens** — screens with no VO are common in the WIP corpus. If a
-    second deck lands near 30%, the "paragraphs belong to the preceding
-    screen" default is wrong and deserves either a flip or an explicit "VO
-    continues across this shot" marker. Decide on two data points, not one.
-(c) **Stat parentheticals on screen** — `(~$20.8 trillion.)`. Speaker sees it;
-    audience and handout don't. The handout probably should carry it; the slide
-    probably shouldn't. Splitting them weakens the parens rule.
-(d) **Unit marker word** — `unit:` vs `phrase:` (`beat:` is out: `(Beat.)`
-    already means pause).
-(e) **Duo object side** — object-right only is tested; book covers may read
+(a) **Duo object side** — object-right only is tested; book covers may read
     better object-left.
 
 Resolved in this draft and moved to normative text (2026-09-08): version
 field name → `format-version` + `content-version` (§1/§2); placeholder
 visibility → present ON, document OFF, `--show-placeholders` (§6/§9); third
-theme slot → deleted (`tokens.md`, D9). The letters were renumbered when the
-resolved items left this list.
+theme slot → deleted (`tokens.md`, D9).
+
+Resolved at the T12 read (2026-09-08), normative text updated in place:
+(a) closing credits line — the spoken closing thanks is ordinary VO prose
+placed before the credits shot; the credits *list* itself is never spoken.
+No new grammar form: §4 already carries the rule ("place it as VO before the
+credits shot"); (b) beat screens — no-VO stays the default and needs no
+marker; paragraphs always belong to the screen open before them (§3.5).
+Corpus re-measured on a second deck before any change to the default;
+(c) stat parentheticals — not a deliberate pattern; question deleted, the
+parens rule (§5) stands unsplit; (d) unit marker word — deleted: ids belong
+on the shot (`id=`), never on a standalone marker (D6), and units are a
+post-freeze additive (§3 Units). The single remaining question — duo object
+side — is renumbered to (a) above; the (a)–(d) letters in this paragraph
+name the questions as they stood before resolution.
 
 ---
 
 ## 13. Remix
 
-The remix unit is the **unit** (§3), falling back to the movement. Movements
-are usually too coarse: wanting the Titanic lifeboat beat does not mean
-wanting the whole movement.
+The remix unit is the **shot** — the screen its directive opens — falling
+back to the movement. (A remix *span* — several consecutive shots under one
+`id=` — is the post-freeze unit additive, §3 "Units"; remix granularity
+widens when it lands.) Movements are usually too coarse: wanting the Titanic
+lifeboat beat does not mean wanting the whole movement.
 
-Extraction carries: the shot slugs (which resolve per the destination deck) +
-the cards for those slugs + the media files or a library entry. A unit pasted
-without its cards renders placeholders **by design** and must still build —
-that is what makes remixing safe.
+Extraction carries: the shot's slug (which resolves per the destination
+deck) + its card + the media file or a library entry. A shot pasted without
+its card renders placeholders **by design** and must still build — that is
+what makes remixing safe.
 
 Movement ordinals are presentation order and are not preserved across talks;
 a pasted movement is renumbered by the author or agent.
@@ -758,6 +786,7 @@ a pasted movement is renumbered by the author or agent.
 
 | Version | Date | Change | Compat impact |
 |---|---|---|---|
+| 1.0 (draft) | 2026-09-08 | Spec hygiene from the T12 read: §0 header trimmed and principles 5/6 reframed (format versioning + rendering of older formats; "humans" replaces "Ryan"); §2 frontmatter drops `session` and `bank`, fleshes out `theme` (names the two starter themes — `lecture`/`workshop` — and what each is; missing/unknown/pending falls back to `lecture` with one warning) and `media` (the deck's local media dir, default `media`); §3 opens with the shot-vs-screen distinction (shot = directive, screen = output unit; a `role=` shot attaches to the current screen instead of opening one; the opening screen has no shot), renames "shotless screen" to **opening screen** (the title slide — prose before the first shot), resolves the beat-screen question inline at §3.5 (no-VO is the default, no marker), and deletes the unit-marker teaching — units become a post-freeze additive (`id=` on the shot, D6) and §3 describes no unit markers; §11 splits `have` into `file` + `url` (revises D3): `file` = local media in hand (buildable now), `url` = verified remote source still needing a fetch (placeholder until fetched); §12 open questions (a)–(d) resolved (credits: spoken thanks are ordinary VO before the credits shot, the credits list is never spoken — no new form; beat screens: default kept; stat parentheticals: not a pattern, deleted; unit marker word: moot under D6) and the survivor renumbered to (a); §13's remix unit is the shot, with the `id=` span deferred to the additive | none — no corpus deck changes meaning: roles-demo and L01 frontmatter drop the removed keys (`format:` — the pre-T04 name of the `session` prose slot — and L01's `bank:`); unknown keys pass through; media cards still say `have` until the media statuses migrate to `file`/`url` (code + library sweep follow in a later ticket) |
 | 1.0 (draft) | 2026-09-08 | Handout citation list (receipt emission, closes the T06 gap): the document view ends with a **Sources** list rendering every referenced `sources:` registry entry in first-appearance order, and cues.json carries the same payload as `deck.sources` — the §5 promise ("the handout renders a citation list") becomes literally true in code. §5 names the emission shape; §2 stops claiming the builder never reads `sources:` (it reads referenced entries only; `generated:`/`verified:` are still never read); §8 pins `deck.sources` on the cues.json row. Registry values are plain text, escaped, never markdown; a referenced id with no registry entry stays out of the list until its parse warning (check 28, T08) lands | none for decks without receipts — roles-demo's structure is byte-identical outside the inlined stylesheet and its cues.json merely gains an empty `deck.sources` (CSS is inlined into every deck at build, so the new .sources rules travel into all HTML); L01 additionally gains the Sources section in the document view and 15 `deck.sources` entries — no cue, script, screen, or present-view change |
 | 1.0 (draft) | 2026-09-08 | Warning line numbers + multi-line shot freeze (T07): `lineno` is threaded into `_parse_shot` at both lexer call sites, so every warning names its source line — no warning text contains "line 0" (check 26, §10); §3 freezes "a shot directive MAY span multiple lines; interior whitespace is insignificant" with the multi-line-shot construct fixture (check 27) | none — single-line directives (the whole corpus) parse identically; the change makes the no-line-0 invariant structurally true at parse time rather than patched in the assembler |
 | 1.0 (draft) | 2026-09-08 | Parser edge cases (T06): §5 states parentheticals do not nest — a nested `(` warns (check 23); §4 pins attribution to `~ ` on its own paragraph directly under the quote — same-line `> q ~ Name` is unsupported, the deleted `Source: ` shape is not consumed, and an attribution-shaped paragraph anywhere else is spoken with a warning (check 24); §4 lists exactly what a credits screen consumes (paragraph, list, heading — a quote is not consumed and never satisfies the credits role, so a would-be quote payload fires the never-consumed warning); footnote refs `[^id]` are stripped from every text block at parse and each referenced id is collected for the handout citation list, registry definitions staying inert metadata | none — warnings and clarifications; neither corpus file uses any warned shape; L01's `[^id]` markers leave scripts and screen text (the T03-promised strip lands) with screen/cue counts unchanged |

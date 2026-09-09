@@ -3,7 +3,6 @@ slug: roles-demo
 title: "Animatic: style specimen"
 date: 2026-09-05
 venue: Internal style test
-format: Demo deck
 dur: ~3 min
 theme: workshop
 media: media
