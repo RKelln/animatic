@@ -25,13 +25,13 @@ Opening voice on a shotless title card. The whole river is speech.[^prince-2026]
 
 The first movement screen carries media, a heading, and voice.[^spartoro-2026]
 
-<!-- shot: river-one +stat -->
+<!-- shot: river-one role=stat -->
 
 68 percent of everything.
 
 The stat overlay rides the media; its payload is read aloud.
 
-<!-- shot: river-one piece +lower -->
+<!-- shot: river-one layout=piece role=lower -->
 
 Experimance fieldwork, Toronto.
 
@@ -52,7 +52,7 @@ Quote voice follows; the attribution hugs the quote in both views.
 
 Hero text scales with the slide; the card carries no media.
 
-<!-- shot: duo-one -->
+<!-- shot: duo-one layout=duo -->
 
 The duo layout frames the object beside the words.
 

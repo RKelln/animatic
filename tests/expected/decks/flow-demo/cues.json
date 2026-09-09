@@ -115,7 +115,9 @@
         {
           "slug": "river-one",
           "role": "stat",
-          "flags": {}
+          "flags": {
+            "role": "stat"
+          }
         }
       ],
       "media": {
@@ -151,7 +153,8 @@
           "slug": "river-one",
           "role": "lower",
           "flags": {
-            "piece": ""
+            "layout": "piece",
+            "role": "lower"
           }
         }
       ],
@@ -271,7 +274,9 @@
         {
           "slug": "duo-one",
           "role": null,
-          "flags": {}
+          "flags": {
+            "layout": "duo"
+          }
         }
       ],
       "media": {

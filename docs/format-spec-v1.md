@@ -349,28 +349,23 @@ role.  A credits screen whose would-be payload is a quote fires the
 never-consumed warning (§10) instead of silently absorbing the quote into
 the roll.
 
-### Overlay merge — `+<role>` is the only form
+### Roles as flags (Tier A — config vocabulary in `roles.yaml`)
 
-A role is attached to a screen by writing `+<role>` on the screen's shot:
+Roles are a `role=<name>` flag backed by `roles.yaml` (shared default +
+per-deck override). The syntax is frozen (`stat`, `lower`, `credits`, `black`);
+the vocabulary grows via yaml, not the grammar. The `+<role>` overlay syntax
+is removed: use `role=` on the screen's own shot (attaches to that screen) or
+as a bare role shot (`<!-- shot: stat -->`, opens its own screen). The payload
+paragraph consumption rules are unchanged.
 
 ```markdown
-<!-- shot: river-personhood +credits -->
-<!-- shot: letters dim=0.5 +lower -->
+<!-- shot: river-personhood role=credits -->
+<!-- shot: letters dim=0.5 role=lower -->
 ```
 
-`+<role>` attaches the role unconditionally; the paragraph that follows the
-shot is the role's payload.
-
-There is no implicit merge. A bare role shot (`<!-- shot: credits -->`) always
-opens its own screen — a standalone stat, lower, or credits screen — and a
-bare role shot that directly follows another shot (the would-be implicit
-merge) is a warning with a did-you-mean hint naming `+<role>`. The
-merge-by-omission form is removed, not deprecated.
-
-**One overlay per role per screen.** A screen may carry at most one `+stat`,
-one `+lower`, one `+credits`. A second `+<role>` of the same role on the same
-screen is a warning: rendering is tested only to one overlay per role, and an
-unbounded stack is a slide trying to be three things.
+**One role per screen.** A second `role=` of the same value on one screen
+warns; an unknown value warns against the effective yaml (determined from
+deck `deck/roles.yaml` → shared `roles.yaml`), never fails.
 
 ---
 
@@ -493,17 +488,33 @@ approved: media/<slug>/attempts/<slug>-a2.mp4
 `approved:` outranks the attempts heuristic. Deleting or renaming attempt files
 is a last resort — it damages the archaeology.
 
+### Two-tier flag rule (§7 redesign, 2026-09-09)
+
+Top-level flat namespace (the per-shot workhorses): `fit`, `kb`, `dim`,
+`text`, `layout`. Everything else is grouped under one of these flags or
+moved into config (`roles.yaml`, `layouts.yaml`). Promotion of a token to
+top-level is an explicit spec edit — the §5 Tier-B registry pattern — never
+an implicit promotion.
+
+The `layout=` flag (`piece` | `duo`) is backed by `layouts.yaml`; `piece`/`duo`
+were demoted out of the flat namespace (they collide with nothing else, but
+keeping vocabulary in yaml makes it additively growable). The documented
+function-call param form — `layout=duo(side=..., object=...)` — is noted in
+`docs/engine-decision.md` as the documented extension path (NOT frozen; no
+param parser is built in this redesign). If a param is ever needed, it is
+`side=` / `object=`, never `text=` (collides with the `text=light|dark` color
+flag).
+
 ---
 
-## 7. Flags (Tier B — additive-only)
+## 7. Flags (Tier B — additive-only, config-layered)
 
 | Flag | Values | Meaning |
 |---|---|---|
 | `kb` | `in` \| `out` | slow drift of the media layer inside a static lens. Opposite starting phases, not speeds. Duration/amplitude are theme business and are NOT guaranteed across versions. Ignored on video (info note). Disabled under reduced-motion. |
 | `dim` | `0`–`1` | solid `--stage-dim` scrim at that opacity |
 | `fit` | `cover` \| `contain` \| `hero` | see below |
-| `piece` | — | media floats as a framed object (border + shadow on the image itself, never a container box) |
-| `duo` | — \| `left` | object + text layout |
+|| `layout` | `piece` \| `duo` | config-driven layout (`layout=piece` / `layout=duo`); backed by `layouts.yaml`; replaces the flat `piece`/`duo` flags (§7 demotion). `duo` implies `piece` (same layering). `layout=` never collides with `text=` (color flag). |
 | `text` | `light` \| `dark` | per-screen text treatment; overrides theme default |
 
 ### `fit` — explicit values only
@@ -530,10 +541,9 @@ legitimately look different.
 
 | Combination | Behaviour |
 |---|---|
-| `piece` + `dim` | `dim` is ignored on a piece — a full-zone scrim behind a framed object would paint a box around it. Info note. |
-| `duo` (any value) | implies `piece`: the media renders as a framed object on the object side even when `piece` is not written. |
-| `kb` + `piece` | drift is not applied — the camera lens wraps full-bleed media only; a framed object has no lens. Info note. |
-| slide-level flags on a role shot | slide-level flags (`fit`, `duo`, `text=`) are read from the screen's FIRST shot only; the same flags on a merged `+<role>` shot are ignored. Info note. |
+|| `layout=piece` + `dim` | `dim` is ignored on `layout=piece` — same layering reason (full-zone scrim would paint a box around the framed object). Info note. |
+|| `kb` + `layout=piece` | drift is not applied — camera lens wraps full-bleed media only. Info note. |
+| slide-level flags (`fit`, `layout=`, `text=`) on a role flag | read from the screen's FIRST shot; same flags on a `role=` shot are read but never duplicated. Info note. |
 
 Media flags (`kb`, `dim`, `fit`) are read from the screen's media shot; on
 every ordinary screen that is also the first shot, so the two reads agree.

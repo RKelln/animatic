@@ -24,7 +24,9 @@
         {
           "slug": "sample-art",
           "role": "stat",
-          "flags": {}
+          "flags": {
+            "role": "stat"
+          }
         }
       ],
       "media": {
@@ -46,7 +48,7 @@
           "text": "68 percent of everything."
         }
       ],
-      "script": "68 percent of everything.\n\nThe stat overlay rides the media shot; its payload paragraph is scripted.",
+      "script": "68 percent of everything.\n\nThe stat flag attaches to the media screen; its payload paragraph is scripted.",
       "stage": null
     },
     {
@@ -57,28 +59,55 @@
       "title": null,
       "shots": [
         {
-          "slug": "sample-art",
+          "slug": "river",
           "role": null,
-          "flags": {}
-        },
-        {
-          "slug": null,
-          "role": "lower",
           "flags": {}
         }
       ],
       "media": {
-        "slug": "sample-art",
-        "type": "image",
-        "status": "brief",
+        "slug": "river",
+        "type": "unknown",
+        "status": "missing",
         "found": false,
         "file": null,
         "source": "none",
         "alt": "",
-        "credit": "Ryan Kelln (fixture)",
-        "licence": "CC BY-SA",
-        "note": "pool placeholder for construct fixtures",
-        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "no card for 'river' in ~/Documents/art/animatic/tests/fixtures/constructs/media/cards.yaml; if 'river' was meant as a role or flag, it is neither; no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "",
+      "stage": null
+    },
+    {
+      "id": "overlay-merge-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "river",
+          "role": "lower",
+          "flags": {
+            "role": "lower"
+          }
+        }
+      ],
+      "media": {
+        "slug": "river",
+        "type": "unknown",
+        "status": "missing",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "no card for 'river' in ~/Documents/art/animatic/tests/fixtures/constructs/media/cards.yaml; if 'river' was meant as a role or flag, it is neither; no file under deck media dir; not in shared library"
       },
       "screen_text": [
         {
@@ -86,9 +115,11 @@
           "text": "The river, Toronto."
         }
       ],
-      "script": "A plus-only directive directly after a shot merges onto that empty screen without a warning, and its paragraph becomes the lower payload.",
+      "script": "A role= flag on the second shot attaches to the screen it names; payload follows.",
       "stage": null
     }
   ],
-  "warnings": []
+  "warnings": [
+    "line 8: bare 'lower' shot directly follows another shot with no content between; implicit merge is removed — write +lower on the media shot instead (e.g. '<!-- shot: <slug> +lower -->'); this shot opens its own screen"
+  ]
 }

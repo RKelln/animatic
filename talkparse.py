@@ -60,11 +60,17 @@ from typing import Optional
 import yaml
 
 SHOT_RE = re.compile(r"^\s*<!--\s*shot(?::\s*(.*?))?\s*-->\s*$")
+# Role vocabulary (Tier A frozen, config-driven via roles.yaml).
+# The yaml drives the vocabulary; this set is the frozen token set the
+# tokenizer recognizes as `role=<name>` (replaces the old +overlay syntax).
 ROLES = ("stat", "lower", "credits")
-BLACK_ROLE = "black"  # deliberate black beat: full-stage silence, no payload
-# Known flags (spec §7 Tier B table).  Unit fields (id/tags/variant) are a
-# later additive (T13); today every known token is one of these.
-KNOWN_FLAGS = ("kb", "dim", "fit", "piece", "duo", "text")
+BLACK_ROLE = "black"
+# Config-driven vocabulary loaded from roles.yaml + per-deck override.
+# Fallback when no yaml present: the built-in roles above.
+# Layout vocabulary (Tier B, config-driven via layouts.yaml).
+LAYOUTS = ("piece", "duo")
+# Known flags (spec §7 Tier B table — per-shot flags; role/layout now config flags).
+KNOWN_FLAGS = ("kb", "dim", "fit", "text")
 FIT_VALUES = ("cover", "contain", "hero")
 # Movement recognition is case-insensitive (the frozen rule is the *shape*,
 # `Movement <integer> [separator] [title]`, not the typography — report §6.1).
@@ -80,6 +86,55 @@ HR_RE = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
 PAREN_SPLIT_RE = re.compile(r"\(([^()]*)\)|([^()]+)")
 FOOTNOTE_REF_RE = re.compile(r"\[\^([a-z0-9][a-z0-9-]*)\](?!:)")
 FLAG_RE = re.compile(r"([A-Za-z][A-Za-z0-9_\-]*)(?:=([^\s]+))?")
+
+# ---------------------------------------------------------------------------
+# Config-driven vocabulary loaders (roles.yaml / layouts.yaml)
+# ---------------------------------------------------------------------------
+
+
+def _load_roles_yaml(path):
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        roles = data.get("roles", {})
+        if isinstance(roles, dict):
+            return set(str(k) for k in roles)
+        if isinstance(roles, list):
+            return set(str(item.get("name", "")) for item in roles if isinstance(item, dict))
+    except Exception:
+        pass
+    return set()
+
+
+def _load_layouts_yaml(path):
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        layouts = data.get("layouts", {})
+        if isinstance(layouts, dict):
+            return set(str(k) for k in layouts)
+        if isinstance(layouts, list):
+            return set(str(item.get("name", "")) for item in layouts if isinstance(item, dict))
+    except Exception:
+        pass
+    return set()
+
+
+def load_vocab(deck_path=None):
+    from pathlib import Path
+    base = Path(__file__).resolve().parent
+    deck_path = Path(str(deck_path) if deck_path else base / "deck")
+    roles = set()
+    for p in [deck_path / "roles.yaml", base / "roles.yaml"]:
+        if p.exists():
+            roles |= _load_roles_yaml(p)
+    roles = roles or set(ROLES)
+    layouts = set()
+    for p in [deck_path / "layouts.yaml", base / "layouts.yaml"]:
+        if p.exists():
+            layouts |= _load_layouts_yaml(p)
+    layouts = layouts or set(LAYOUTS)
+    return tuple(sorted(roles)), tuple(sorted(layouts))
+
+ROLES_DYNAMIC, LAYOUTS_DYNAMIC = load_vocab()
 
 
 # ---------------------------------------------------------------------------
@@ -441,28 +496,38 @@ def _lex_blocks(lines: list, source: str) -> list:
     return blocks
 
 
-def _apply_overlay(shot: Shot, token: str) -> None:
-    """Apply a `+<role>` overlay token (spec §4 Tier A roles)."""
-    rname = token[1:]
-    if rname not in ROLES:
+def _apply_role_flag(shot: Shot, value: str, token: str) -> None:
+    """Apply a `role=<name>` flag token (replaces the old +<role> overlay)."""
+    vocab = set(ROLES_DYNAMIC)
+    if value not in vocab:
         shot.warnings.append(
-            f"check 25: {token!r} is not an overlay role; overlays are "
-            f"+stat, +lower, +credits — token ignored"
+            f"check 25: {token!r} names unknown role {value!r}; "
+            f"known roles: {', '.join(ROLES_DYNAMIC)} — token ignored"
         )
         return
+    # Role is now a config flag; it drives payload consumption (pending_role)
+    # but is stored separately from flags so render can read it from yaml.
+    if shot.flags.get("role") is not None and shot.flags.get("role") != value:
+        shot.warnings.append(
+            f"check 25: duplicate role flag on one shot — {token!r} ignored"
+        )
+        return
+    shot.flags["role"] = value
+    # Set role attribute for backward compatibility in screen assembler
     if shot.role is None:
-        shot.role = rname
-        shot.plus = True
-    elif shot.role == rname and shot.plus:
+        shot.role = value
+
+
+def _apply_layout_flag(shot: Shot, value: str, token: str) -> None:
+    """Apply a `layout=<name>` flag token (replaces flat piece/duo)."""
+    vocab = set(LAYOUTS_DYNAMIC)
+    if value not in vocab:
         shot.warnings.append(
-            f"check 25: duplicate +{rname} on one shot — a role attaches "
-            f"once; token ignored"
+            f"check 25: {token!r} names unknown layout {value!r}; "
+            f"known layouts: {', '.join(LAYOUTS_DYNAMIC)} — token ignored"
         )
-    else:
-        shot.warnings.append(
-            f"check 25: shot already carries role {shot.role!r}; {token!r} "
-            f"ignored (one overlay role per shot)"
-        )
+        return
+    shot.flags["layout"] = value
 
 
 def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
@@ -516,11 +581,17 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
     tokens = spec.split()
     first = tokens[0]
 
-    # --- first token: role | +<role> overlay | known flag | slug ----------
+    # --- first token: slug | role=<name> flag | layout=<name> | black | known flag ----------
     if first in ROLES or first == BLACK_ROLE:
+        # Bare role shot (e.g. `<!-- shot: stat -->`) — opens its own screen.
+        # The `role=` syntax is preferred; bare role preserved for backward compat.
         shot.role = first
-    elif first.startswith("+"):
-        _apply_overlay(shot, first)
+    elif first.startswith("role="):
+        value = first[5:]
+        _apply_role_flag(shot, value, first)
+    elif first.startswith("layout="):
+        value = first[7:]
+        _apply_layout_flag(shot, value, first)
     else:
         fm = FLAG_RE.match(first)
         if fm and fm.group(1) in KNOWN_FLAGS:
@@ -538,10 +609,15 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
             # as a role or flag, it is neither" hint (§6.8, mediaresolve.py).
             shot.slug = first
 
-    # --- remaining tokens: flags and +<role> overlays ----------------------
+    # --- remaining tokens: flags (role=/layout=/kb=/dim=/fit=/text=) -------
     for tok in tokens[1:]:
-        if tok.startswith("+"):
-            _apply_overlay(shot, tok)
+        if tok.startswith("role="):
+            value = tok[5:]
+            _apply_role_flag(shot, value, tok)
+            continue
+        if tok.startswith("layout="):
+            value = tok[7:]
+            _apply_layout_flag(shot, value, tok)
             continue
         fm = FLAG_RE.match(tok)
         if not fm:
@@ -550,7 +626,16 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
                 f"pattern; token ignored"
             )
             continue
-        _apply_flag(shot, fm.group(1), fm.group(2) or "", tok)
+        name = fm.group(1)
+        value = fm.group(2) or ""
+        # `piece` and `duo` are no longer flat flags; they come via `layout=`.
+        if name in LAYOUTS:
+            shot.warnings.append(
+                f"check 25: {name!r} is no longer a flat flag — use "
+                f"layout={name!r} (spec §7 redesign) — token ignored"
+            )
+            continue
+        _apply_flag(shot, name, value, tok)
     return shot
 
 

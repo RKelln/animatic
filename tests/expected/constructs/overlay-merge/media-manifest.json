@@ -18,6 +18,23 @@
         "note": "pool placeholder for construct fixtures",
         "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
       }
+    },
+    {
+      "slug": "river",
+      "first_cue": "overlay-merge-002",
+      "media": {
+        "slug": "river",
+        "type": "unknown",
+        "status": "missing",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "no card for 'river' in ~/Documents/art/animatic/tests/fixtures/constructs/media/cards.yaml; if 'river' was meant as a role or flag, it is neither; no file under deck media dir; not in shared library"
+      }
     }
   ],
   "unreferenced_cards": [

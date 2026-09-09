@@ -5,17 +5,17 @@ content-version: 1
 slug: overlay-merge
 title: "Overlay merge forms"
 theme: workshop
-status: "construct fixture (spec §4 overlay merge) - the canonical slug +role form and the plus-only merge onto an adjacent empty shot; one overlay per role per screen."
+status: "construct fixture (spec §4 role flag) - the canonical slug role= form and the role= flag attaches to the screen; one role per screen (redesigned 2026-09-09)."
 ---
-<!-- shot: sample-art +stat -->
+<!-- shot: sample-art role=stat -->
 
 68 percent of everything.
 
-The stat overlay rides the media shot; its payload paragraph is scripted.
+The stat flag attaches to the media screen; its payload paragraph is scripted.
 
-<!-- shot: sample-art -->
-<!-- shot: +lower -->
+<!-- shot: river -->
+<!-- shot: river role=lower -->
 
 The river, Toronto.
 
-A plus-only directive directly after a shot merges onto that empty screen without a warning, and its paragraph becomes the lower payload.
+A role= flag on the second shot attaches to the screen it names; payload follows.

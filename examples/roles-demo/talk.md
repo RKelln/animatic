@@ -38,12 +38,12 @@ The spoken words run underneath every screen. This paragraph is VO: it will neve
 
 (Fit: single-word and two-word statements scale up as big as the slide allows. Centered in both themes.)
 
-<!-- shot: roundabout kb=in dim=0.45 text=light +stat -->
+<!-- shot: roundabout kb=in dim=0.45 text=light role=stat -->
 68% of what you read, you skim to the end.
 
 Numbers get a screen of their own, on paper or on the ground: same type, same size. This slide is the stat-over-image test.
 
-<!-- shot: roundabout piece +lower -->
+<!-- shot: roundabout layout=piece role=lower -->
 Experimance fieldwork, Toronto.
 
 (Visual: the Experimance roundabout from above. Bright geometry, busy colour.)
@@ -55,7 +55,7 @@ A lower third names the image while the voice keeps moving. Transient: it leaves
 
 The dim scrim buys the words room over bright ground. This heading is the hero test: light hero words over the brightest ground in the folder.
 
-<!-- shot: ink-vortices kb=in +credits -->
+<!-- shot: ink-vortices kb=in role=credits -->
 Ink study, generated. Placeholder for the closing image.
 
 A beat screen: media and an attribution line, no words spoken.
@@ -63,7 +63,7 @@ A beat screen: media and an attribution line, no words spoken.
 <!-- shot: seaside fit=contain -->
 The seaside frames bright and busy. The voice does the work; the image holds the mood.
 
-<!-- shot: roundabout duo -->
+<!-- shot: roundabout layout=duo -->
 > A quote can share the stage with an object: a book cover, a portrait, a thing worth showing. The object holds the frame; the words hold the room.
 ~ The specimen voice, 2026
 

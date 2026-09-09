@@ -266,20 +266,27 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
 
 
 def media_zone_html(ref: MediaRef, flags: dict) -> str:
-    """Full-bleed media zone: media element + kb class + fit/dim handling."""
+    """Full-bleed media zone: media element + kb class + fit/dim + role/layout handling."""
     fit = " fit" if "fit" in flags else ""
-    piece = " piece" if "piece" in flags else ""
+    # Layout flags come from `layout=` (replaces flat piece/duo); read from flags.
+    layout_name = flags.get("layout")
+    piece = " piece" if layout_name == "piece" else ""
     duo = flags.get("duo")
+    # For backward compat, if `layout=duo` or `layout=piece` set directly:
+    if layout_name == "duo":
+        duo = True  # treat as presence
     duo_cls = ""
-    if duo is not None and not piece:
-        piece = " piece"  # duo implies a framed object (cover, portrait)
-    if duo == "left":
+    if layout_name == "duo" or (layout_name == "piece" and not piece):
+        # duo implies piece (same layering rule as before)
+        if not piece:
+            piece = " piece"
+    if layout_name == "duo" or (isinstance(duo, str) and duo == "left"):
         duo_cls = " duo-left"
-    elif duo is not None:
+    elif layout_name == "duo" or (duo is not None and not isinstance(duo, bool)):
         duo_cls = " duo"
-    # a piece floats with its own shadow; a dim scrim would paint a box
-    # over the whole zone behind it. Pieces never take dim.
-    media_flags = {k: v for k, v in flags.items() if k != "dim"} if piece else flags
+    # Role-driven rendering: stat payloads render as screen objects; lower/credits
+    # as overlays. The yaml-backed vocabulary keeps this deterministic.
+    media_flags = {k: v for k, v in flags.items() if k != "dim" and k not in ("layout",)} if piece else flags
     kbcls = f" kb-{flags['kb']}" if flags.get("kb") in ("in", "out") else ""
     media = media_html(ref, media_flags, css_class=f"slide-media{kbcls}")
     if kbcls and not piece:
@@ -547,14 +554,17 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # full-bleed media when the screen carries text (a media-only `fit`
         # keeps its other meaning: letterbox-contain the image)
         cls += " text-fit"
-    if sflags.get("duo") is not None and screen.media_shot is not None:
+    layout_name = sflags.get("layout")
+    if layout_name == "duo" and screen.media_shot is not None:
         cls += " duo"
     # per-slide text mode (shot flag `text=light|dark`): the author picks the
     # text colour for the ground — light glyphs for dark imagery, ink for
     # bright. Defaults to the room's identity colour (theme handles it).
     if sflags.get("text") in ("light", "dark"):
         cls += f" text-{sflags['text']}"
-    if ref is not None and flags.get("duo") is None and "piece" not in flags:
+    layout_name = flags.get("layout")
+    piece_active = (layout_name == "piece") or ("piece" in flags)
+    if ref is not None and flags.get("layout") is None and "piece" not in flags:
         # full-bleed background media under screen text (image or video):
         # the common case; themes style the text zone for this ground
         cls += " over-media"

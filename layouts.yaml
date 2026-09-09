@@ -1,0 +1,4 @@
+# Shared default layout vocabulary (§7)
+layouts:
+  piece: {description: "media floats as framed object (border + shadow on image)"}
+  duo: {description: "object + text layout; implies piece"}
