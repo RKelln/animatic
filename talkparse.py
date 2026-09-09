@@ -1,7 +1,6 @@
 """talkparse.py — talkfile lexer + screen assembler.
 
-Grammar source: docs/format-spec-v1.md (talkfile v1.0 draft — the normative
-spec in this repo; docs/format-spec.md is the retired v0.5 stub).
+Grammar source: docs/format-spec-v1.md (the normative spec in this repo).
 Encoded parse-model decisions (rationale in docs/engine-decision.md):
 
 - A SCREEN (present-view slide, document-view step, cues.json cue) is opened
@@ -11,14 +10,13 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   the paragraph appears in the file, i.e. the screen opened by the shot that
   precedes them.  Text spoken while a screen is up sits between this screen's
   shot and the next screen's shot in file order.
-- A paragraph immediately following a role shot — bare (`<!-- shot: stat -->`)
-  or attached via `+<role>` (`<!-- shot: garden +credits -->`) — is CONSUMED
-  as that role's on-screen payload: screen text, never VO.
-- Roles attach to a screen ONLY through `+<role>`: written on the screen's
-  own shot (canonical form), or as a `+<role>`-only directive directly after
-  a shot (which attaches to that shot's screen).  There is NO implicit merge:
+- A paragraph immediately following a role shot (`<!-- shot: role=stat -->`)
+  is CONSUMED as that role's on-screen payload: screen text, never VO.
+- Roles attach to a screen through the `role=` flag, written on the screen's
+  own shot (`<!-- shot: <slug> role=<role> -->`).  There is NO implicit merge:
   a bare role shot always opens its own screen, and one that directly follows
-  another shot warns with a `+<role>` did-you-mean hint (spec §4).
+  another shot warns with a did-you-mean hint to write `role=` on the media
+  shot instead (spec §4).
 - A bare credits shot opens a credits SCREEN (end roll) that consumes every
   following paragraph, list item, and heading as screen content until the
   next shot or movement boundary.
@@ -40,8 +38,8 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   FATAL error (register check 22) — left silent, it becomes an on-screen
   heading and merges screens.
 - No token in a shot comment is silently dropped: a token that is neither a
-  slug, a role, a `+<role>` overlay, nor a known flag WARNS (register check
-  25).  An unknown FIRST token stays a slug (token-position rule, §1); its
+  slug, a role, a layout, nor a known flag WARNS (register check 25).  An
+  unknown FIRST token stays a slug (token-position rule, §1); its
   unresolved placeholder reason carries the "meant as a role or flag?" hint.
 - Card-capable blocks after a shot (heading / quote / list) are on-screen
   objects.  The first heading of a screen is its title.
@@ -204,11 +202,7 @@ class Shot:
             the remaining tokens.
     role    the role this shot brings to its screen: 'stat' | 'lower' |
             'credits' (Tier A) or BLACK_ROLE for a black beat.  Set from a
-            `+<role>` overlay token or a bare role/black first token.
-    plus    True when the role was written as `+<role>` (overlay syntax).
-            slug + role + plus is the canonical overlay form; role + plus
-            with no slug is an overlay-only directive that attaches to the
-            previous shot's screen.
+            `role=<name>` flag token or a bare role/black first token.
     flags   {'kb': 'in', 'dim': '0.35', ...} — known flags only (§7).
     warnings  token-level notes (register check 25): no token in a shot
             comment is silently dropped.
@@ -216,7 +210,6 @@ class Shot:
 
     slug: Optional[str] = None
     role: Optional[str] = None       # 'stat' | 'lower' | 'credits' | 'black' | None
-    plus: bool = False               # role attached via +<role> overlay syntax
     flags: dict = field(default_factory=dict)   # {'kb': 'in', 'dim': '0.35', ...}
     raw: str = ""
     line: int = 0
@@ -228,8 +221,8 @@ class Shot:
 
     @property
     def is_media(self) -> bool:
-        """A slug always resolves as media — even on a `+<role>` overlay
-        shot, which carries slug AND role (spec §4 canonical overlay)."""
+        """A slug always resolves as media — even on a shot that also carries
+        a role (spec §4 canonical overlay)."""
         return self.slug is not None
 
 
@@ -261,8 +254,8 @@ class Screen:
         """True when the screen carries spoken text or an on-screen object.
 
         Stage-only paragraphs ((Visual: ...), (Beat.), (Flesh out: ...)) become
-        empty vo blocks; they must not block a `+<role>`-only overlay
-        directive from attaching to the screen they describe.
+        empty vo blocks; they must not count as content when deciding whether
+        a following shot is consecutive (no content between).
         """
         for b in self.blocks:
             if b.kind != "vo" or b.text.strip():
@@ -271,9 +264,8 @@ class Screen:
 
     @property
     def media_shot(self) -> Optional[Shot]:
-        """First media slug shot on this screen.  A canonical `slug +<role>`
-        overlay shot carries the slug, so it IS the media shot; a merged
-        `+<role>`-only directive (no slug) appends after it."""
+        """First media slug shot on this screen.  A shot carrying both a slug
+        and a role is still the media shot."""
         for s in self.shots:
             if s.is_media:
                 return s
@@ -549,7 +541,7 @@ def _lex_blocks(lines: list, source: str) -> list:
 
 
 def _apply_role_flag(shot: Shot, value: str, token: str) -> None:
-    """Apply a `role=<name>` flag token (replaces the old +<role> overlay)."""
+    """Apply a `role=<name>` flag token."""
     vocab = set(ROLES_DYNAMIC)
     if value not in vocab:
         shot.warnings.append(
@@ -619,11 +611,11 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
     the line where it closes.
 
     Token vocabulary (spec §3/§4/§7): the FIRST token is the shot's slug, its
-    role (stat/lower/credits/black), a `+<role>` overlay, or — for flag-only
-    shots — a known flag.  Later tokens are flags (`name=value`, or bare
-    `piece`/`duo`) or `+<role>` overlays.  An unknown first token stays a slug
-    (token-position rule, §1).  Every other unrecognized token WARNS (register
-    check 25): nothing in a shot comment is silently dropped.
+    role (stat/lower/credits/black), a `role=<name>` flag, a `layout=<name>`
+    flag, or — for flag-only shots — a known flag.  Later tokens are flags
+    (`name=value`).  An unknown first token stays a slug (token-position rule,
+    §1).  Every other unrecognized token WARNS (register check 25): nothing in
+    a shot comment is silently dropped.
     """
     m = SHOT_RE.match(raw)
     spec = (m.group(1) or "").strip() if m else ""
@@ -731,7 +723,6 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 talk.warnings.append(f"line {shot.line}: {w}")
             role = shot.role
             is_role = role in ROLES_DYNAMIC  # any vocab role; payload becomes a role block
-            plus_only = shot.plus and shot.slug is None   # `+<role>`-only directive
 
             # A role's payload paragraph never crosses a shot boundary: if a
             # previous role shot is still waiting for its paragraph, it lost
@@ -745,33 +736,13 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 )
                 pending_role = None
 
-            if plus_only:
-                if cur is not None and cur.shots and not cur.has_vo_or_screen_text():
-                    # `+<role>`-only directive directly after a shot: the
-                    # overlay attaches to that shot's screen (spec §3 — the
-                    # one consecutive case that merges, so it does not warn).
-                    cur.shots.append(shot)
-                    credits_open = False
-                else:
-                    talk.warnings.append(
-                        f"line {shot.line}: '+{role}' overlay directive "
-                        f"follows no adjacent shot to attach to; it opens "
-                        f"its own screen"
-                    )
-                    new_screen(shot.line).shots.append(shot)
-                    credits_open = _canonical_role_kind(role) == "credits"
-                if is_role:
-                    pending_role = role
-                    role_line = shot.line
-                continue
-
-            if is_role and not shot.plus:
-                # Bare role shot — always opens its own screen.  Implicit
-                # merge is removed (§4); directly following another shot is
+            if is_role:
+                # A role shot always opens its own screen.  Implicit merge is
+                # removed (§4); a role shot directly following another shot is
                 # the would-be merge and gets the did-you-mean hint.
                 if cur is not None and cur.shots and not cur.has_vo_or_screen_text():
                     talk.warnings.append(
-                        f"line {shot.line}: bare '{role}' shot directly "
+                        f"line {shot.line}: role '{role}' shot directly "
                         f"follows another shot with no content between; "
                         f"implicit merge is removed — write role={role} on the "
                         f"media shot instead (e.g. '<!-- shot: <slug> "
@@ -784,14 +755,13 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 continue
 
             # Ordinary screen opener: media shot, flag-only shot, black beat,
-            # or the canonical `slug +<role>` overlay (role written on the
+            # or a media shot that also carries a role (role written on the
             # screen's own shot).
             if cur is not None and cur.shots and not cur.has_content():
                 talk.warnings.append(
                     f"line {shot.line}: consecutive shot directives with no "
-                    f"content between (the second is not a +<role> overlay); "
-                    f"the second opens a new screen and the first stays an "
-                    f"empty beat"
+                    f"content between; the second opens a new screen and the "
+                    f"first stays an empty beat"
                 )
             new_screen(shot.line).shots.append(shot)
             credits_open = False

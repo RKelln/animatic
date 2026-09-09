@@ -504,7 +504,7 @@ def check_9_dup_overlay_roles(talk, resolver, report: Report) -> None:
         for role, lines in sorted(roles.items()):
             if len(lines) > 1:
                 report.add(9, WARNING,
-                           f"more than one +{role} on one screen (shot lines "
+                           f"more than one role={role} on one screen (shot lines "
                            f"{', '.join(str(n) for n in lines)}) — one "
                            f"overlay per role per screen; an unbounded stack "
                            f"is a slide trying to be three things "
