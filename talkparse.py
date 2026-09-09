@@ -136,6 +136,57 @@ def load_vocab(deck_path=None):
 
 ROLES_DYNAMIC, LAYOUTS_DYNAMIC = load_vocab()
 
+# Full role bundles (name -> {spoken, on_screen, form}) drive the parser's
+# role -> block-kind mapping and spoken routing.  The hardcoded defaults are
+# the fallback when no roles.yaml is present; the yaml (deck -> shared)
+# overrides them.  Adding a role = adding one line to roles.yaml (§4).
+_DEFAULT_ROLE_BUNDLES = {
+    "stat": {"spoken": True, "on_screen": True, "form": "callout"},
+    "lower": {"spoken": False, "on_screen": True, "form": "lower-third"},
+    "credits": {"spoken": False, "on_screen": True, "form": "end-roll"},
+}
+
+# form -> canonical block kind (the fixed IR vocabulary render.py consumes).
+FORM_TO_KIND = {"callout": "stat", "lower-third": "lower", "end-roll": "credits"}
+
+
+def load_role_bundles(deck_path=None):
+    """Role name -> {spoken, on_screen, form} from roles.yaml (deck -> shared)
+    with the hardcoded defaults as fallback."""
+    from pathlib import Path
+    base = Path(__file__).resolve().parent
+    deck_path = Path(str(deck_path) if deck_path else base / "deck")
+    bundles = {}
+    for p in [deck_path / "roles.yaml", base / "roles.yaml"]:
+        if p.exists():
+            try:
+                data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+                roles = data.get("roles", {})
+                if isinstance(roles, dict):
+                    for name, b in roles.items():
+                        if isinstance(b, dict):
+                            bundles[str(name)] = {
+                                "spoken": bool(b.get("spoken", False)),
+                                "on_screen": bool(b.get("on_screen", True)),
+                                "form": str(b.get("form", "")),
+                            }
+            except Exception:
+                pass
+    return bundles or dict(_DEFAULT_ROLE_BUNDLES)
+
+
+ROLE_BUNDLES = load_role_bundles()
+
+
+def _canonical_role_kind(role: str) -> str:
+    """Role name -> canonical block kind (stat|lower|credits) via the yaml form."""
+    form = ROLE_BUNDLES.get(role, {}).get("form", "")
+    return FORM_TO_KIND.get(form, role)
+
+
+def _role_spoken(role: str) -> bool:
+    return bool(ROLE_BUNDLES.get(role, {}).get("spoken", False))
+
 
 # ---------------------------------------------------------------------------
 # Model
@@ -173,7 +224,7 @@ class Shot:
 
     @property
     def is_role(self) -> bool:
-        return self.role in ROLES
+        return self.role in ROLES_DYNAMIC
 
     @property
     def is_media(self) -> bool:
@@ -191,6 +242,7 @@ class Block:
     level: Optional[int] = None   # heading depth (1..6)
     items: list = field(default_factory=list)   # list items
     stage: list = field(default_factory=list)   # extracted parentheticals
+    spoken: bool = False          # role payload is spoken VO (from roles.yaml)
     line: int = 0
 
 
@@ -582,7 +634,7 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
     first = tokens[0]
 
     # --- first token: slug | role=<name> flag | layout=<name> | black | known flag ----------
-    if first in ROLES or first == BLACK_ROLE:
+    if first in ROLES_DYNAMIC or first == BLACK_ROLE:
         # Bare role shot (e.g. `<!-- shot: stat -->`) — opens its own screen.
         # The `role=` syntax is preferred; bare role preserved for backward compat.
         shot.role = first
@@ -629,7 +681,7 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
         name = fm.group(1)
         value = fm.group(2) or ""
         # `piece` and `duo` are no longer flat flags; they come via `layout=`.
-        if name in LAYOUTS:
+        if name in LAYOUTS_DYNAMIC:
             shot.warnings.append(
                 f"check 25: {name!r} is no longer a flat flag — use "
                 f"layout={name!r} (spec §7 redesign) — token ignored"
@@ -678,7 +730,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
             for w in shot.warnings:          # tokenizer notes (check 25)
                 talk.warnings.append(f"line {shot.line}: {w}")
             role = shot.role
-            is_role = role in ROLES          # stat/lower/credits payload roles
+            is_role = role in ROLES_DYNAMIC  # any vocab role; payload becomes a role block
             plus_only = shot.plus and shot.slug is None   # `+<role>`-only directive
 
             # A role's payload paragraph never crosses a shot boundary: if a
@@ -707,7 +759,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                         f"its own screen"
                     )
                     new_screen(shot.line).shots.append(shot)
-                    credits_open = role == "credits"
+                    credits_open = _canonical_role_kind(role) == "credits"
                 if is_role:
                     pending_role = role
                     role_line = shot.line
@@ -721,12 +773,12 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                     talk.warnings.append(
                         f"line {shot.line}: bare '{role}' shot directly "
                         f"follows another shot with no content between; "
-                        f"implicit merge is removed — write +{role} on the "
+                        f"implicit merge is removed — write role={role} on the "
                         f"media shot instead (e.g. '<!-- shot: <slug> "
-                        f"+{role} -->'); this shot opens its own screen"
+                        f"role={role} -->'); this shot opens its own screen"
                     )
                 new_screen(shot.line).shots.append(shot)
-                credits_open = role == "credits"   # a credits SCREEN: end roll
+                credits_open = shot.slug is None and _canonical_role_kind(role) == "credits"  # bare end-roll screen
                 pending_role = role
                 role_line = shot.line
                 continue
@@ -868,6 +920,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                     f"rewrite the parenthetical flat (spec §5)"
                 )
             bkind = "vo"
+            is_spoken = False
             if (
                 pending_role is None
                 and not credits_open
@@ -883,7 +936,8 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 bkind = "quote-source"
                 spoken = spoken[2:]
             elif pending_role is not None:
-                bkind = pending_role
+                bkind = _canonical_role_kind(pending_role)
+                is_spoken = _role_spoken(pending_role)
                 if not spoken:
                     talk.warnings.append(
                         f"line {role_line}: '{pending_role}' shot payload is empty "
@@ -906,7 +960,8 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                     f"(spec §4)"
                 )
             cur.blocks.append(
-                Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0))
+                Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0),
+                      spoken=is_spoken)
             )
             continue
 

@@ -85,7 +85,7 @@ REPORT = "report"
 _SEV_ORDER = {FATAL: 0, WARNING: 1, INFO: 2, REPORT: 3}
 
 # Spec anchors used by several checks.
-ROLE_WORDS = set(talkparse.ROLES) | {talkparse.BLACK_ROLE}   # stat/lower/credits/black
+ROLE_WORDS = set(talkparse.ROLES_DYNAMIC) | {talkparse.BLACK_ROLE}   # vocab roles + black
 SLUG_RE = re.compile(r"^[a-z0-9-]{3,40}$")                    # §6: charset + length
 PERSONAL_PATH_RE = re.compile(r"^/(?:[^/]+/)+[^/]+$")         # absolute, no scheme
 FOOTNOTE_REF_RE = talkparse.FOOTNOTE_REF_RE
@@ -499,7 +499,7 @@ def check_9_dup_overlay_roles(talk, resolver, report: Report) -> None:
     for s in talk.screens:
         roles = {}
         for sh in s.shots:
-            if sh.role in talkparse.ROLES:
+            if sh.role in talkparse.ROLES_DYNAMIC:
                 roles.setdefault(sh.role, []).append(sh.line)
         for role, lines in sorted(roles.items()):
             if len(lines) > 1:

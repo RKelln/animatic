@@ -123,7 +123,7 @@ def main(argv=None) -> int:
                 roles[b.kind] += 1
     empty_script = 0
     for s in talk.screens:
-        has_script = any((b.kind == "vo" and b.text.strip()) or b.kind == "stat"
+        has_script = any((b.kind == "vo" and b.text.strip()) or b.spoken
                          for b in s.blocks)
         if not has_script:
             empty_script += 1

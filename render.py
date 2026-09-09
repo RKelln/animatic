@@ -177,7 +177,7 @@ def screen_script(screen: Screen) -> str:
     for b in screen.blocks:
         if b.kind == "vo" and b.text.strip():
             parts.append(plain_md(b.text))
-        elif b.kind == "stat" and b.text.strip():
+        elif b.spoken and b.text.strip():
             parts.append(plain_md(b.text))
     return "\n\n".join(parts)
 

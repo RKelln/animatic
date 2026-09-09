@@ -2,7 +2,7 @@
   "schema": "animatic.cues.v1",
   "deck": {
     "slug": "overlay-merge",
-    "title": "Overlay merge forms",
+    "title": "Role flag forms",
     "date": "",
     "venue": "",
     "format": "",
@@ -48,7 +48,7 @@
           "text": "68 percent of everything."
         }
       ],
-      "script": "68 percent of everything.\n\nThe stat flag attaches to the media screen; its payload paragraph is scripted.",
+      "script": "68 percent of everything.",
       "stage": null
     },
     {
@@ -59,37 +59,7 @@
       "title": null,
       "shots": [
         {
-          "slug": "river",
-          "role": null,
-          "flags": {}
-        }
-      ],
-      "media": {
-        "slug": "river",
-        "type": "unknown",
-        "status": "missing",
-        "found": false,
-        "file": null,
-        "source": "none",
-        "alt": "",
-        "credit": "",
-        "licence": "",
-        "note": "",
-        "reason": "no card for 'river' in ~/Documents/art/animatic/tests/fixtures/constructs/media/cards.yaml; if 'river' was meant as a role or flag, it is neither; no file under deck media dir; not in shared library"
-      },
-      "screen_text": null,
-      "script": "",
-      "stage": null
-    },
-    {
-      "id": "overlay-merge-003",
-      "ordinal": 3,
-      "movement": 0,
-      "kind": "media",
-      "title": null,
-      "shots": [
-        {
-          "slug": "river",
+          "slug": "second-art",
           "role": "lower",
           "flags": {
             "role": "lower"
@@ -97,17 +67,17 @@
         }
       ],
       "media": {
-        "slug": "river",
-        "type": "unknown",
-        "status": "missing",
+        "slug": "second-art",
+        "type": "image",
+        "status": "brief",
         "found": false,
         "file": null,
         "source": "none",
         "alt": "",
-        "credit": "",
-        "licence": "",
-        "note": "",
-        "reason": "no card for 'river' in ~/Documents/art/animatic/tests/fixtures/constructs/media/cards.yaml; if 'river' was meant as a role or flag, it is neither; no file under deck media dir; not in shared library"
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'second-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
       },
       "screen_text": [
         {
@@ -115,11 +85,9 @@
           "text": "The river, Toronto."
         }
       ],
-      "script": "A role= flag on the second shot attaches to the screen it names; payload follows.",
+      "script": "",
       "stage": null
     }
   ],
-  "warnings": [
-    "line 8: bare 'lower' shot directly follows another shot with no content between; implicit merge is removed — write +lower on the media shot instead (e.g. '<!-- shot: <slug> +lower -->'); this shot opens its own screen"
-  ]
+  "warnings": []
 }
