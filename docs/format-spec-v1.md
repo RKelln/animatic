@@ -457,7 +457,7 @@ Three views and two sidecars, all generated from the one talkfile.
 | **document/** | the handout (printable HTML, then PDF) | the talk as readable prose — the voice-over with figures and citations |
 | **cues.json** | the structured form | the machine contract every tool reads (schema `animatic.cues.v1`) |
 | **media-manifest.json** | the per-slug resolution audit | honesty about what resolved and what is still a placeholder |
-| **nav.json** | cue id → line range, movement, kind, tags | addressability — an agent told "insert after cue 17" seeks instead of counting |
+| **nav.json** | cue id → line range, movement, kind | addressability — an agent told "insert after cue 17" seeks instead of counting |
 
 ### Determinism
 
