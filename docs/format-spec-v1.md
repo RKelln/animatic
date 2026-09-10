@@ -601,8 +601,11 @@ pasted movement is renumbered by the author or agent.
 
 ## Stability
 
-Everything in this document is the frozen 1.0 contract. A breaking change
-requires a 2.0. The only surface that may change within 1.x:
+A conformant builder parses any `animatic-1.0` talkfile and produces the same
+screens, cue ids, and media resolution this document describes; it refuses an
+unknown major `format-version` rather than guessing. Everything in this
+document is the frozen 1.0 contract; a breaking change requires a 2.0. The
+only surface that may change within 1.x:
 
 - the visual meaning of any flag;
 - motion timings and amplitudes;
