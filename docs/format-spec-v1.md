@@ -318,9 +318,9 @@ The role vocabulary is config, not grammar. Three roles ship in `roles.yaml`;
 ```yaml
 # roles.yaml (shared default; a deck may override at deck/roles.yaml)
 roles:
-  stat: {spoken: true, on_screen: true, form: callout}
-  lower: {spoken: false, on_screen: true, form: lower-third}
-  credits: {spoken: false, on_screen: true, form: end-roll}
+  stat: {spoken: true, form: callout}
+  lower: {spoken: false, form: lower-third}
+  credits: {spoken: false, form: end-roll}
 ```
 
 A role is written with the `role=` flag:
@@ -331,7 +331,7 @@ A role is written with the `role=` flag:
 ```
 
 **The vocabulary grows by yaml, never by grammar.** Add a `quote` entry to
-`roles.yaml` with its `spoken` / `on_screen` / `form`, and `role=quote` works
+`roles.yaml` with its `spoken` / `form`, and `role=quote` works
 — no parser change. The four names above are the frozen starting set; the
 mechanism is additive.
 

@@ -134,14 +134,14 @@ def load_vocab(deck_path=None):
 
 ROLES_DYNAMIC, LAYOUTS_DYNAMIC = load_vocab()
 
-# Full role bundles (name -> {spoken, on_screen, form}) drive the parser's
+# Full role bundles (name -> {spoken, form}) drive the parser's
 # role -> block-kind mapping and spoken routing.  The hardcoded defaults are
 # the fallback when no roles.yaml is present; the yaml (deck -> shared)
 # overrides them.  Adding a role = adding one line to roles.yaml (Text).
 _DEFAULT_ROLE_BUNDLES = {
-    "stat": {"spoken": True, "on_screen": True, "form": "callout"},
-    "lower": {"spoken": False, "on_screen": True, "form": "lower-third"},
-    "credits": {"spoken": False, "on_screen": True, "form": "end-roll"},
+    "stat": {"spoken": True, "form": "callout"},
+    "lower": {"spoken": False, "form": "lower-third"},
+    "credits": {"spoken": False, "form": "end-roll"},
 }
 
 # form -> canonical block kind (the fixed IR vocabulary render.py consumes).
@@ -149,7 +149,7 @@ FORM_TO_KIND = {"callout": "stat", "lower-third": "lower", "end-roll": "credits"
 
 
 def load_role_bundles(deck_path=None):
-    """Role name -> {spoken, on_screen, form} from roles.yaml (deck -> shared)
+    """Role name -> {spoken, form} from roles.yaml (deck -> shared)
     with the hardcoded defaults as fallback."""
     from pathlib import Path
     base = Path(__file__).resolve().parent
@@ -165,7 +165,6 @@ def load_role_bundles(deck_path=None):
                         if isinstance(b, dict):
                             bundles[str(name)] = {
                                 "spoken": bool(b.get("spoken", False)),
-                                "on_screen": bool(b.get("on_screen", True)),
                                 "form": str(b.get("form", "")),
                             }
             except Exception:
