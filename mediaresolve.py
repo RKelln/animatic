@@ -174,7 +174,7 @@ class MediaResolver:
     # -- resolution ----------------------------------------------------------
 
     def _declared_paths(self, card: dict) -> list:
-        """Card-declared media paths in spec §6 order: `approved:` then
+        """Card-declared media paths in spec: Media order: `approved:` then
         `file:` then `outputs[]`.  Paths are DECK-relative strings (e.g.
         `media/<slug>/attempts/<slug>-a2.mp4`); existence is the caller's
         check.  Non-string / empty values are skipped."""
@@ -193,7 +193,7 @@ class MediaResolver:
         ctype = card.get("type") if card else None
         cstatus = card.get("status") if card else None
 
-        # 1) card-declared paths — spec §6 order: `approved:` then `file:`
+        # 1) card-declared paths — spec: Media order: `approved:` then `file:`
         #    then `outputs[]`, first existing file wins.  Declared paths are
         #    deck-relative (`media/<slug>/attempts/<slug>-a<N>.<ext>`), so they
         #    join onto the DECK dir, never media_dir (media_dir / "media/..."
@@ -265,7 +265,7 @@ class MediaResolver:
                     f"{cstatus or '?'})")
         else:
             reasons.append(f"no card for '{slug}' in {self.cards_path or 'cards.yaml'}")
-            # Unknown-first-token hint (report §6.8 / register check 25):
+            # Unknown-first-token hint (report Media / register check 25):
             # a single-word, cardless slug may be a role or flag typo that
             # the token-position rule turned into a media slug (`hero`).
             # Hyphenated/digit slugs cannot be roles or flags, so only the

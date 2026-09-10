@@ -1,4 +1,4 @@
-"""Property checks over the two HTML views (spec §9 property assertions).
+"""Property checks over the two HTML views (spec: Verification property assertions).
 
 HTML is never byte-diffed (highest churn layer), so these properties are the
 only thing keeping the views honest: present sections must mirror cues
@@ -148,7 +148,7 @@ def check(fx, errors: list) -> None:
         err(errors, f"document figure data-slugs {doc_figures} != cues media "
                     f"slugs {want_fig_slugs}")
 
-    # Sources section mirrors deck.sources (spec §5: one citation list)
+    # Sources section mirrors deck.sources (spec: Text: one citation list)
     sources = deck.get("sources") or []
     if sources:
         m = SOURCES_LI_RE.search(doc_text)

@@ -14,7 +14,7 @@ Exit codes:
     1  a fatal finding (or, under --strict, any warning), or a parse error
     2  usage error (missing/invalid talkfile, unknown flag)
 
-Severity taxonomy (spec §10 as the register defines it):
+Severity taxonomy (spec: Error and warning taxonomy as the register defines it):
 
     fatal     build must refuse: malformed frontmatter/bad YAML, an H2 that
               looks like a Movement heading but does not match the pattern
@@ -36,7 +36,7 @@ Severity taxonomy (spec §10 as the register defines it):
               (14), licence-before-public-use (16).  Not diagnostics: a deck
               carrying them is not defective.
 
-Register canonicalization (engine-decision §9/§10: "register canonicalization
+Register canonicalization (engine-decision Verification/Error and warning taxonomy: "register canonicalization
 is T08").  The 1-28 register table with owner + status lives in REGISTER below
 and prints with --register.  Rows implemented here: 1-9, 11-16, 18 (model
 assert + artifact assert), 21 (corpus harness), 28.  Rows enforced by the
@@ -51,7 +51,7 @@ CLI today).  check_file() is the per-deck seam the --corpus driver (T11)
 reuses; corpus mode builds each deck's cues.json into a temp dir so the
 artifact assertions 17/18 fire per deck, and the suite never edits
 talkparse.py/render.py and never writes outside /tmp or the caller's chosen
-output.  Corpus content roots are declared in corpus.yaml (spec §6).
+output.  Corpus content roots are declared in corpus.yaml (spec: Media).
 """
 
 from __future__ import annotations
@@ -86,19 +86,19 @@ _SEV_ORDER = {FATAL: 0, WARNING: 1, INFO: 2, REPORT: 3}
 
 # Spec anchors used by several checks.
 ROLE_WORDS = set(talkparse.ROLES_DYNAMIC) | {talkparse.BLACK_ROLE}   # vocab roles + black
-SLUG_RE = re.compile(r"^[a-z0-9-]{3,40}$")                    # §6: charset + length
+SLUG_RE = re.compile(r"^[a-z0-9-]{3,40}$")                    # Media: charset + length
 PERSONAL_PATH_RE = re.compile(r"^/(?:[^/]+/)+[^/]+$")         # absolute, no scheme
 FOOTNOTE_REF_RE = talkparse.FOOTNOTE_REF_RE
 COMMENT_SPAN_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 GENLOG_HEADER_RE = re.compile(
     r"^##\s+(\S+)\s*·\s*([a-z0-9][a-z0-9-]*)\s*·\s*a(\d+)\s*$")
 
-# Canonical register (work-spec §5 coverage table + report Part 4/6 additions).
+# Canonical register (work-spec: Text coverage table + report Part 4/6 additions).
 # status: implemented (this file) | enforced (owner ticket) | fixture |
 #         deferred (owner ticket).
 REGISTER = [
     (1,  "duplicate slug within one cards.yaml",                     WARNING, "implemented"),
-    (2,  "media slug charset/length (§6 rule)",                      WARNING, "implemented"),
+    (2,  "media slug charset/length (Media rule)",                      WARNING, "implemented"),
     (3,  "slug equal to a role name or black",                       FATAL,   "implemented"),
     (4,  "movement ordinals: duplicates/non-monotonic/gaps",         WARNING, "implemented"),
     (5,  "deck-slug slugification collisions across a content root", WARNING, "implemented"),
@@ -216,13 +216,13 @@ class Report:
 
 
 def deck_slug(talk: talkparse.Talk) -> str:
-    """Mirror render.deck_slug: the slugified frontmatter slug (spec §2/§3.3)."""
+    """Mirror render.deck_slug: the slugified frontmatter slug (spec: Frontmatter/Screens)."""
     raw = str(talk.meta.get("slug", "") or Path(talk.source).stem)
     return talkparse.slugify(raw)
 
 
 def slug_ok(slug: str) -> bool:
-    """Spec §6: charset [a-z0-9-], 3-40 chars, no leading/trailing '-'.
+    """Spec Media: charset [a-z0-9-], 3-40 chars, no leading/trailing '-'.
     (Leading '_' is reserved, so '_' is outside the charset and fails here.)"""
     return bool(SLUG_RE.fullmatch(slug)) and not slug.startswith("-") \
         and not slug.endswith("-")
@@ -258,7 +258,7 @@ def _fm_slug(path: Path) -> Optional[str]:
 def iter_footnote_refs(body_lines: list) -> list:
     """[(line_no, ref_id), ...] for `[^id]` refs in body text, skipping
     comment spans (shot directives and inert comments) and `[^id]:`
-    definition shapes (receipts have no body-level definition form, §5)."""
+    definition shapes (receipts have no body-level definition form, Text)."""
     out = []
     in_comment = False
     for lineno, raw in enumerate(body_lines, start=1):
@@ -304,7 +304,7 @@ def check_1_dup_card_slug(talk, resolver, report: Report) -> None:
             report.add(1, WARNING,
                        f"duplicate slug '{slug}' in cards.yaml — the first "
                        f"card wins and the duplicate is silently dead (spec "
-                       f"§6: unique within a deck); both cards at positions "
+                       f"Media: unique within a deck); both cards at positions "
                        f"{seen[slug]} and {len(seen) + 1}")
         else:
             seen[slug] = len(seen) + 1
@@ -316,24 +316,24 @@ def check_2_slug_charset(talk, resolver, report: Report) -> None:
             report.add(2, WARNING,
                        f"card slug {str(c['slug'])!r} violates the slug rule "
                        f"[a-z0-9-], 3-40 chars, no leading/trailing '-' "
-                       f"(spec §6) — a shot can never reference it "
+                       f"(spec: Media) — a shot can never reference it "
                        f"(cards.yaml)")
     for e in resolver.library:
         if isinstance(e, dict) and e.get("slug") and not slug_ok(str(e["slug"])):
             report.add(2, WARNING,
                        f"library slug {str(e['slug'])!r} violates the slug "
                        f"rule [a-z0-9-], 3-40 chars, no leading/trailing '-' "
-                       f"(spec §6) — a shot can never reference it "
+                       f"(spec: Media) — a shot can never reference it "
                        f"(library.yaml)")
     # shot slugs: the token-position rule makes any bare first token a slug,
-    # so a shot slug violating §6 is exactly the kind of typo to name.
+    # so a shot slug violating Media is exactly the kind of typo to name.
     for s in talk.screens:
         for sh in s.shots:
             if sh.slug and not slug_ok(sh.slug):
                 report.add(2, WARNING,
                            f"shot slug {sh.slug!r} violates the slug rule "
                            f"[a-z0-9-], 3-40 chars, no leading/trailing '-' "
-                           f"(spec §6)", line=sh.line, screen=s.idx)
+                           f"(spec: Media)", line=sh.line, screen=s.idx)
 
 
 def check_3_slug_role(talk, resolver, report: Report) -> None:
@@ -352,7 +352,7 @@ def check_3_slug_role(talk, resolver, report: Report) -> None:
                            f"{surface} slug {slug!r} equals a role name or "
                            f"'black' — a shot token can never reference it "
                            f"(the tokenizer reads it as a role), so the "
-                           f"visual is unreachable (spec §6/§10) ({where})")
+                           f"visual is unreachable (spec: Media/Error and warning taxonomy) ({where})")
 
 
 def check_4_movements(talk, resolver, report: Report) -> None:
@@ -364,20 +364,20 @@ def check_4_movements(talk, resolver, report: Report) -> None:
             report.add(4, WARNING,
                        f"duplicate movement ordinal {idx} "
                        f"({m.label!r}) — two sections share one number "
-                       f"(movement ordinals are presentation order, §3/§13)",
+                       f"(movement ordinals are presentation order, Screens/Remix)",
                        line=None)
         elif prev is not None and idx < prev:
             report.add(4, WARNING,
                        f"movement ordinal {idx} ({m.label!r}) follows "
                        f"{prev} — ordinals must be non-decreasing in file "
-                       f"order (spec §3: movement ordinals are presentation "
+                       f"order (spec: Screens: movement ordinals are presentation "
                        f"order)")
         elif prev is not None and idx > prev + 1:
             report.add(4, INFO,
                        f"movement ordinal {idx} skips "
                        f"{', '.join(str(n) for n in range(prev + 1, idx))} — "
                        f"renumbering debris or a deleted movement (legal; "
-                       f"renumber by the author, spec §13)")
+                       f"renumber by the author, spec: Remix)")
         seen.add(idx)
         prev = idx
 
@@ -401,7 +401,7 @@ def check_5_deck_slug_collisions(files: list, report: Report) -> None:
             report.add(5, WARNING,
                        f"frontmatter slug slugifies to {s!r} in multiple "
                        f"decks: {', '.join(paths)} — cue-id namespaces "
-                       f"collide across a content root (spec §2/§3.3)")
+                       f"collide across a content root (spec: Frontmatter/Screens)")
 
 
 def check_6_dup_fit(talk, resolver, report: Report) -> None:
@@ -415,7 +415,7 @@ def check_6_dup_fit(talk, resolver, report: Report) -> None:
                 report.add(6, WARNING,
                            f"shot carries two fit= values "
                            f"({', '.join(fits)}) — the last silently wins; "
-                           f"spec §7: a shot MUST NOT carry two fit= values",
+                           f"spec: The shot directive: a shot MUST NOT carry two fit= values",
                            line=sh.line, screen=s.idx)
 
 
@@ -427,7 +427,7 @@ def check_7_flags_nonfirst(talk, resolver, report: Report) -> None:
                 report.add(7, INFO,
                            f"flags on a non-first shot are ignored — "
                            f"slide-level and media flags are read from the "
-                           f"screen's first shot only (spec §7 interaction "
+                           f"screen's first shot only (spec: The shot directive interaction "
                            f"table): {names}",
                            line=sh.line, screen=s.idx)
 
@@ -447,15 +447,15 @@ def check_8_flag_combos(talk, resolver, report: Report) -> None:
             report.add(8, INFO,
                        f"dim is ignored on {framed_desc} — a full-zone "
                        f"scrim behind a framed object would paint a box "
-                       f"around it (spec §7 interaction table)",
+                       f"around it (spec: The shot directive interaction table)",
                        line=mshot.line, screen=s.idx)
         if flags.get("kb"):
             report.add(8, INFO,
                        f"kb is not applied on {framed_desc} — the camera "
                        f"lens wraps full-bleed media only; a framed object "
-                       f"has no lens (spec §7 interaction table)",
+                       f"has no lens (spec: The shot directive interaction table)",
                        line=mshot.line, screen=s.idx)
-    # Validate role=/layout= against yaml vocabulary (spec §4/§7 redesign)
+    # Validate role=/layout= against yaml vocabulary (spec: Text/The shot directive redesign)
     import yaml
     roles_dynamic, layouts_dynamic = talkparse.load_vocab()
     roles_yaml = set(roles_dynamic)
@@ -508,7 +508,7 @@ def check_9_dup_overlay_roles(talk, resolver, report: Report) -> None:
                            f"{', '.join(str(n) for n in lines)}) — one "
                            f"overlay per role per screen; an unbounded stack "
                            f"is a slide trying to be three things "
-                           f"(spec §4)",
+                           f"(spec: Text)",
                            screen=s.idx)
 
 
@@ -521,7 +521,7 @@ def check_10_declared_paths(talk, resolver, report: Report) -> None:
     for slug, raw in resolver.declared_missing:
         report.add(10, WARNING,
                    f"card '{slug}' declares a path that does not resolve: "
-                   f"{raw} (joined to deck dir; spec §6 order + §11 path "
+                   f"{raw} (joined to deck dir; spec: Media order + Media pipeline contract path "
                    f"rule)")
 
 
@@ -538,7 +538,7 @@ def check_11_media_no_card(talk, resolver, report: Report) -> None:
             report.add(11, WARNING,
                        f"media shot with no card — the visual's brief is "
                        f"orphaned: '{slug}' (shot line(s) {lines}); the deck "
-                       f"builds, but nothing documents this media (spec §11)")
+                       f"builds, but nothing documents this media (spec: Media pipeline contract)")
 
 
 def check_12_visual_no_media(talk, resolver, report: Report) -> None:
@@ -553,7 +553,7 @@ def check_12_visual_no_media(talk, resolver, report: Report) -> None:
                                f"(Visual:) stage note on a screen with no "
                                f"media shot — a brief with nothing to "
                                f"brief ({st[:60]!r}); add the media shot or "
-                               f"drop the note (spec §5 Tier B)",
+                               f"drop the note (spec: Text Tier B)",
                                line=b.line, screen=s.idx)
 
 
@@ -604,7 +604,7 @@ def check_13_14_attempts(talk, resolver, report: Report) -> None:
             report.add(13, REPORT,
                        f"attempt file with no gen-log entry: "
                        f"{files[slug][n]} — archaeology drift (media/"
-                       f"gen-log.md; spec §11 append-only)")
+                       f"gen-log.md; spec: Media pipeline contract append-only)")
         for n in sorted(lset - fset):
             entry_lines = [ln for m, ln in log[slug] if m == n]
             report.add(13, REPORT,
@@ -621,7 +621,7 @@ def check_13_14_attempts(talk, resolver, report: Report) -> None:
                            f"attempt numbering gapped for '{slug}': seen "
                            f"{', '.join('a' + str(n) for n in union)} — "
                            f"missing {', '.join('a' + str(n) for n in missing)} "
-                           f"(per-slug attempt numbers are monotonic, spec §11)")
+                           f"(per-slug attempt numbers are monotonic, spec: Media pipeline contract)")
         # non-monotonic in the log itself (append-only means a3 after a2)
         seen_in_log = []
         for n, _ in log.get(slug, []):
@@ -630,7 +630,7 @@ def check_13_14_attempts(talk, resolver, report: Report) -> None:
                            f"gen-log attempt numbers not monotonic for "
                            f"'{slug}': a{seen_in_log[-1]} followed by a{n} "
                            f"(gen-log.md is append-only; entries are never "
-                           f"renumbered, spec §11)")
+                           f"renumbered, spec: Media pipeline contract)")
             seen_in_log.append(n)
 
 
@@ -648,7 +648,7 @@ def check_15_approved_no_file(talk, resolver, report: Report) -> None:
             report.add(15, INFO,
                        f"card '{slug}' is status approved but no file "
                        f"resolves — it renders a placeholder; legal per "
-                       f"spec §11 (resolution is by file presence, never by "
+                       f"spec: Media pipeline contract (resolution is by file presence, never by "
                        f"status), but the author wants this list before "
                        f"delivery")
 
@@ -704,7 +704,7 @@ def check_cues_json(path: Path, report: Report) -> None:
     except (OSError, ValueError) as exc:
         report.add(None, FATAL, f"cannot read cues.json {path}: {exc}")
         return
-    # check 17: no absolute / personal paths in any emitted artifact (§8 —
+    # check 17: no absolute / personal paths in any emitted artifact (Outputs —
     # a build that leaks one is a defect, not a warning).
     hits = []
 
@@ -727,7 +727,7 @@ def check_cues_json(path: Path, report: Report) -> None:
     for h in sorted(set(hits))[:20]:
         report.add(17, FATAL,
                    f"cues.json contains an absolute/personal path: {h!r} "
-                   f"(spec §8: no emitted artifact may contain a "
+                   f"(spec: Outputs: no emitted artifact may contain a "
                    f"machine-local path)")
     if len(set(hits)) > 20:
         report.add(17, FATAL,
@@ -743,20 +743,20 @@ def check_cues_json(path: Path, report: Report) -> None:
             report.add(18, FATAL,
                        f"cues.json ids are not lexically sorted == ordinal: "
                        f"{ids[first]!r} precedes {ids[first + 1]!r} at "
-                       f"position {first + 1} (spec §3.3/§8 — padding cliff "
+                       f"position {first + 1} (spec: Screens/Outputs — padding cliff "
                        f"past 99 screens with 2-digit ids)")
 
 
 def check_18_model_ids(talk, resolver, report: Report) -> None:
     """Cue-id space must hold the deck: ids are `<slug>-NNN` (3-digit,
-    §3.3) and lexically sort in presentation order up to 999 screens."""
+    Screens) and lexically sort in presentation order up to 999 screens."""
     n = len(talk.screens)
     if n > 999:
         dslug = deck_slug(talk)
         report.add(18, FATAL,
                    f"{n} screens exceed the 3-digit cue-id space "
                    f"'{dslug}-NNN' — lexical sort diverges from ordinal "
-                   f"past 999 (spec §3.3)")
+                   f"past 999 (spec: Screens)")
 
 
 def check_28_footnotes(talk, resolver, source_text: str, report: Report) -> None:
@@ -776,7 +776,7 @@ def check_28_footnotes(talk, resolver, source_text: str, report: Report) -> None
             report.add(28, WARNING,
                        f"footnote [^{rid}] (line {lineno + body_start}) has "
                        f"no sources: registry entry — the receipt cites "
-                       f"nothing and no citation renders (spec §2/§5)")
+                       f"nothing and no citation renders (spec: Frontmatter/Text)")
 
 
 # ---------------------------------------------------------------------------
@@ -801,12 +801,12 @@ def surface_parse_errors(talk, resolver, report: Report) -> None:
             check = int(cm.group(1))
             text = cm.group(2)
         report.add(check, WARNING, text, line=line)
-        # check 26 guard: no warning text contains "line 0" (spec §10).
+        # check 26 guard: no warning text contains "line 0" (spec: Error and warning taxonomy).
         if "line 0" in w:
             report.add(26, WARNING,
                        f"parser warning text contains 'line 0': {w!r} — "
                        f"every warning must name its real source line "
-                       f"(spec §10)")
+                       f"(spec: Error and warning taxonomy)")
 
 
 # ---------------------------------------------------------------------------
@@ -884,7 +884,7 @@ CORPUS_CONFIG = "corpus.yaml"            # repo-root content-root declaration
 BANK_STATUSES = frozenset({"brief", "to-find", "file", "url", "prompting",
                            "candidate", "shortlist", "approved", "rejected"})
 BANK_REQUIRED = ("slug", "status", "type")
-_TAG_FILE_SKIP = frozenset({"index.md", "log.md"})   # OKF reserved (§2)
+_TAG_FILE_SKIP = frozenset({"index.md", "log.md"})   # OKF reserved (Frontmatter)
 _RAW_SUBTREES = frozenset({"raw", "scrapes"})        # collected, not authored
 _SUGGEST_TOP = 3
 _MAX_PAIR_ROWS = 60
@@ -920,7 +920,7 @@ def _frontmatter_meta(path: Path) -> tuple:
 
 
 def _meta_tags(meta: dict) -> list:
-    """Frontmatter `tags` (OKF shared field, spec §2) normalized: lowercase,
+    """Frontmatter `tags` (OKF shared field, spec: Frontmatter) normalized: lowercase,
     strings only, deduped, order preserved."""
     if not isinstance(meta, dict):
         return []
@@ -1074,7 +1074,7 @@ def _sweep_bank(path: Path, label: str, crep: Report) -> None:
     if missing_req:
         crep.add(None, REPORT,
                  f"bank {label}: card(s) missing a required key "
-                 f"{'/'.join(BANK_REQUIRED)} (spec §11): "
+                 f"{'/'.join(BANK_REQUIRED)} (spec: Media pipeline contract): "
                  f"{', '.join(sorted(set(missing_req))[:8])}"
                  + (" …" if len(set(missing_req)) > 8 else ""))
     if bad_status:
@@ -1109,7 +1109,7 @@ def _lev(a: str, b: str, cap: int = 2) -> int:
 
 def _near_miss_pairs(vocab: Counter) -> list:
     """[(dist, tag_a, tag_b)] sorted; same first char and length gap <= 2
-    prefilter keeps the scan linear-ish (spec §10 drift: catches
+    prefilter keeps the scan linear-ish (spec: Error and warning taxonomy drift: catches
     `#enclosive` beside `#enclosure`).
 
     Two noise filters, because a drift report that cries wolf gets ignored:
@@ -1155,7 +1155,7 @@ def _same_numbered_family(a: str, b: str) -> bool:
 def _suggest_tags(vocab2: Counter, meta: dict, head: str) -> list:
     """Suggest existing corpus tags (use >= 2 only) for an untagged file, by
     word overlap with its frontmatter prose + body head.  Suggest-only: the
-    agent proposes, Ryan confirms (spec §10.2); never auto-applied."""
+    agent proposes, Ryan confirms (spec: Error and warning taxonomy); never auto-applied."""
     if not vocab2:
         return []
     prose = " ".join(str(meta.get(k, "")) for k in
@@ -1179,7 +1179,7 @@ def run_corpus(roots: dict, *, strict: bool = False,
     check_file() (full register, model checks 1-16/18/28 + parser-enforced
     22-26); deck-slug collisions (check 5) fire once across the root; shared
     banks get a health sweep; OKF concept files (decks + wiki) feed the tag
-    drift / coverage reports (spec §10).  Reads only — never writes into any
+    drift / coverage reports (spec: Error and warning taxonomy).  Reads only — never writes into any
     content root.  Deterministic: same roots, same output."""
     found = discover_corpus(roots)
     decks = found["decks"]
@@ -1235,7 +1235,7 @@ def run_corpus(roots: dict, *, strict: bool = False,
             print(f.render())
         print()
 
-    # -- tag drift + coverage (spec §10, report taxonomy — never exit) ------
+    # -- tag drift + coverage (spec: Error and warning taxonomy, report taxonomy — never exit) ------
     tag_files = []          # (label, tags, meta, head)
     for p in decks:
         meta, head = _frontmatter_meta(p)
@@ -1277,7 +1277,7 @@ def run_corpus(roots: dict, *, strict: bool = False,
         print("  drift    : no near-miss pairs — vocabulary is clean")
     if untagged:
         print(f"coverage  : {len(untagged)} untagged concept file(s) — "
-              f"suggest-only, never auto-applied (spec §10):")
+              f"suggest-only, never auto-applied (spec: Error and warning taxonomy):")
         for label, meta, head in untagged[:_MAX_COVERAGE_ROWS]:
             sugg = _suggest_tags(vocab2, meta, head)
             line = f"    {label}"
@@ -1377,12 +1377,12 @@ def corpus_main(root: Optional[str] = None, *, strict: bool = False) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         prog="check.py",
-        description="animatic deterministic check suite (spec §9/§10)")
+        description="animatic deterministic check suite (spec: Verification/Error and warning taxonomy)")
     ap.add_argument("talkfiles", nargs="*", metavar="TALKFILE",
                     help="talkfile(s) to check (≥2 enables the cross-deck "
                          "slug-collision check)")
     ap.add_argument("--strict", action="store_true",
-                    help="make warnings fatal (pre-delivery checks, spec §10)")
+                    help="make warnings fatal (pre-delivery checks, spec: Error and warning taxonomy)")
     ap.add_argument("--cues", metavar="JSON",
                     help="also check a built cues.json (register checks "
                          "17 + 18 artifact assertions)")

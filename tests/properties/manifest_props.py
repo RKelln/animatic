@@ -1,4 +1,4 @@
-"""Property checks over media-manifest.json (spec §6 resolution + §8).
+"""Property checks over media-manifest.json (spec: Media resolution + Outputs).
 
 The manifest is the resolution audit: it must mirror the media slugs the
 cues actually reference (first-appearance order and first_cue), every found

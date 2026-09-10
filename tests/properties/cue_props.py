@@ -1,4 +1,4 @@
-"""Property checks over cues.json (spec §8 + §9 invariants).
+"""Property checks over cues.json (spec: Outputs + Verification invariants).
 
 Byte goldens pin exact content; these pin structural invariants that a
 re-blessed golden could otherwise hide: id shape and ordering, movement
@@ -32,7 +32,7 @@ def check(fx, errors: list) -> None:
     if not isinstance(deck.get("sources"), list):
         err(errors, "cues.json deck.sources must be a list")
 
-    # citation list must equal the source derivation (receipts §5/§8)
+    # citation list must equal the source derivation (receipts Text/Outputs)
     want_sources = derive_sources(fx.meta, fx.source_text)
     if deck.get("sources") != want_sources:
         err(errors, f"deck.sources != derived citations: got "
@@ -100,7 +100,7 @@ def check(fx, errors: list) -> None:
                 err(errors, f"cue {cid}: black beat carries media")
 
     # movement partition: every screen belongs to exactly one movement, and
-    # movement.cue_ids must mirror it (spec §3 / §8).
+    # movement.cue_ids must mirror it (spec: Screens / Outputs).
     movements = cues.get("movements", [])
     idxs = [m.get("index") for m in movements]
     if idxs:
@@ -143,7 +143,7 @@ def check(fx, errors: list) -> None:
                                    and all(isinstance(x, str) for x in st)):
             err(errors, f"cue {c.get('id')}: stage must be a list of strings")
 
-    # no machine-local paths in any emitted string (spec §8 / check 17)
+    # no machine-local paths in any emitted string (spec: Outputs / check 17)
     hits = sorted({s for s in walk_strings(cues) if ABS_PATH_RE.search(s)})
     if hits:
         err(errors, f"cues.json leaks machine-local paths: {hits[:5]}")

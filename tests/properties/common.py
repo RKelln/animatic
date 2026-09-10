@@ -13,7 +13,7 @@ import yaml
 
 from talkparse import FOOTNOTE_REF_RE, slugify
 
-# A machine-local path in any emitted artifact is a defect (spec §8,
+# A machine-local path in any emitted artifact is a defect (spec: Outputs,
 # register check 17).  Same regex family as check.py's walk.
 ABS_PATH_RE = re.compile(r"(?:/home/|/Users/|/root/|/tmp/)|^[A-Za-z]:[\\/]")
 EM_DASH = "\u2014"

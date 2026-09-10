@@ -37,6 +37,6 @@
     }
   ],
   "warnings": [
-    "line 5: check 23: parentheticals do not nest — '...sted (outer (inner) tail...'; rewrite the parenthetical flat (spec §5)"
+    "line 5: check 23: parentheticals do not nest — '...sted (outer (inner) tail...'; rewrite the parenthetical flat (spec: Text)"
   ]
 }

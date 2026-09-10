@@ -7,7 +7,7 @@ One command, one exit code:
     python3 tests/run.py --verbose       # echo every build's stdout
     python3 tests/run.py --only cue      # run fixtures whose relpath contains 'cue'
 
-Layers (spec §9):
+Layers (spec: Verification):
   - fixtures/constructs/*.talk.md   one minimal file per frozen construct
   - fixtures/decks/<deck>/talk.md   composite decks (own media dirs + cards)
   - expected/<rel>/cues.json + media-manifest.json   byte goldens
@@ -16,7 +16,7 @@ Layers (spec §9):
     synthetic /tmp tree — real content roots are never committed
 
 Per fixture profile the runner: builds twice into temp dirs and requires the
-trees to be byte-identical (determinism, spec §8); diffs cues.json +
+trees to be byte-identical (determinism, spec: Outputs); diffs cues.json +
 media-manifest.json against expected/ (--update-goldens re-blesses); runs
 the property modules (cues, manifest, html views, check suite).  HTML is
 never byte-diffed.
@@ -160,7 +160,7 @@ def main(argv=None) -> int:
                     build_profile(talkfile, out_a, remap, args.verbose)
                     build_profile(talkfile, out_b, remap, args.verbose)
 
-                    # determinism: both builds byte-identical (spec §8)
+                    # determinism: both builds byte-identical (spec: Outputs)
                     ha, hb = tree_hashes(out_a), tree_hashes(out_b)
                     if ha != hb:
                         only_a = sorted(set(ha) - set(hb))

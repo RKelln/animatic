@@ -16,7 +16,7 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   own shot (`<!-- shot: <slug> role=<role> -->`).  There is NO implicit merge:
   a bare role shot always opens its own screen, and one that directly follows
   another shot warns with a did-you-mean hint to write `role=` on the media
-  shot instead (spec §4).
+  shot instead (spec: Text).
 - A bare credits shot opens a credits SCREEN (end roll) that consumes every
   following paragraph, list item, and heading as screen content until the
   next shot or movement boundary.
@@ -25,13 +25,13 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   continue.
 - Parentheses `( ... )` are never spoken and never on screen (grammar rule 2).
   They are extracted into stage directions that travel with the cue.
-  Parens do not nest: a nested `(` is a warning (register check 23, spec §5)
+  Parens do not nest: a nested `(` is a warning (register check 23, spec: Text)
   — the strip recognizes one level only, and nesting would corrupt the
   spoken text.
 - Footnote references `[^id]` are inert like parentheticals: stripped from
   every text block — never spoken, never on screen, never verbatim in the
   handout — and each referenced id is collected on Talk.footnote_ids in
-  first-appearance order, for the handout citation list (spec §5).
+  first-appearance order, for the handout citation list (spec: Text).
 - `## Movement N · Title` headers are structural: they close the current
   screen, open a new movement, and never become slides themselves.  An H2
   beginning with "Movement" (case-insensitive) that fails the pattern is a
@@ -39,7 +39,7 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   heading and merges screens.
 - No token in a shot comment is silently dropped: a token that is neither a
   slug, a role, a layout, nor a known flag WARNS (register check 25).  An
-  unknown FIRST token stays a slug (token-position rule, §1); its
+  unknown FIRST token stays a slug (token-position rule, The shot directive); its
   unresolved placeholder reason carries the "meant as a role or flag?" hint.
 - Card-capable blocks after a shot (heading / quote / list) are on-screen
   objects.  The first heading of a screen is its title.
@@ -67,11 +67,11 @@ BLACK_ROLE = "black"
 # Fallback when no yaml present: the built-in roles above.
 # Layout vocabulary (Tier B, config-driven via layouts.yaml).
 LAYOUTS = ("piece", "duo")
-# Known flags (spec §7 Tier B table — per-shot flags; role/layout now config flags).
+# Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text")
 FIT_VALUES = ("cover", "contain", "hero")
 # Movement recognition is case-insensitive (the frozen rule is the *shape*,
-# `Movement <integer> [separator] [title]`, not the typography — report §6.1).
+# `Movement <integer> [separator] [title]`, not the typography — report Media).
 MOVEMENT_RE = re.compile(
     r"^Movement\s+(\d+)\s*[|.:\-\u00b7]?\s*(.*)$", re.IGNORECASE)
 # Fatal-start probe for check 22: an H2 whose text begins with the *word*
@@ -137,7 +137,7 @@ ROLES_DYNAMIC, LAYOUTS_DYNAMIC = load_vocab()
 # Full role bundles (name -> {spoken, on_screen, form}) drive the parser's
 # role -> block-kind mapping and spoken routing.  The hardcoded defaults are
 # the fallback when no roles.yaml is present; the yaml (deck -> shared)
-# overrides them.  Adding a role = adding one line to roles.yaml (§4).
+# overrides them.  Adding a role = adding one line to roles.yaml (Text).
 _DEFAULT_ROLE_BUNDLES = {
     "stat": {"spoken": True, "on_screen": True, "form": "callout"},
     "lower": {"spoken": False, "on_screen": True, "form": "lower-third"},
@@ -197,13 +197,13 @@ class Shot:
 
     slug    extensionless media slug.  Present unless the shot is role-only,
             flag-only, or bare.  An unknown first token becomes the slug by
-            the token-position rule (§1); role/flag typos surface later as a
-            placeholder-reason hint (§6.8) and register check 25 warnings on
+            the token-position rule (The shot directive); role/flag typos surface later as a
+            placeholder-reason hint (Media) and register check 25 warnings on
             the remaining tokens.
     role    the role this shot brings to its screen: 'stat' | 'lower' |
             'credits' (Tier A) or BLACK_ROLE for a black beat.  Set from a
             `role=<name>` flag token or a bare role/black first token.
-    flags   {'kb': 'in', 'dim': '0.35', ...} — known flags only (§7).
+    flags   {'kb': 'in', 'dim': '0.35', ...} — known flags only (The shot directive).
     warnings  token-level notes (register check 25): no token in a shot
             comment is silently dropped.
     """
@@ -222,7 +222,7 @@ class Shot:
     @property
     def is_media(self) -> bool:
         """A slug always resolves as media — even on a shot that also carries
-        a role (spec §4 canonical overlay)."""
+        a role (spec: Text)."""
         return self.slug is not None
 
 
@@ -293,7 +293,7 @@ class Talk:
     movements: list = field(default_factory=list)   # list[Movement]
     screens: list = field(default_factory=list)     # list[Screen]
     warnings: list = field(default_factory=list)    # human-readable notes
-    footnote_ids: list = field(default_factory=list)   # `[^id]` refs, doc order (§5)
+    footnote_ids: list = field(default_factory=list)   # `[^id]` refs, doc order (Text)
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +307,7 @@ def split_parens(text: str) -> tuple[str, list]:
     Parentheticals are never spoken / never on screen; they travel as stage
     notes.  Parens do NOT nest: the strip recognizes one level only — the
     innermost pair wins and the outer markers vanish from the spoken text.
-    A nested `(` is a warning (register check 23, spec §5), never a silent
+    A nested `(` is a warning (register check 23, spec: Text), never a silent
     corruption; authors rewrite the parenthetical flat.
     """
     spoken_parts: list[str] = []
@@ -324,7 +324,7 @@ def split_parens(text: str) -> tuple[str, list]:
 
 def nested_paren_at(text: str) -> Optional[int]:
     """Index of the first `(` that opens inside an already-open parenthetical,
-    or None.  Register check 23 (spec §5): parentheticals do not nest —
+    or None.  Register check 23 (spec: Text): parentheticals do not nest —
     split_parens recognizes one level, so nesting silently corrupts the
     spoken text unless it warns.
     """
@@ -341,14 +341,14 @@ def nested_paren_at(text: str) -> Optional[int]:
 
 
 def strip_footnote_refs(text: str, collected: list) -> str:
-    """Remove `[^id]` body-footnote references (spec §5) from text.
+    """Remove `[^id]` body-footnote references (spec: Text) from text.
 
     References are inert: never spoken, never on screen, never verbatim in
     the handout.  Each referenced id is appended to `collected` on first
     appearance (document order), giving the handout citation list its keys
     into the frontmatter `sources:` registry.  The `(?!:)` guard leaves an
     in-body `[^id]: …` definition line intact — receipts have no body-level
-    definition form; a definition is its `sources:` registry entry (§2).
+    definition form; a definition is its `sources:` registry entry (Frontmatter).
     """
     def _drop(m):
         rid = m.group(1)
@@ -576,7 +576,7 @@ def _apply_layout_flag(shot: Shot, value: str, token: str) -> None:
 
 def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
     """Apply one known-flag token.  Unknown names and the removed valueless
-    `fit` warn (check 25 / spec §7); nothing is silently accepted or dropped.
+    `fit` warn (check 25 / spec: The shot directive); nothing is silently accepted or dropped.
 
     Valueless `kb`/`dim`/`text` are stored with an empty value and render
     inert — the flag-value-out-of-range taxonomy warning is check-suite
@@ -589,7 +589,7 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
         )
         return
     if name == "fit" and not value:
-        # Removed form (§7): historic bare `fit` took its meaning from what
+        # Removed form (The shot directive): historic bare `fit` took its meaning from what
         # followed the shot (lookahead).  No meaning of its own now.
         shot.warnings.append(
             f"valueless 'fit' has no meaning (removed form); write "
@@ -605,16 +605,16 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
     `line` is the directive's 1-based source line, threaded from every
     `_lex_blocks` call site so the Shot is never born with line 0: warnings
     raised from a shot must name the directive's real line to be actionable
-    (check 26, spec §10 — no warning text contains "line 0").  A shot
-    directive MAY span multiple lines (spec §3, check 27); interior
+    (check 26, spec: Error and warning taxonomy — no warning text contains "line 0").  A shot
+    directive MAY span multiple lines (spec: Screens, check 27); interior
     whitespace is insignificant, and a multi-line directive is reported at
     the line where it closes.
 
-    Token vocabulary (spec §3/§4/§7): the FIRST token is the shot's slug, its
+    Token vocabulary (spec: Screens/Text/The shot directive): the FIRST token is the shot's slug, its
     role (stat/lower/credits/black), a `role=<name>` flag, a `layout=<name>`
     flag, or — for flag-only shots — a known flag.  Later tokens are flags
     (`name=value`).  An unknown first token stays a slug (token-position rule,
-    §1).  Every other unrecognized token WARNS (register check 25): nothing in
+    The shot directive).  Every other unrecognized token WARNS (register check 25): nothing in
     a shot comment is silently dropped.
     """
     m = SHOT_RE.match(raw)
@@ -639,7 +639,7 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
     else:
         fm = FLAG_RE.match(first)
         if fm and fm.group(1) in KNOWN_FLAGS:
-            # flag-only shot (§3): the first token is a known flag, so the
+            # flag-only shot (Screens): the first token is a known flag, so the
             # screen is card-only — no media slug, no role.
             _apply_flag(shot, fm.group(1), fm.group(2) or "", first)
         elif fm and fm.group(2) is not None:
@@ -647,10 +647,10 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
             # so this cannot be a slug — a flag typo.
             _apply_flag(shot, fm.group(1), fm.group(2), first)
         else:
-            # Unknown first token: stays a slug (token-position rule, §1).
+            # Unknown first token: stays a slug (token-position rule, The shot directive).
             # A role/flag typo surfaces honestly later: media resolution
             # fails and the placeholder reason adds the "if 'hero' was meant
-            # as a role or flag, it is neither" hint (§6.8, mediaresolve.py).
+            # as a role or flag, it is neither" hint (Media, mediaresolve.py).
             shot.slug = first
 
     # --- remaining tokens: flags (role=/layout=/kb=/dim=/fit=/text=) -------
@@ -676,7 +676,7 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
         if name in LAYOUTS_DYNAMIC:
             shot.warnings.append(
                 f"check 25: {name!r} is no longer a flat flag — use "
-                f"layout={name!r} (spec §7 redesign) — token ignored"
+                f"layout={name!r} (spec: The shot directive redesign) — token ignored"
             )
             continue
         _apply_flag(shot, name, value, tok)
@@ -726,7 +726,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
 
             # A role's payload paragraph never crosses a shot boundary: if a
             # previous role shot is still waiting for its paragraph, it lost
-            # it the moment the next shot arrived (spec §4 — the paragraph
+            # it the moment the next shot arrived (spec: Text — the paragraph
             # that follows THE shot is the payload).
             if pending_role is not None:
                 talk.warnings.append(
@@ -738,7 +738,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
 
             if is_role:
                 # A role shot always opens its own screen.  Implicit merge is
-                # removed (§4); a role shot directly following another shot is
+                # removed (Text); a role shot directly following another shot is
                 # the would-be merge and gets the did-you-mean hint.
                 if cur is not None and cur.shots and not cur.has_vo_or_screen_text():
                     talk.warnings.append(
@@ -799,7 +799,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                     f"{source}:{rb.get('line', 0)}: check 22: H2 "
                     f"{rb['text']!r} begins with 'Movement' but does not "
                     f"match 'Movement <integer> [separator] <title>' — "
-                    f"fatal (spec §10: a malformed movement heading is "
+                    f"fatal (spec: Error and warning taxonomy: a malformed movement heading is "
                     f"never silently treated as screen text)"
                 )
 
@@ -822,7 +822,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
 
         if credits_open and kind == "heading":
             # A credits screen consumes paragraphs, list items, and headings
-            # as screen content (spec §4).  A quote is NOT consumed: it stays
+            # as screen content (spec: Text).  A quote is NOT consumed: it stays
             # a quote object, never satisfies the credits role, and the role
             # keeps waiting — so a quote in the would-be payload position
             # fires the never-consumed warning at the next boundary instead
@@ -859,7 +859,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                             f"parentheticals do not nest — "
                             f"'...{clean[max(0, np - 12):np + 12].strip()}...' "
                             f"in a credits entry; rewrite the parenthetical "
-                            f"flat (spec §5)"
+                            f"flat (spec: Text)"
                         )
                     spoken, stage = split_parens(clean)
                     cur.blocks.append(
@@ -887,7 +887,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 talk.warnings.append(
                     f"line {rb.get('line', 0)}: check 23: parentheticals do "
                     f"not nest — '...{clean[max(0, np - 12):np + 12].strip()}...'; "
-                    f"rewrite the parenthetical flat (spec §5)"
+                    f"rewrite the parenthetical flat (spec: Text)"
                 )
             bkind = "vo"
             is_spoken = False
@@ -901,7 +901,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 # quote attribution: screen text, never VO.  Grammar: a
                 # "~ Name, venue" paragraph whose immediately preceding block
                 # is a quote (tilde stripped on screen).  `~` is the ONLY
-                # attribution form (spec §4; the `Source: ` shape was deleted
+                # attribution form (spec: Text; the `Source: ` shape was deleted
                 # — T03/D4 — and falls through to VO with a check-24 warning).
                 bkind = "quote-source"
                 spoken = spoken[2:]
@@ -921,13 +921,13 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 # check 24: the line reads as an attribution but does not sit
                 # directly under a quote, so it will be SPOKEN — tilde and
                 # all.  Attribution is `~ ` on its own paragraph under the
-                # quote (spec §4); warn so the author never hears a credit
+                # quote (spec: Text); warn so the author never hears a credit
                 # line read aloud by accident.
                 talk.warnings.append(
                     f"line {rb.get('line', 0)}: check 24: attribution-looking "
                     f"line will be spoken — {spoken[:40]!r}; attribution is "
                     f"'~ ' on its own paragraph directly under a quote "
-                    f"(spec §4)"
+                    f"(spec: Text)"
                 )
             cur.blocks.append(
                 Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0),

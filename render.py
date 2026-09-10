@@ -184,16 +184,16 @@ def screen_script(screen: Screen) -> str:
 
 def cited_sources(talk: Talk) -> list[dict]:
     """The handout citation list data: every referenced registry entry, in
-    first-appearance order (spec §5, Receipts).
+    first-appearance order (spec: Text, Receipts).
 
     `Talk.footnote_ids` carries the stripped `[^id]` references in document
-    order; each id keys into the frontmatter `sources:` registry (§2).  The
+    order; each id keys into the frontmatter `sources:` registry (Frontmatter).  The
     result is the shared payload behind both `deck.sources` in cues.json and
     the document view's Sources list, so the frozen IR and the handout can
     never disagree about what a deck cites.
 
     A reference whose id has no registry entry is a parse-side defect (check
-    28, spec §10) — it is stripped and collected but never emitted here:
+    28, spec: Error and warning taxonomy) — it is stripped and collected but never emitted here:
     there is no registry value to cite, and the deck already warns.
     """
     registry = talk.meta.get("sources")
@@ -616,7 +616,7 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
         for i, (label, items) in enumerate(movement_sections, start=1)
     )
 
-    # Receipts surface once, as the handout citation list (spec §5): every
+    # Receipts surface once, as the handout citation list (spec: Text): every
     # referenced `sources:` registry entry, first-appearance order.  The
     # registry value is the citation — ids are authoring keys and stay in
     # cues.json, never on the page.  No receipts, no section.
@@ -790,7 +790,7 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             "bank": str(meta_get(talk, "bank", "")),
             # `sources`: the handout citation list data — every referenced
             # `[^id]` receipt id (first-appearance order) plus its frontmatter
-            # `sources:` registry value (spec §5).  Empty when the deck has
+            # `sources:` registry value (spec: Text).  Empty when the deck has
             # no receipts.  The document view renders this same list.
             "sources": cited_sources(talk),
             # no `source` key: talk.source is an absolute machine path and
