@@ -1,9 +1,12 @@
 """build.py — animatic builder spike (E2).
 
-One talkfile in, three outputs out:
+One talkfile in, three views out:
     out/present/index.html      reveal.js v6 stand-in deck (VO in speaker notes)
     out/document/index.html     static HTML handout (VO as prose; print CSS for PDF)
+
+...and three generated sidecars:
     out/cues.json               ordered slide id -> script text (future controller)
+    out/nav.json                cue id -> source line range, movement, kind
     out/media-manifest.json     slug resolution audit
 
 Usage:
@@ -34,7 +37,8 @@ import yaml
 
 import talkparse
 from mediaresolve import MediaResolver
-from render import render_cues, render_document, render_manifest, render_present
+from render import (render_cues, render_document, render_manifest, render_nav,
+                    render_present)
 
 
 def main(argv=None) -> int:
@@ -108,6 +112,7 @@ def main(argv=None) -> int:
     present = render_present(talk, resolver, out / "present")
     document = render_document(talk, resolver, out / "document")
     cues = render_cues(talk, resolver, out)
+    nav = render_nav(talk, out)
     manifest = render_manifest(talk, resolver, out)
 
     print(f"talk      : {talk.source}")
@@ -142,6 +147,7 @@ def main(argv=None) -> int:
     print(f"written   : {present}")
     print(f"           : {document}")
     print(f"           : {cues}")
+    print(f"           : {nav}")
     print(f"           : {manifest}")
     return 0
 

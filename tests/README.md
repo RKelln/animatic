@@ -17,6 +17,10 @@ One command, one exit code:
   committed before this suite and included unchanged except status quoting.
   `cue-id-space.talk.md` is generated (103 one-card screens) and pins the
   three-digit cue-id space past the 99 cliff (register check 18).
+  `soft-wrap.talk.md` pins merged line spans — a soft-wrapped paragraph, a
+  two-line quote, a two-line list — the spans `nav.json` ranges are built
+  from (a range that stops at a block's first line leaves body lines
+  belonging to no screen; T13).
 - `fixtures/constructs/media/cards.yaml` — the construct-corpus media pool.
   Flat constructs share one deck dir, hence one pool: every media slug any
   construct references must be carded here (check 11 silence). Pool cards
@@ -39,7 +43,10 @@ One command, one exit code:
     fixtures (sibling of each deck dir, per spec §11).
 - `expected/<...>/{cues,media-manifest}.json` — byte goldens for the two
   semantic layers only. HTML is never byte-diffed (spec §9: highest churn
-  layer); the views are property-checked instead.
+  layer); the views are property-checked instead. `nav.json` is generated per
+  build like the others but carries no golden: the spec's Verification section
+  names two golden layers, so nav rides the determinism tree hash (byte-stable
+  across builds) with `nav_props` pinning its semantics.
 - `properties/` — structural invariants, run against every fixture profile
   and independent of the goldens:
   - `cue_props` — id shape `<slug>-NNN`, ordinals 1..N, lexical == ordinal,
@@ -58,13 +65,22 @@ One command, one exit code:
     black-beat sections carry the class; the document's movement sections,
     Sources list, figures, and opening section must match cues.json; no
     remote assets or machine-local paths in either view.
+  - `nav_props` — the addressability map (T13): entries are exactly the cue
+    ids in order and agree per screen on ordinal/movement/kind; the entry
+    shape is frozen (no unit ids, no `id` field, no grouping span); ranges are
+    ordered, never overlap, and each starts at a screen boundary (the opening
+    shot directive, first line of it when the directive wraps); every
+    non-blank body line outside the ranges is inert (comment, `---`, movement
+    heading) so a range that ends early fails; the document flag mirrors the
+    black kind.
   - `check_props` — every fixture is run through `check.check_file` (the
     T11 per-deck seam) with the built cues.json, with and without --strict,
     so the artifact assertions (checks 17 and 18) fire per fixture.
 - `run.py` — per fixture profile: build twice into temp dirs and require the
-  trees byte-identical (determinism, spec §8); diff the two golden layers;
-  run the four property modules. Exit 0 only when everything passes.
-  Determinism hashes print on the `ok` lines (cues# manifest#).
+  trees byte-identical (determinism, spec §8; `nav.json` rides this tree
+  hash); diff the two golden layers; run the five property modules. Exit 0
+  only when everything passes. Determinism hashes print on the `ok` lines
+  (cues# manifest#).
 
 ## Fixture expectations
 
@@ -103,3 +119,13 @@ passes.
   not observable in the current assembler: a trailing shot screen is kept as
   a beat (it has shots), and shotless screens cannot exist. Consecutive-shot
   warnings are pinned by the consecutive-shots fixture instead.
+- Every source line number is body-relative — 1-based in the talkfile *after*
+  the frontmatter is stripped (`talkparse._lex_frontmatter`), which is how
+  every warning and every `nav.json` range reads. Adding frontmatter shifts
+  no number; the fixtures pin the numbering both ways (a warning's line and a
+  range's line are the same number for the same line).
+- Consecutive non-blank prose lines merge into one paragraph, and consecutive
+  quote markers / list items merge into one block. The block's span is its
+  first line through its last, and `nav.json` ranges are the envelope of
+  those spans: a range that stopped at the opening line would leave the
+  wrapped lines belonging to no screen. `soft-wrap.talk.md` pins it.

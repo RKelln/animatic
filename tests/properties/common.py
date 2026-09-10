@@ -47,6 +47,9 @@ class Fixture:
         return json.loads(
             (self.out / "media-manifest.json").read_text(encoding="utf-8"))
 
+    def nav(self) -> dict:
+        return json.loads((self.out / "nav.json").read_text(encoding="utf-8"))
+
     @property
     def slug(self) -> str:
         return slugify(str(self.meta.get("slug") or self.talkfile.stem))
@@ -74,6 +77,20 @@ def load_meta_source(talkfile: Path) -> tuple[dict, str]:
             if not isinstance(meta, dict):
                 meta = {}
     return meta, text
+
+
+def body_lines(source_text: str) -> list:
+    """The body lines exactly as the parser numbers them.
+
+    nav.json ranges are 1-based source lines *of the body* (frontmatter
+    stripped) — the same numbering every warning uses.  White-box on purpose:
+    the property must read the source through the parser's own split, not a
+    lookalike, or a frontmatter change would silently skew every assertion.
+    Line k of a range is body_lines(text)[k - 1].
+    """
+    from talkparse import _lex_frontmatter
+    _, lines = _lex_frontmatter(source_text, "<fixture>")
+    return lines
 
 
 def derive_sources(meta: dict, source_text: str) -> list:

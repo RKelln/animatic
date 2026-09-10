@@ -714,7 +714,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
 
 
 # ---------------------------------------------------------------------------
-# CUES (ordered slide id -> script) + media manifest
+# CUES (ordered slide id -> script) + nav + media manifest
 # ---------------------------------------------------------------------------
 
 
@@ -848,5 +848,50 @@ def render_manifest(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
         "unreferenced_cards": resolver.unreferenced_cards(seen),
     }
     path = out_dir / "media-manifest.json"
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return path
+
+
+def render_nav(talk: Talk, out_dir: Path) -> Path:
+    """The addressability sidecar (spec: Outputs — cue id -> line range,
+    movement, kind).
+
+    One entry per screen, keyed by cue id, in presentation order: the source
+    line range the screen owns, its movement, its kind (the same `kind` cues
+    carries, so the two sidecars never disagree about a screen), and whether
+    the document view contains it.  A screen the document view skips — a
+    black beat, which carries no prose to print — is marked here with its
+    reason, so the sidecar is the honest map of what each view contains:
+    `present/` holds every screen 1:1 with cues, `document/` holds every
+    screen whose entry is not marked absent.
+
+    Generated, never authored: the ranges come from the line spans the parser
+    attaches to each screen's shots and blocks, so there is zero author
+    maintenance and the map cannot drift from the talkfile.  Keys are cue ids
+    and nothing else — no unit ids, no `id` field, no grouping spans (spec:
+    Screens — the screen is the smallest addressable unit).
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    screens = {}
+    for screen in talk.screens:
+        cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"
+        start, end = screen.line_range
+        omitted = is_black_screen(screen)
+        document: dict = {"present": not omitted}
+        if omitted:
+            document["reason"] = "black-beat"
+        screens[cue_id] = {
+            "ordinal": screen.idx,
+            "movement": screen.movement,
+            "kind": screen_kind(screen),
+            "lines": {"start": start, "end": end},
+            "document": document,
+        }
+    payload = {
+        "schema": "animatic.nav.v1",
+        "deck": {"slug": str(meta_get(talk, "slug", deck_slug(talk)))},
+        "screens": screens,
+    }
+    path = out_dir / "nav.json"
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return path

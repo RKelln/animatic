@@ -26,8 +26,11 @@ The same file renders as:
 - `build.py` + `talkparse.py` + `mediaresolve.py` + `render.py` — the builder (E2 spike):
   one talkfile in, three outputs out: present view (own-pager deck, VO in
   speaker notes), document view (static HTML handout, print-to-PDF via print CSS),
-  cues.json (ordered slide id to script text for the future controller), plus a
-  media-manifest.json resolution audit. Generated output lives in `out/` (gitignored).
+  cues.json (ordered slide id to script text for the future controller), plus two
+  generated sidecars: nav.json (cue id -> source line range, movement, kind —
+  addressability, and the document view's black-beat omissions) and
+  media-manifest.json (the resolution audit). Generated output lives in `out/`
+  (gitignored).
 - `check.py` — the deterministic check suite: the full 1-28 check register
   (spec §6/§7/§10/§11) with the fatal/warning/info/report taxonomy and
   `--strict` (warnings fatal). See `python3 check.py --register`.

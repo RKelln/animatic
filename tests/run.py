@@ -16,10 +16,10 @@ Layers (spec: Verification):
     synthetic /tmp tree — real content roots are never committed
 
 Per fixture profile the runner: builds twice into temp dirs and requires the
-trees to be byte-identical (determinism, spec: Outputs); diffs cues.json +
-media-manifest.json against expected/ (--update-goldens re-blesses); runs
-the property modules (cues, manifest, html views, check suite).  HTML is
-never byte-diffed.
+trees to be byte-identical (determinism, spec: Outputs — nav.json included);
+diffs cues.json + media-manifest.json against expected/ (--update-goldens
+re-blesses); runs the property modules (cues, nav, manifest, html views, check
+suite).  HTML is never byte-diffed.
 
 Golden discipline: a changed builder behavior shows up as a golden diff that
 must be understood; --update-goldens is the escape hatch, used after the
@@ -45,7 +45,7 @@ sys.path.insert(0, str(TESTS))
 
 import build as build_mod  # noqa: E402
 from properties import (check_props, corpus_props, cue_props, html_props,  # noqa: E402
-                        manifest_props)
+                        manifest_props, nav_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
 GOLDEN_FILES = ("cues.json", "media-manifest.json")
@@ -175,8 +175,8 @@ def main(argv=None) -> int:
                         meta=meta, source_text=source_text)
 
                     diff_goldens(fx, errors, args.update_goldens)
-                    for mod in (cue_props, manifest_props, html_props,
-                                check_props):
+                    for mod in (cue_props, manifest_props, nav_props,
+                                html_props, check_props):
                         mod.check(fx, errors)
                 except Exception as exc:  # noqa: BLE001 — suite must not die
                     err(errors, f"suite error: {type(exc).__name__}: {exc}")

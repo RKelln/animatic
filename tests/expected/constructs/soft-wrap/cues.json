@@ -1,0 +1,89 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "soft-wrap",
+    "title": "Soft-wrapped blocks",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "soft-wrap-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "The first paragraph of this screen is soft-wrapped across three source lines; the merged span starts on the first of them and the screen's range must end on the last.\n\nThe second paragraph follows, wrapped across two more lines, and ends the screen.",
+      "stage": null
+    },
+    {
+      "id": "soft-wrap-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "A quote that runs across two source lines."
+        },
+        {
+          "kind": "source",
+          "text": "The specimen voice, 2026"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "a list item wrapped across",
+            "a second item on its own line"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null
+    },
+    {
+      "id": "soft-wrap-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "black",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "black",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "",
+      "stage": null
+    }
+  ],
+  "warnings": []
+}

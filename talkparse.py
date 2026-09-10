@@ -212,6 +212,13 @@ class Shot:
     flags: dict = field(default_factory=dict)   # {'kb': 'in', 'dim': '0.35', ...}
     raw: str = ""
     line: int = 0
+    # First source line the directive occupies.  Equal to `line` for a
+    # single-line shot; earlier when the directive is wrapped across lines
+    # (spec: Screens, check 27).  `line` stays the *reported* line — where the
+    # directive closes — because warnings anchor there (check 26); `line_begin`
+    # is the screen boundary the nav sidecar seeks to (spec: Outputs,
+    # addressability).
+    line_begin: int = 0
     warnings: list = field(default_factory=list)
 
     @property
@@ -235,7 +242,10 @@ class Block:
     items: list = field(default_factory=list)   # list items
     stage: list = field(default_factory=list)   # extracted parentheticals
     spoken: bool = False          # role payload is spoken VO (from roles.yaml)
-    line: int = 0
+    line: int = 0                 # first source line of the block
+    line_end: int = 0             # last source line: merged soft-wrap or a
+                                  # multi-line quote / list occupies every line
+                                  # in between, so the screen's range must too
 
 
 @dataclass
@@ -276,6 +286,33 @@ class Screen:
             if b.kind == "heading":
                 return b
         return None
+
+    @property
+    def line_range(self) -> tuple[int, int]:
+        """(first, last) source line this screen owns — the addressable span.
+
+        A screen is a run of the source file: its opening shot and every block
+        that follows, up to the last line it occupies (spec: Outputs —
+        `nav.json` maps cue id -> line range).  The range is the envelope of
+        the spans its items carry, so a soft-wrapped paragraph or a multi-line
+        shot directive extends it to its real last line, and a range never
+        crosses the next screen's boundary.  Lines the grammar drops (blank
+        lines, non-shot comments, `---`, movement headings) belong to no screen
+        and fall between ranges.
+        """
+        starts: list[int] = []
+        ends: list[int] = []
+        for shot in self.shots:
+            if shot.line:
+                starts.append(shot.line_begin or shot.line)
+                ends.append(shot.line)
+        for b in self.blocks:
+            if b.line:
+                starts.append(b.line)
+                ends.append(b.line_end or b.line)
+        if not starts:
+            return (self.line, self.line)
+        return (min(starts), max(ends))
 
 
 @dataclass
@@ -446,14 +483,18 @@ def _lex_blocks(lines: list, source: str) -> list:
     blocks: list[dict] = []
     para_buf: list[str] = []
     para_line = 0
+    para_end = 0
     cont = None  # (kind, block, last_lineno) for quote/list line merging
     comment_buf: Optional[list] = None
+    comment_start = 0
 
     def flush_para():
-        nonlocal para_buf, cont
+        nonlocal para_buf, cont, para_end
         if para_buf:
-            blocks.append({"kind": "para", "text": " ".join(para_buf), "line": para_line})
+            blocks.append({"kind": "para", "text": " ".join(para_buf),
+                           "line": para_line, "line_end": para_end})
             para_buf = []
+        para_end = 0
         cont = None
 
     for lineno, raw in enumerate(lines, start=1):
@@ -467,19 +508,25 @@ def _lex_blocks(lines: list, source: str) -> list:
                 comment_buf = None
                 if SHOT_RE.match(comment):
                     flush_para()
+                    shot = _parse_shot(comment, lineno)
+                    shot.line_begin = comment_start
                     blocks.append(
-                        {"kind": "shot", "shot": _parse_shot(comment, lineno),
-                         "line": lineno}
+                        {"kind": "shot", "shot": shot, "line": lineno,
+                         "line_end": lineno}
                     )
             continue
         if line.lstrip().startswith("<!--"):
             if "-->" not in line:
                 comment_buf = [line]
+                comment_start = lineno
                 continue
             if SHOT_RE.match(line):
                 flush_para()
+                shot = _parse_shot(line, lineno)
+                shot.line_begin = lineno
                 blocks.append(
-                    {"kind": "shot", "shot": _parse_shot(line, lineno), "line": lineno}
+                    {"kind": "shot", "shot": shot, "line": lineno,
+                     "line_end": lineno}
                 )
             continue
 
@@ -494,7 +541,7 @@ def _lex_blocks(lines: list, source: str) -> list:
             flush_para()
             blocks.append(
                 {"kind": "heading", "level": len(hm.group(1)), "text": hm.group(2).strip(),
-                 "line": lineno}
+                 "line": lineno, "line_end": lineno}
             )
             continue
 
@@ -503,10 +550,12 @@ def _lex_blocks(lines: list, source: str) -> list:
         if qm:
             if cont and cont[0] == "quote" and lineno == cont[2] + 1:
                 cont[1]["text"] += " " + qm.group(1).strip()
+                cont[1]["line_end"] = lineno
                 cont[2] = lineno
             else:
                 flush_para()
-                block = {"kind": "quote", "text": qm.group(1).strip(), "line": lineno}
+                block = {"kind": "quote", "text": qm.group(1).strip(),
+                         "line": lineno, "line_end": lineno}
                 blocks.append(block)
                 cont = ["quote", block, lineno]
             continue
@@ -516,10 +565,12 @@ def _lex_blocks(lines: list, source: str) -> list:
         if lm:
             if cont and cont[0] == "list" and lineno == cont[2] + 1:
                 cont[1]["items"].append(lm.group(1).strip())
+                cont[1]["line_end"] = lineno
                 cont[2] = lineno
             else:
                 flush_para()
-                block = {"kind": "list", "items": [lm.group(1).strip()], "line": lineno}
+                block = {"kind": "list", "items": [lm.group(1).strip()],
+                         "line": lineno, "line_end": lineno}
                 blocks.append(block)
                 cont = ["list", block, lineno]
             continue
@@ -534,6 +585,7 @@ def _lex_blocks(lines: list, source: str) -> list:
         if not para_buf:
             para_line = lineno
         para_buf.append(line.strip())
+        para_end = lineno
 
     flush_para()
     return blocks
@@ -835,7 +887,8 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 Block(kind="heading",
                       text=strip_footnote_refs(rb["text"], talk.footnote_ids),
                       level=rb["level"],
-                      line=rb.get("line", 0))
+                      line=rb.get("line", 0),
+                      line_end=rb.get("line_end", 0) or rb.get("line", 0))
             )
             continue
 
@@ -843,7 +896,8 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
             cur.blocks.append(
                 Block(kind="quote",
                       text=strip_footnote_refs(rb["text"], talk.footnote_ids),
-                      line=rb.get("line", 0))
+                      line=rb.get("line", 0),
+                      line_end=rb.get("line_end", 0) or rb.get("line", 0))
             )
             continue
 
@@ -863,7 +917,8 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                     spoken, stage = split_parens(clean)
                     cur.blocks.append(
                         Block(kind="credits", text=spoken, stage=stage,
-                              line=rb.get("line", 0))
+                              line=rb.get("line", 0),
+                              line_end=rb.get("line_end", 0) or rb.get("line", 0))
                     )
                 pending_role = None
                 continue
@@ -871,7 +926,8 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 Block(kind="list",
                       items=[strip_footnote_refs(i, talk.footnote_ids)
                              for i in rb["items"]],
-                      line=rb.get("line", 0))
+                      line=rb.get("line", 0),
+                      line_end=rb.get("line_end", 0) or rb.get("line", 0))
             )
             continue
 
@@ -930,6 +986,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 )
             cur.blocks.append(
                 Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0),
+                      line_end=rb.get("line_end", 0) or rb.get("line", 0),
                       spoken=is_spoken)
             )
             continue
@@ -951,5 +1008,16 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
     talk.screens = kept
     for i, s in enumerate(talk.screens, start=1):
         s.idx = i
+    # Line spans (spec: Outputs — nav.json maps cue id -> line range).  Every
+    # item carries where it starts; anything built without an explicit end
+    # occupies exactly one line, so the default here — never a silent 0 —
+    # keeps screen.line_range an honest envelope for every construct.
+    for s in talk.screens:
+        for shot in s.shots:
+            if not shot.line_begin:
+                shot.line_begin = shot.line
+        for b in s.blocks:
+            if not b.line_end:
+                b.line_end = b.line
     talk.warnings.sort()
     return talk
