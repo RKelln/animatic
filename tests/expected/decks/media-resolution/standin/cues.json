@@ -42,7 +42,8 @@
       },
       "screen_text": null,
       "script": "An approved path on the card outranks the same slug's file in the deck media dir; the manifest records source cards and the approved extension.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 10.0
     },
     {
       "id": "media-resolution-002",
@@ -72,7 +73,8 @@
       },
       "screen_text": null,
       "script": "A file in the deck media dir resolves without any declared path; the manifest records source deckdir.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 6.8
     },
     {
       "id": "media-resolution-003",
@@ -102,7 +104,8 @@
       },
       "screen_text": null,
       "script": "Attempt files under the slug's attempts dir resolve by highest N; the gen-log rows match the files, so no archaeology drift reports.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 8.8
     },
     {
       "id": "media-resolution-004",
@@ -132,7 +135,8 @@
       },
       "screen_text": null,
       "script": "With both a direct deck file and an attempts file present, the builder's order decides; the golden pins whichever wins so a reorder shows as a diff.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 10.8
     },
     {
       "id": "media-resolution-005",
@@ -162,7 +166,8 @@
       },
       "screen_text": null,
       "script": "A shared library entry documents the media, so the deck needs no card for it; the manifest records source library.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 8.0
     },
     {
       "id": "media-resolution-006",
@@ -192,7 +197,8 @@
       },
       "screen_text": null,
       "script": "Nothing resolves for this slug in the base build: card brief, no file, placeholder with a reason. The standin profile remaps it and real beats nothing.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 10.4
     },
     {
       "id": "media-resolution-007",
@@ -222,7 +228,8 @@
       },
       "screen_text": null,
       "script": "A to-find card with no file and no declared path stays a placeholder; placeholders always render and always say why.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 8.0
     }
   ],
   "warnings": []

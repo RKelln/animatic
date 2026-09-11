@@ -44,7 +44,8 @@
       },
       "screen_text": null,
       "script": "The voice survives the junk tokens; each one warned instead of vanishing. The known flag applied.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 6.4
     }
   ],
   "warnings": [

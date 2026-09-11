@@ -39,7 +39,8 @@
         }
       ],
       "script": "~ A lone tilde with no quote above it.\n\nSource: the deleted shape, 2026\n\nBoth stray shapes above are spoken, tilde and all, because the warning is the migration path.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 11.6
     }
   ],
   "warnings": [

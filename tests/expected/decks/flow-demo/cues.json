@@ -63,7 +63,8 @@
         }
       ],
       "script": "Opening voice on a shotless title card. The whole river is speech.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 4.8
     },
     {
       "id": "flow-demo-002",
@@ -103,7 +104,8 @@
         }
       ],
       "script": "The first movement screen carries media, a heading, and voice.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 4.0
     },
     {
       "id": "flow-demo-003",
@@ -140,7 +142,8 @@
         }
       ],
       "script": "68 percent of everything.\n\nThe stat overlay rides the media; its payload is read aloud.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 6.0
     },
     {
       "id": "flow-demo-004",
@@ -178,7 +181,8 @@
         }
       ],
       "script": "A lower third names the image while the voice keeps moving. It leaves when the picture changes.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 6.8
     },
     {
       "id": "flow-demo-005",
@@ -205,7 +209,8 @@
         }
       ],
       "script": "Quote voice follows; the attribution hugs the quote in both views.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 4.4
     },
     {
       "id": "flow-demo-006",
@@ -235,7 +240,8 @@
       },
       "screen_text": null,
       "script": "",
-      "stage": null
+      "stage": null,
+      "est_seconds": 3.0
     },
     {
       "id": "flow-demo-007",
@@ -262,7 +268,8 @@
         }
       ],
       "script": "Hero text scales with the slide; the card carries no media.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 4.4
     },
     {
       "id": "flow-demo-008",
@@ -294,7 +301,8 @@
       },
       "screen_text": null,
       "script": "The duo layout frames the object beside the words.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 3.6
     },
     {
       "id": "flow-demo-009",
@@ -334,7 +342,8 @@
         }
       ],
       "script": "",
-      "stage": null
+      "stage": null,
+      "est_seconds": 8.0
     },
     {
       "id": "flow-demo-010",
@@ -352,7 +361,8 @@
       "media": null,
       "screen_text": null,
       "script": "",
-      "stage": null
+      "stage": null,
+      "est_seconds": 2.0
     }
   ],
   "warnings": []

@@ -1,0 +1,217 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "timing-demo",
+    "title": "Timing demo",
+    "date": "2026-09-10",
+    "venue": "Internal fixture",
+    "format": "Golden deck",
+    "dur": "~1 min",
+    "theme": "lecture",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [
+    {
+      "index": 1,
+      "label": "Movement 1 · The clock",
+      "title": "The clock",
+      "cue_ids": [
+        "timing-demo-003",
+        "timing-demo-004",
+        "timing-demo-005"
+      ]
+    },
+    {
+      "index": 2,
+      "label": "Movement 2 · The sidecar",
+      "title": "The sidecar",
+      "cue_ids": [
+        "timing-demo-006",
+        "timing-demo-007"
+      ]
+    },
+    {
+      "index": 3,
+      "label": "Movement 3 · The end roll",
+      "title": "The end roll",
+      "cue_ids": [
+        "timing-demo-008"
+      ]
+    }
+  ],
+  "cues": [
+    {
+      "id": "timing-demo-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Timing demo",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "Timing demo"
+        }
+      ],
+      "script": "A deck that declares how long it runs, and knows it.",
+      "stage": null,
+      "est_seconds": 3.771
+    },
+    {
+      "id": "timing-demo-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "timing-demo-003",
+      "ordinal": 3,
+      "movement": 1,
+      "kind": "card",
+      "title": null,
+      "shots": [],
+      "media": null,
+      "screen_text": null,
+      "script": "Every cue carries an estimate: script words over speech rate, floored by screen kind, and nothing in the deck knows about it.",
+      "stage": null,
+      "est_seconds": 7.543
+    },
+    {
+      "id": "timing-demo-004",
+      "ordinal": 4,
+      "movement": 1,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "An explicit beat stops the clock for a moment.",
+      "stage": [
+        "Beat."
+      ],
+      "est_seconds": 3.086
+    },
+    {
+      "id": "timing-demo-005",
+      "ordinal": 5,
+      "movement": 1,
+      "kind": "black",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "black",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "timing-demo-006",
+      "ordinal": 6,
+      "movement": 2,
+      "kind": "card",
+      "title": null,
+      "shots": [],
+      "media": null,
+      "screen_text": null,
+      "script": "The estimate is the builder's guess, so the author overrides the cue they know better, and a test read replaces it with the real number.",
+      "stage": null,
+      "est_seconds": 8.571
+    },
+    {
+      "id": "timing-demo-007",
+      "ordinal": 7,
+      "movement": 2,
+      "kind": "black",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "black",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "timing-demo-008",
+      "ordinal": 8,
+      "movement": 3,
+      "kind": "credits",
+      "title": "The end roll",
+      "shots": [
+        {
+          "slug": null,
+          "role": "credits",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "The end roll"
+        },
+        {
+          "kind": "credits",
+          "text": "A paragraph credit line."
+        },
+        {
+          "kind": "credits",
+          "text": "first list credit"
+        },
+        {
+          "kind": "credits",
+          "text": "second list credit"
+        },
+        {
+          "kind": "credits",
+          "text": "A closing paragraph credit."
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 8.0
+    }
+  ],
+  "warnings": []
+}

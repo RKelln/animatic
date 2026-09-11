@@ -30,7 +30,8 @@
       "media": null,
       "screen_text": null,
       "script": "One last voice before the roll.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 2.4
     },
     {
       "id": "end-roll-002",
@@ -70,7 +71,8 @@
         }
       ],
       "script": "",
-      "stage": null
+      "stage": null,
+      "est_seconds": 8.0
     }
   ],
   "warnings": []

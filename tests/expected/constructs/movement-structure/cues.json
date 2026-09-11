@@ -47,7 +47,8 @@
         }
       ],
       "script": "Opening zone prose belongs to no movement; its screen keeps ordinal one.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 4.8
     },
     {
       "id": "movement-structure-002",
@@ -65,7 +66,8 @@
       "media": null,
       "screen_text": null,
       "script": "Setup screen voice, inside movement one.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 2.4
     },
     {
       "id": "movement-structure-003",
@@ -83,7 +85,8 @@
       "media": null,
       "screen_text": null,
       "script": "Turn screen voice, inside movement two.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 2.4
     }
   ],
   "warnings": []

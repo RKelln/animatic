@@ -33,7 +33,8 @@
       "stage": [
         "Visual: a flat stage note.",
         "inner"
-      ]
+      ],
+      "est_seconds": 6.8
     }
   ],
   "warnings": [

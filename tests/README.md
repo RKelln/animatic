@@ -21,6 +21,9 @@ One command, one exit code:
   two-line quote, a two-line list — the spans `nav.json` ranges are built
   from (a range that stops at a block's first line leaves body lines
   belonging to no screen; T13).
+  `timing-drift.talk.md` declares `dur: 45 min` on a two-screen deck: the
+  clock (check 19) must report the divergence and the deck must still build
+  (spec: Timing; T15).
 - `fixtures/constructs/media/cards.yaml` — the construct-corpus media pool.
   Flat constructs share one deck dir, hence one pool: every media slug any
   construct references must be carded here (check 11 silence). Pool cards
@@ -41,6 +44,12 @@ One command, one exit code:
     art beats a stand-in: only `standin-only` changes between profiles.
   - `decks/_media/library.yaml` — the shared library home for deck
     fixtures (sibling of each deck dir, per spec §11).
+  - `timing-demo` (T15) — the clock end to end: `dur: ~1 min` sits inside the
+    report threshold only because the deck-local `timing.yaml` applies an
+    `authored` override (9.0 s) and a `measured` value (14.5 s) over the
+    estimates; `settings.wpm: 175` proves the sidecar's speech rate is read.
+    Media-free, so the fixture stays about timing; the video hard floor is
+    pinned by `timing_props` against a generated clip.
 - `expected/<...>/{cues,media-manifest}.json` — byte goldens for the two
   semantic layers only. HTML is never byte-diffed (spec §9: highest churn
   layer); the views are property-checked instead. `nav.json` is generated per
@@ -73,12 +82,21 @@ One command, one exit code:
     non-blank body line outside the ranges is inert (comment, `---`, movement
     heading) so a range that ends early fails; the document flag mirrors the
     black kind.
+  - `timing_props` — the clock (T15, spec: Timing): every cue carries a
+    positive-float `est_seconds` at least as long as its pure read time at the
+    deck's speech rate; the build never writes `timing.yaml` and never puts the
+    estimate in it; check 19 reports on `timing-drift` and stays silent on
+    `timing-demo`, and neither is ever a failure; an authored override beats
+    the estimate and a measured value beats both; plus unit assertions on
+    `timing.py` — tolerant `dur` parsing, the kind floors, the video hard floor
+    (ffprobe against a generated clip), precedence, and malformed-sidecar
+    handling (rows report and skip; a broken sidecar never breaks a build).
   - `check_props` — every fixture is run through `check.check_file` (the
     T11 per-deck seam) with the built cues.json, with and without --strict,
     so the artifact assertions (checks 17 and 18) fire per fixture.
 - `run.py` — per fixture profile: build twice into temp dirs and require the
   trees byte-identical (determinism, spec §8; `nav.json` rides this tree
-  hash); diff the two golden layers; run the five property modules. Exit 0
+  hash); diff the two golden layers; run the six property modules. Exit 0
   only when everything passes. Determinism hashes print on the `ok` lines
   (cues# manifest#).
 
@@ -95,7 +113,9 @@ One command, one exit code:
 
 ## Golden discipline
 
-Blessed on 2026-09-08 against HEAD 452a6ef (T01-T09 all merged and green).
+Blessed on 2026-09-08 against HEAD 452a6ef (T01-T09 all merged and green);
+re-blessed 2026-09-09 (media status have -> file) and 2026-09-10 (T15:
+`est_seconds` on every cue — one added field per cue object and nothing else).
 A builder change that alters emitted semantics shows as a golden diff and
 must be understood before re-blessing; a golden that starts failing for an
 unexplained reason is the suite doing its job. `--update-goldens` rewrites

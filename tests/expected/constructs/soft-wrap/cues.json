@@ -30,7 +30,8 @@
       "media": null,
       "screen_text": null,
       "script": "The first paragraph of this screen is soft-wrapped across three source lines; the merged span starts on the first of them and the screen's range must end on the last.\n\nThe second paragraph follows, wrapped across two more lines, and ends the screen.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 17.2
     },
     {
       "id": "soft-wrap-002",
@@ -64,7 +65,8 @@
         }
       ],
       "script": "",
-      "stage": null
+      "stage": null,
+      "est_seconds": 3.0
     },
     {
       "id": "soft-wrap-003",
@@ -82,7 +84,8 @@
       "media": null,
       "screen_text": null,
       "script": "",
-      "stage": null
+      "stage": null,
+      "est_seconds": 2.0
     }
   ],
   "warnings": []

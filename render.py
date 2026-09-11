@@ -26,7 +26,10 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from pathlib import Path
+
+import timing
 
 from talkparse import (
     BLACK_ROLE,
@@ -37,7 +40,7 @@ from talkparse import (
     plain_md,
     slugify,
 )
-from mediaresolve import MediaResolver, MediaRef
+from mediaresolve import VIDEO_EXTS, MediaResolver, MediaRef
 
 THEMES_DIR = Path(__file__).resolve().parent / "themes"
 KNOWN_THEMES = ("lecture", "workshop")
@@ -180,6 +183,44 @@ def screen_script(screen: Screen) -> str:
         elif b.spoken and b.text.strip():
             parts.append(plain_md(b.text))
     return "\n\n".join(parts)
+
+
+_BEAT_NOTE_RE = re.compile(r"beat\.?", re.IGNORECASE)
+
+
+def has_beat_note(screen: Screen) -> bool:
+    """True when a stage note marks this screen an explicit beat (`(Beat.)`,
+    spec: Text — parenthetical prefixes; a `(Beat.)` is a timing/pause)."""
+    return any(_BEAT_NOTE_RE.fullmatch(s.strip())
+               for b in screen.blocks for s in b.stage)
+
+
+def cue_estimate(screen: Screen, resolver: MediaResolver,
+                 wpm: float = timing.DEFAULT_WPM) -> float:
+    """The screen's `estimated` tier, in seconds (spec: Timing).
+
+    Script word count ÷ `wpm`, floored per screen kind.  A media shot whose
+    file is a video contributes the file's real duration from ffprobe, the
+    hard floor: a video cannot be played faster than it is.  Screens with no
+    voice-over stand on the floor alone.
+
+    The one implementation both `cues.json` (est_seconds) and check 19 use, so
+    the artifact and the check can never disagree about the clock.
+    """
+    words = timing.word_count(screen_script(screen))
+    video_seconds = None
+    shot = screen.media_shot
+    if shot is not None and shot.slug:
+        ref = resolver.resolve(shot.slug)
+        if ref.found and ref.file:
+            suffix = Path(ref.file).suffix.lower()
+            if ref.type == "video" or suffix in VIDEO_EXTS:
+                video_seconds = timing.probe_video_seconds(ref.file)
+    return timing.estimate_seconds(
+        words, screen_kind(screen),
+        video_seconds=video_seconds, wpm=wpm,
+        credits_read=is_credits_screen(screen),
+        beat=has_beat_note(screen))
 
 
 def cited_sources(talk: Talk) -> list[dict]:
@@ -719,7 +760,17 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
 
 
 def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
+    """The machine contract: one entry per screen, in presentation order.
+
+    Each cue carries its script, on-screen text, shots, resolved media, and
+    `est_seconds` — the estimated timing tier (spec: Timing).  The estimate is
+    computed here, on the way into the artifact, because it is a product of
+    the parse model (words, screen kind, media file); authored and measured
+    overrides live in the deck-local `timing.yaml` (timing.py) and are
+    deliberately not echoed into cues.json, which stays a pure builder output.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
+    tt = timing.load(Path(talk.source).parent if talk.source else Path.cwd())
     cues = []
     by_movement: dict[int, list[str]] = {}
 
@@ -765,6 +816,7 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             "screen_text": screen_text,
             "script": screen_script(screen),
             "stage": stage_of(screen) or None,
+            "est_seconds": cue_estimate(screen, resolver, tt.wpm),
         })
 
     movements_out = []

@@ -33,18 +33,24 @@ Severity taxonomy (spec: Error and warning taxonomy as the register defines it):
               card with no resolvable file.
     report    archaeology and delivery reports, printed, never an exit
               failure: attempt/gen-log drift (13), attempt numbering gaps
-              (14), licence-before-public-use (16).  Not diagnostics: a deck
-              carrying them is not defective.
+              (14), licence-before-public-use (16), timing divergence from
+              `dur` (19).  Not diagnostics: a deck carrying them is not
+              defective.
 
 Register canonicalization (engine-decision Verification/Error and warning taxonomy: "register canonicalization
 is T08").  The 1-28 register table with owner + status lives in REGISTER below
 and prints with --register.  Rows implemented here: 1-9, 11-16, 18 (model
-assert + artifact assert), 21 (corpus harness), 28.  Rows enforced by the
+assert + artifact assert), 19 (the timing clock; the estimate itself ships
+from render.py/timing.py), 21 (corpus harness), 28.  Rows enforced by the
 parser/resolver ships from earlier tickets: 10 (mediaresolve), 17 (render,
 T02), 22-26 (talkparse), 27 (T07 fixture).  Explicitly deferred with reason:
-19 (est_seconds lands with T15's timing module; T15's file scope includes
-check.py), 20 (the --variant build lands with T14; T14's file scope includes
-check.py).
+20 (the --variant build lands with T14; T14's file scope includes check.py).
+
+Check 19 reads the deck-local `timing.yaml` sidecar (timing.py) next to the
+talkfile: the clock compares sum(effective seconds) against the declared
+`dur`, where effective is measured > authored > estimated per cue.  A missing
+or unreadable sidecar is never an error — it just leaves every cue at its
+estimate.
 
 Importable by build.py and a future `animatic` wrapper (there is no animatic
 CLI today).  check_file() is the per-deck seam the --corpus driver (T11)
@@ -72,6 +78,8 @@ from typing import Optional
 import yaml
 
 import talkparse
+import render
+import timing
 from mediaresolve import MEDIA_EXTS, MediaResolver
 
 # ---------------------------------------------------------------------------
@@ -115,7 +123,7 @@ REGISTER = [
     (16, "licence-before-public-use (third-party on a public deck)", REPORT,  "implemented"),
     (17, "no absolute paths in cues.json",                           FATAL,   "enforced: render.py (T02); artifact check in check.py"),
     (18, "lexical sort of cue ids == ordinal order",                 FATAL,   "implemented"),
-    (19, "sum(est_seconds) vs frontmatter dur divergence",           REPORT,  "deferred: T15"),
+    (19, "sum(est_seconds) vs frontmatter dur divergence",           REPORT,  "implemented: check.py + timing.py"),
     (20, "variant build emits included/excluded manifest",           REPORT,  "deferred: T14"),
     (21, "corpus: all decks parse/build/pass",                       REPORT,  "implemented"),
     (22, "malformed Movement heading fatal",                         FATAL,   "enforced: talkparse.py (T05)"),
@@ -128,18 +136,14 @@ REGISTER = [
 ]
 
 DEFERRED = {
-    19: "check 19 needs est_seconds, which lands with T15's timing module "
-        "(speech-rate constant, per-screen floors, timing.yaml); T15's file "
-        "scope includes check.py and its acceptance fires this report on a "
-        "deliberately divergent deck.",
     20: "check 20 needs the --variant build that emits the included/excluded "
         "manifest; that lands with T14 (dense renumbering + canonical remap), "
         "whose file scope includes check.py.",
 }
 
 
-DEFERRED_LINE = ("deferred : check 19 -> T15 (est_seconds/timing), check 20 -> "
-                 "T14 (variant manifest) — full reasons under --register")
+DEFERRED_LINE = ("deferred : check 20 -> T14 (variant manifest) — full reason "
+                 "under --register")
 
 
 @dataclass
@@ -759,6 +763,74 @@ def check_18_model_ids(talk, resolver, report: Report) -> None:
                    f"past 999 (spec: Screens)")
 
 
+# ---------------------------------------------------------------------------
+# Timing (19) — the clock: est_seconds + timing.yaml vs the declared dur
+# ---------------------------------------------------------------------------
+
+
+def _dur_label(seconds: float) -> str:
+    if seconds >= 60:
+        return f"{seconds / 60:.1f} min ({seconds:.0f} s)"
+    return f"{seconds:.1f} s"
+
+
+def check_19_timing(talk, resolver, report: Report) -> None:
+    """The deck's clock against its declared `dur` (spec: Timing).
+
+    Effective seconds are per cue — measured > authored > estimated — and the
+    estimate comes from render.cue_estimate, the same function that writes
+    `est_seconds` into cues.json, so the artifact and this check can never
+    disagree about a cue's guess.
+
+    Past 30% divergence this *reports*: never a warning, never an error.  The
+    estimate is crude by design, and a hard failure would train people to
+    ignore the check.  No `dur`, or a `dur` this cannot read, means there is
+    nothing to compare — a talkfile stays valid with no `dur` at all.
+    """
+    deck_dir = Path(talk.source).parent if talk.source else Path.cwd()
+    tt = timing.load(deck_dir)
+    for problem in tt.problems:
+        report.add(19, REPORT, problem)
+
+    cue_ids = [f"{deck_slug(talk)}-{s.idx:03d}" for s in talk.screens]
+    owned = set(cue_ids)
+    for cid in sorted(tt.cues):
+        if cid not in owned:
+            report.add(19, REPORT,
+                       f"timing.yaml overrides cue id {cid!r}, which no "
+                       f"screen in this deck owns — the entry never applies "
+                       f"(spec: Timing)")
+
+    total = 0.0
+    authors = 0
+    for screen, cid in zip(talk.screens, cue_ids):
+        est = render.cue_estimate(screen, resolver, tt.wpm)
+        seconds, tier = tt.effective(cid, est)
+        if tier != "estimated":
+            authors += 1
+        total += seconds
+
+    raw_dur = talk.meta.get("dur")
+    dur = timing.parse_dur(raw_dur)
+    if dur is None:
+        if raw_dur not in (None, ""):
+            report.add(19, REPORT,
+                       f"dur {raw_dur!r} is not a duration this check can "
+                       f"read — the clock has nothing to compare against "
+                       f"(spec: Timing)")
+        return
+
+    divergence = (total - dur) / dur
+    if abs(divergence) <= timing.DIVERGENCE:
+        return
+    overrides = f"{authors} cue(s) overridden; " if authors else ""
+    report.add(19, REPORT,
+               f"effective timing {_dur_label(total)} vs declared dur "
+               f"{_dur_label(dur)}: diverges {divergence:+.0%} (past the "
+               f"{timing.DIVERGENCE:.0%} report threshold) — {overrides}"
+               f"the estimate is crude by design (spec: Timing)")
+
+
 def check_28_footnotes(talk, resolver, source_text: str, report: Report) -> None:
     meta = talk.meta
     sources = meta.get("sources")
@@ -839,6 +911,7 @@ def run_checks(talk, resolver, source_text: str,
     check_15_approved_no_file(talk, resolver, report)
     check_16_licence(talk, resolver, report)
     check_18_model_ids(talk, resolver, report)
+    check_19_timing(talk, resolver, report)
     check_28_footnotes(talk, resolver, source_text, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)

@@ -1,0 +1,57 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "timing-drift",
+    "title": "Timing drift",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "45 min",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "timing-drift-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "A short line of script, a few seconds of speech, and a duration declared as if this were a full session.",
+      "stage": null,
+      "est_seconds": 8.4
+    },
+    {
+      "id": "timing-drift-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "black",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "black",
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "",
+      "stage": null,
+      "est_seconds": 2.0
+    }
+  ],
+  "warnings": []
+}

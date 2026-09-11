@@ -36,7 +36,8 @@
         }
       ],
       "script": "Headings after a shot are screen text, never spoken: one idea per card.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 5.2
     },
     {
       "id": "screen-objects-002",
@@ -63,7 +64,8 @@
         }
       ],
       "script": "The quote and its tilde attribution travel together; the voice underneath keeps moving.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 5.2
     },
     {
       "id": "screen-objects-003",
@@ -89,7 +91,8 @@
         }
       ],
       "script": "A list after a shot is one screen object; its items are never read aloud.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 6.0
     }
   ],
   "warnings": []

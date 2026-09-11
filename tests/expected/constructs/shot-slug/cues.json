@@ -52,7 +52,8 @@
         }
       ],
       "script": "A media slug is the shot's first token; flags follow it on the same directive.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 6.0
     },
     {
       "id": "shot-slug-002",
@@ -82,7 +83,8 @@
       },
       "screen_text": null,
       "script": "A bare slug shot with no flags opens its own screen. The slug stays extensionless here; only the resolver ever sees a file extension.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 9.6
     }
   ],
   "warnings": []

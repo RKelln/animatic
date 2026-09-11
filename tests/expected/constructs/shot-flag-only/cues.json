@@ -39,7 +39,8 @@
         }
       ],
       "script": "The first token is a known flag, so this screen carries no media slug and no role. Hero text scales with the slide.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 9.2
     },
     {
       "id": "shot-flag-only-002",
@@ -65,7 +66,8 @@
         }
       ],
       "script": "A flag-only shot may carry any known flag in first position; the flags speak for the screen.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 6.8
     }
   ],
   "warnings": []

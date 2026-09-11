@@ -36,7 +36,8 @@
         }
       ],
       "script": "A thematic break separates nothing: this paragraph still belongs to the screen opened by the shot above.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 6.8
     },
     {
       "id": "inert-hr-002",
@@ -60,7 +61,8 @@
         }
       ],
       "script": "The second shot opened this screen; the rules between the screens changed nothing.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 5.2
     }
   ],
   "warnings": []

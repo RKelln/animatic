@@ -35,7 +35,8 @@
       "media": null,
       "screen_text": null,
       "script": "A cited claim.\n\nA ghost claim.\n\nThe ghost reference warns; only the real one reaches the citation list.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 7.2
     }
   ],
   "warnings": []

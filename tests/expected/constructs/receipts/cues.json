@@ -45,7 +45,8 @@
         }
       ],
       "script": "Most web traffic is bots, not people. Searches end without a click.\n\nReceipts are inert: stripped from every text block, gathered in first-appearance order, and emitted once as deck.sources and the handout citation list.\n\nThe first claim repeats its receipt here; the order in the citation list does not change.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 20.4
     }
   ],
   "warnings": []

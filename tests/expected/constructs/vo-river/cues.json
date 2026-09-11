@@ -30,7 +30,8 @@
       "media": null,
       "screen_text": null,
       "script": "Plain paragraphs are the default river: spoken and never on screen, with code and emphasis surviving into the notes.\n\nA second paragraph on the same screen is a second voice block; the screen still speaks as one unit.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 15.2
     },
     {
       "id": "vo-river-002",
@@ -48,7 +49,8 @@
       "media": null,
       "screen_text": null,
       "script": "Heading-free screens still speak. The document view is the whole voice as prose; the slide stays quiet until a heading, quote, list, or role object is written.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 10.8
     }
   ],
   "warnings": []

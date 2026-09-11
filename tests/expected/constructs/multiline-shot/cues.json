@@ -35,7 +35,8 @@
         }
       ],
       "script": "57 percent of fixtures fit on one line anyway.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 3.6
     },
     {
       "id": "multiline-shot-002",
@@ -62,7 +63,8 @@
         }
       ],
       "script": "Flag-only directives wrap the same way: the first token on its own line, the rest below. This hero card crossed three lines.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 8.8
     },
     {
       "id": "multiline-shot-003",
@@ -89,7 +91,8 @@
         }
       ],
       "script": "Every token stayed whole. A future lexer that reads comments line by line instead of accumulating them would drop this deck's screens.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 8.8
     }
   ],
   "warnings": []

@@ -23,17 +23,24 @@ The same file renders as:
 - `docs/media-pipeline.md` — media cards, generation log, style cascade, engine posture
 - `docs/engine-decision.md` — builder spike decision record (engine, PDF path, parse model)
 - `templates/` — starter media card set (style, cards, gen-log)
-- `build.py` + `talkparse.py` + `mediaresolve.py` + `render.py` — the builder (E2 spike):
+- `build.py` + `talkparse.py` + `mediaresolve.py` + `render.py` + `timing.py` — the builder (E2 spike):
   one talkfile in, three outputs out: present view (own-pager deck, VO in
   speaker notes), document view (static HTML handout, print-to-PDF via print CSS),
-  cues.json (ordered slide id to script text for the future controller), plus two
+  cues.json (ordered slide id to script text + `est_seconds`, the estimated
+  clock, for the future controller), plus two
   generated sidecars: nav.json (cue id -> source line range, movement, kind —
   addressability, and the document view's black-beat omissions) and
   media-manifest.json (the resolution audit). Generated output lives in `out/`
   (gitignored).
+- `timing.yaml` — the optional deck-local timing sidecar (`animatic.timing.v1`),
+  read and never written: an `authored` hand override or a `measured` value per
+  cue id, plus `settings.wpm`. The estimate stays in cues.json; the spec's
+  Timing section owns the clock.
 - `check.py` — the deterministic check suite: the full 1-28 check register
   (spec §6/§7/§10/§11) with the fatal/warning/info/report taxonomy and
-  `--strict` (warnings fatal). See `python3 check.py --register`.
+  `--strict` (warnings fatal). Check 19 reports when the deck's effective
+  timing diverges from the declared `dur` by more than 30% (never a warning).
+  See `python3 check.py --register`.
 - `corpus.yaml` — the machine-local content-root declaration the corpus
   harness (check 21) scans; a shipped copy rewrites its paths.
 

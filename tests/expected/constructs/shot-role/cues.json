@@ -35,7 +35,8 @@
         }
       ],
       "script": "57 percent of everything.\n\nA stat payload is scripted: the speaker reads the number while the screen shows it.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 7.6
     },
     {
       "id": "shot-role-002",
@@ -58,7 +59,8 @@
         }
       ],
       "script": "A lower third names the image. Its payload is never spoken: the paragraph was consumed as screen text.",
-      "stage": null
+      "stage": null,
+      "est_seconds": 7.2
     }
   ],
   "warnings": []
