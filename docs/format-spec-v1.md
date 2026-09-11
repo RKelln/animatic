@@ -583,6 +583,28 @@ edited. Minimum entry: `## <ISO date> · <slug> · a<N>` with `intent`, `delta`,
 
 ---
 
+## Timing
+
+The clock: how long the talk runs, per cue and in total, checked against the
+declared `dur`. Three provenance tiers, ordered by truth — `measured >
+authored > estimated`.
+
+- **`estimated`** — the builder's guess. Script word count ÷ `wpm` (default
+  150, tunable in `timing.yaml`), floored per screen kind (black beat, beat
+  screen, credits read; a video file's real duration is a hard floor). Emitted
+  as `est_seconds` on each cue in `cues.json`.
+- **`authored`** — a hand override in `timing.yaml` (deck-local sidecar,
+  `animatic.timing.v1`): `cue_id → {seconds, provenance}`.
+- **`measured`** — real timing from a recording or a test read: an STT
+  transcript with word timestamps is aligned to the script, and each cue's
+  measured duration is the gap between its aligned start and end timestamps.
+
+Timing never lives in `talk.md` — it is a property of delivery, not of the
+script. `animatic check` reports (never warns) when the effective total
+diverges from `dur` by more than 30%.
+
+---
+
 ## Remix
 
 The remix unit is the **shot** — the screen its directive opens — falling back
