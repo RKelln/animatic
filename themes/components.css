@@ -575,38 +575,87 @@
   .presenter-pos { color: var(--stage-muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
   .presenter-cue { margin: 0; color: var(--stage-muted); font-size: 0.8rem; letter-spacing: 0.05em; }
 
-  .presenter-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-height: 0; }
-  .presenter-pane { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
+  .presenter-panes { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.2rem; min-height: 0; }
+  .presenter-pane {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    min-width: 0; min-height: 0;
+    /* the pane is the measuring stick for its own preview (the cap below reads
+       its width) and the LAST resort scroller: the preview shrinks first. */
+    container-type: inline-size;
+    overflow-y: auto;
+  }
   .presenter-label {
     margin: 0; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.18em;
-    text-transform: uppercase; color: var(--stage-accent);
+    text-transform: uppercase; color: var(--stage-accent); flex: 0 0 auto;
   }
-  .presenter-title { margin: 0; font-family: var(--font-body); font-size: 1.05rem; }
+  .presenter-title { margin: 0; font-family: var(--font-body); flex: 0 0 auto; }
+  /* the current pane is the one being read from: bigger title, bigger notes.
+     The 2fr/1fr split says it spatially, this says it typographically. */
+  .presenter-pane-current .presenter-title { font-size: 1.15rem; }
+  .presenter-pane-next .presenter-title { font-size: 0.95rem; color: var(--stage-muted); }
 
   /* the preview is a lens: the clone inside is absolutely positioned like it
-     is on the stage, so this box only supplies the frame and the em base
-     (the deck scales .stage at 3vh; a scaled-down preview needs its own).
-     `flex: 0 0 auto` is load-bearing: as a shrinkable flex item the box lost
-     its aspect ratio when a pane's notes ran long, so the two previews came
-     out different heights and the slide inside was squashed. */
+     is on the stage, so this box supplies the frame and the em base.
+     Sizing is a priority order, not a fixed box: the notes are the reason the
+     window exists, so the preview starts at 34vh, SHRINKS to give the notes
+     room, stops at a 12vh thumbnail, and only then does the pane scroll. Basis
+     must be positive for that to work — with `flex-basis: auto` the box's
+     content is absolutely positioned, so its basis is 0 and a flex-shrink
+     factor has nothing to take back from. */
   .preview {
-    position: relative; flex: 0 0 auto;
-    aspect-ratio: 16 / 9; overflow: hidden;
+    position: relative;
+    flex: 0 1 34vh;
+    min-height: 12vh;
+    /* never wider than the column (measured against the pane, not itself) */
+    max-height: min(34vh, calc(100cqw * 9 / 16));
+    aspect-ratio: 16 / 9;
+    align-self: center;             /* so width can follow height */
+    container-type: inline-size;    /* the clone scales to THIS box */
+    overflow: hidden;
     background: var(--stage-bg);
     border: 1px solid color-mix(in srgb, var(--stage-ink) 16%, transparent);
   }
-  .preview .animatic-slide { font-size: 0.9vw; opacity: 1; visibility: visible; transition: none; }
+  /* 0.9cqw, not 0.9vw: the clone has to scale to the box, or a pane that is
+     now 1/3 of the window crops rather than shrinks (the vw line stays as the
+     fallback for a browser without container queries). */
+  .preview .animatic-slide { font-size: 0.9vw; font-size: 0.9cqw; opacity: 1; visibility: visible; transition: none; }
   .preview video, .preview button { pointer-events: none; }
   .preview-note {
     position: absolute; inset: 0; margin: 0; padding: 1rem;
     display: flex; align-items: center; justify-content: center;
-    color: var(--stage-muted); font-size: 0.8rem; letter-spacing: 0.05em;
+    color: var(--stage-muted); font-size: 0.85rem; letter-spacing: 0.05em;
     text-align: center;
   }
 
+  /* notes take their natural height and are never squeezed: a text the
+     presenter is reading from must not be a box you scroll mid-sentence. */
   .presenter-notes {
-    flex: 1 1 auto; min-height: 0; overflow: auto;
-    font-family: var(--font-body); font-size: 0.92rem; line-height: 1.5;
+    flex: 0 0 auto; min-height: 0;
+    font-family: var(--font-body); line-height: 1.5;
+  }
+  .presenter-pane-current .presenter-notes { font-size: 1.12rem; line-height: 1.55; }
+  .presenter-pane-next .presenter-notes { font-size: 0.88rem; overflow: auto; }
+  /* rung 1 of the fit ladder (see fitNotes in the presenter module): long notes
+     flow into two columns rather than scrolling. Reading order goes down the
+     first column then down the second, so this is for a screen the presenter
+     glances at, not one they read aloud line by line. */
+  .presenter-pane-current .presenter-notes.two-col {
+    column-count: 2; column-gap: 1.8rem;
+    column-rule: 1px solid color-mix(in srgb, var(--stage-ink) 12%, transparent);
+  }
+  /* rung 2 of the fit ladder: a screen whose notes will not fit even in two
+     columns takes the whole window and next-up steps aside. Rare by design —
+     it takes a screen with about 3000+ characters of notes to get here. */
+  .presenter-panes.solo { grid-template-columns: minmax(0, 1fr); }
+  .presenter-panes.solo .presenter-pane-next { display: none; }
+  /* the next-up pane is context, not the thing being read: cap its preview so
+     it never reads bigger than the current screen's, and let it shrink too.
+     `--cur-preview-h` is published by fitNotes once the current pane settles —
+     the current preview gives up space to the notes, and a next-up preview left
+     bigger than it inverts the hierarchy the whole 2fr/1fr split is for. */
+  .presenter-pane-next .preview {
+    flex: 0 1 22vh; min-height: 9vh;
+    max-height: min(22vh, var(--cur-preview-h, 22vh), calc(100cqw * 9 / 16));
   }
   .presenter-notes p { margin: 0.35em 0; }
   .presenter-notes p.stage-note { color: var(--stage-muted); font-size: 0.85em; font-style: italic; }

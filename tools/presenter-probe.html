@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<!--
+  presenter-probe.html — the layout half of presenter-view testing, automated.
+
+  Why this exists: `tests/run.py` asserts state and markup, and cannot see
+  pixels; the layout bugs that have actually cost rounds (a preview losing its
+  16:9, a note paragraph covering a slide, notes that scroll mid-sentence) were
+  only ever found by hand-driving a browser over CDP. That made checking a
+  layout change a five-step incantation nobody repeats. This page is the
+  incantation, once.
+
+  How: it drives the REAL presenter page in an iframe (same origin, so it can
+  script it), hands it a constructed state through `window.presenter.apply()`
+  — the same function a live deck push calls, including the notes fit ladder —
+  and measures the result at several viewport sizes. Content comes from the
+  deck itself (`present/index.html`): the longest-notes screen, the median, the
+  shortest, and the live screen if there is one. Nothing is asserted against a
+  number I made up; a case that cannot fit is reported as WARN with the pixels,
+  not as a pass.
+
+  Serve it; do not open it from disk. A `file://` page cannot script an iframe
+  of another `file://` page (each gets an opaque origin), and the whole method
+  depends on scripting the frame:
+
+    python3 tools/presenter-probe.py --deck out-w01
+
+  Then read the table, or `window.presenterProbe.results` for the JSON.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>presenter layout probe</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 1.6rem;
+    background: #14161a; color: #e8e6e1;
+    font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+  }
+  h1 { font-size: 1.05rem; margin: 0 0 0.2rem; letter-spacing: 0.02em; }
+  p.lede { margin: 0 0 1.2rem; color: #9aa0a6; max-width: 70ch; }
+  #summary { font-size: 1.1rem; margin: 0 0 1rem; font-variant-numeric: tabular-nums; }
+  .pass { color: #7ee08a; } .warn { color: #e8c264; } .fail { color: #f08a8a; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+  th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #2a2e35; }
+  th { color: #9aa0a6; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; }
+  td.num { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  tr.fail td { background: rgba(240,138,138,0.09); }
+  tr.warn td { background: rgba(232,194,100,0.07); }
+  ul.findings { margin: 1rem 0 0; padding-left: 1.2rem; color: #cfd3d8; font-size: 0.85rem; }
+  ul.findings li { margin: 0.2rem 0; }
+  button {
+    margin-top: 1.2rem; padding: 0.4rem 0.9rem; border-radius: 0.4em; cursor: pointer;
+    background: #22262d; color: #e8e6e1; border: 1px solid #363b44; font: inherit;
+  }
+  #frame { position: fixed; left: -10000px; top: 0; border: 0; }
+  #state { color: #9aa0a6; font-size: 0.85rem; margin-top: 0.8rem; }
+</style>
+</head>
+<body>
+<h1>presenter layout probe</h1>
+<p class="lede">
+  Drives the real presenter page and measures what a talk machine would show.
+  Cases are the deck's own screens: longest notes, median, shortest, and the
+  live screen. Each is measured at several window sizes.
+</p>
+<div id="summary">running…</div>
+<table id="table"><thead><tr>
+  <th>case</th><th>viewport</th><th>panes</th><th>preview cur</th><th>preview next</th>
+  <th>notes px</th><th>pane over</th><th>ladder</th><th>verdict</th>
+</tr></thead><tbody></tbody></table>
+<ul class="findings" id="findings"></ul>
+<div id="state"></div>
+<button id="copy" type="button">copy JSON</button>
+<iframe id="frame" title="presenter under test"></iframe>
+<script>
+"use strict";
+
+const params = new URLSearchParams(location.search);
+const DECK = params.get("deck") || "out-w01";
+const SIZES = (params.get("sizes") || "1280x800,1440x900,1920x1080")
+  .split(",").map((s) => s.trim().split("x").map(Number));
+const TOL_RATIO = 0.06;      // the 2fr/1fr split, as a ratio
+const TOL_ASPECT = 0.02;     // 16:9, as a fraction
+
+const frame = document.getElementById("frame");
+const tbody = document.querySelector("#table tbody");
+const findings = document.getElementById("findings");
+const summaryEl = document.getElementById("summary");
+const stateEl = document.getElementById("state");
+
+function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function waitLoad(f) {
+  return new Promise((resolve) => {
+    f.onload = () => resolve();
+    f.src = f.dataset.src;
+  });
+}
+
+// Pull the deck's own screens: notes HTML, title, and the slide markup the
+// preview clones.
+async function deckContent() {
+  const res = await fetch("../" + DECK + "/present/index.html", { cache: "no-store" });
+  if (!res.ok) throw new Error("cannot fetch " + DECK + "/present/index.html (" + res.status + ")");
+  const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+  const slides = [...doc.querySelectorAll(".animatic-slide")];
+  return slides.map((s, i) => {
+    const kids = [...s.querySelectorAll("aside.notes > *")];
+    const vo = [], stage = [];
+    for (const k of kids) {
+      // the deck's notesOf() splits on `stage-note`; the payload is
+      // {vo: [...], stage: [...]} and the presenter reads .vo/.stage — send a
+      // string here and fillNotes throws on notes.vo.length
+      (/stage-note/.test(k.className) ? stage : vo).push(k.outerHTML);
+    }
+    return {
+      index: i,
+      id: s.id,
+      title: ((s.querySelector(".slide-title") || {}).textContent || "").trim(),
+      notes: { vo: vo, stage: stage },
+      notesText: vo.concat(stage).join(" ").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+      isLive: /live/i.test(s.className) || !!s.querySelector("[data-live-surface]"),
+      slide: s.outerHTML
+    };
+  });
+}
+
+function casesFrom(screens) {
+  const withNotes = screens.filter((s) => s.notesText.length > 0)
+    .sort((a, b) => b.notesText.length - a.notesText.length);
+  const picks = [];
+  if (withNotes.length) {
+    picks.push({ name: "longest", screen: withNotes[0] });
+    if (withNotes.length > 2) {
+      picks.push({ name: "median", screen: withNotes[Math.floor(withNotes.length / 2)] });
+    }
+    picks.push({ name: "shortest", screen: withNotes[withNotes.length - 1] });
+  }
+  const live = screens.find((s) => s.isLive);
+  if (live) picks.push({ name: "live screen", screen: live });
+  return picks;
+}
+
+function buildState(screen, next, count) {
+  return {
+    type: "animatic-state",
+    schema: "animatic.presenter.v1",
+    index: screen.index,
+    count: count,
+    startedAt: Date.now(),
+    notes: screen.notes,
+    nextNotes: next ? next.notes : null,
+    preview: screen.isLive ? null : screen.slide,
+    nextPreview: next && !next.isLive ? next.slide : null
+  };
+}
+
+// One measurement per (case, size). Reads the frame's own document — the reason
+// the page must be served, not opened from disk.
+function measure(win, screen, next, count) {
+  win.presenter.apply(buildState(screen, next, count));
+  const d = win.document;
+  const cur = d.querySelector(".presenter-pane-current");
+  const nxt = d.querySelector(".presenter-pane-next");
+  const rootPx = parseFloat(win.getComputedStyle(d.documentElement).fontSize) || 16;
+  const rect = (el) => {
+    const r = el.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  };
+  const notes = (pane) => {
+    const n = pane.querySelector(".presenter-notes");
+    return {
+      fontPx: +parseFloat(win.getComputedStyle(n).fontSize).toFixed(1),
+      twoCol: n.classList.contains("two-col"),
+      h: Math.round(n.getBoundingClientRect().height)
+    };
+  };
+  const curPreview = cur.querySelector(".preview");
+  const clone = curPreview.querySelector(".animatic-slide");
+  const curBox = rect(curPreview), nxtBox = rect(nxt.querySelector(".preview"));
+  const curPaneBox = rect(cur), nxtPaneBox = rect(nxt);
+  const panes = d.querySelector(".presenter-panes");
+  const solo = !!(panes && panes.classList.contains("solo"));
+  const safeRatio = (x, y) => (y > 0 ? +((x / y).toFixed(3)) : null);
+  return {
+    // the split is about PANE widths. Measuring the preview boxes here was the
+    // probe's own first bug: a preview legitimately shrinks to a thumbnail, and
+    // that read as "the 2:1 split is broken".
+    // Ratios are null rather than Infinity when a pane is hidden (rung 2): a
+    // non-finite number does not survive JSON, and a nulled check that reads as
+    // "passed" is exactly the false green this probe exists to prevent.
+    paneRatio: safeRatio(curPaneBox.w, nxtPaneBox.w),
+    solo: solo,
+    paneW: { cur: curPaneBox.w, next: nxtPaneBox.w },
+    preview: { cur: curBox, next: nxtBox },
+    previewAspect: {
+      cur: safeRatio(curBox.w, curBox.h),
+      next: safeRatio(nxtBox.w, nxtBox.h)
+    },
+    notes: { cur: notes(cur), next: notes(nxt) },
+    rootPx: rootPx,
+    paneOverflow: Math.max(0, cur.scrollHeight - cur.clientHeight),
+    cloneScale: clone
+      ? +((parseFloat(win.getComputedStyle(clone).fontSize) / curPreview.getBoundingClientRect().width) * 100).toFixed(3)
+      : null
+  };
+}
+
+function judge(c) {
+  const out = [];
+  if (c.solo) {
+    // rung 2: next-up stepped aside on purpose, so the split and the two
+    // previews cannot be judged — only whether the notes then fit.
+    out.push(["warn", "notes needed the solo rung: next-up is hidden on this screen"]);
+  } else {
+    if (Math.abs(c.paneRatio - 2) > TOL_RATIO) {
+      out.push(["fail", "panes " + c.paneW.cur + ":" + c.paneW.next + " px (ratio " + c.paneRatio +
+        "), expected 2:1 ±" + TOL_RATIO]);
+    }
+    if (c.preview.next.h > c.preview.cur.h + 1) {
+      out.push(["warn", "next-up preview (" + c.preview.next.h + "px) reads bigger than the current screen's (" +
+        c.preview.cur.h + "px)"]);
+    }
+    const na = c.previewAspect.next;
+    if (na === null) {
+      out.push(["fail", "next preview could not be measured"]);
+    } else if (Math.abs(na - 16 / 9) / (16 / 9) > TOL_ASPECT) {
+      out.push(["fail", "next preview aspect " + na + ", expected " + (16 / 9).toFixed(3)]);
+    }
+  }
+  const a = c.previewAspect.cur;
+  // a null here means the box was unmeasurable, which is a failure to observe,
+  // not an observation of success
+  if (a === null) {
+    out.push(["fail", "current preview could not be measured"]);
+  } else if (Math.abs(a - 16 / 9) / (16 / 9) > TOL_ASPECT) {
+    out.push(["fail", "current preview aspect " + a + ", expected " + (16 / 9).toFixed(3) +
+      " (a squashed preview means the notes pushed the box instead of the frame)"]);
+  }
+  if (c.preview.cur.h < 40) {
+    out.push(["warn", "current preview is " + c.preview.cur.h + "px — below any useful floor"]);
+  }
+  if (c.notes.cur.fontPx <= c.notes.next.fontPx) {
+    out.push(["fail", "current notes " + c.notes.cur.fontPx + "px are not larger than next-up's " +
+      c.notes.next.fontPx + "px"]);
+  }
+  if (c.notes.cur.fontPx < c.rootPx * 1.05) {
+    out.push(["warn", "current notes " + c.notes.cur.fontPx + "px is under 1.05x the root " + c.rootPx + "px"]);
+  }
+  if (c.paneOverflow > 2) {
+    if (!c.notes.cur.twoCol && !c.solo) {
+      out.push(["fail", "current pane overflows by " + c.paneOverflow +
+        "px and the two-column rung never engaged (fitNotes should have run)"]);
+    } else {
+      out.push(["warn", "notes still overflow by " + c.paneOverflow +
+        "px at the last rung — this screen has more notes than a readable page holds"]);
+    }
+  }
+  if (c.cloneScale !== null && (c.cloneScale < 0.8 || c.cloneScale > 1.0)) {
+    out.push(["warn", "clone scale " + c.cloneScale + "% of its box — the preview no longer tracks the frame width"]);
+  }
+  return out;
+}
+
+function verdictOf(checks) {
+  if (checks.some((f) => f[0] === "fail")) return "fail";
+  if (checks.some((f) => f[0] === "warn")) return "warn";
+  return "pass";
+}
+
+async function run() {
+  const results = [];
+  const screens = await deckContent();
+  const picks = casesFrom(screens);
+  for (const p of picks) {
+    const next = screens[p.screen.index + 1] || null;
+    for (const [w, h] of SIZES) {
+      frame.dataset.src = "../" + DECK + "/present/presenter.html?probe=" + w + "x" + h;
+      frame.style.width = w + "px";
+      frame.style.height = h + "px";
+      await waitLoad(frame);
+      await wait(60);
+      let row;
+      try {
+        const win = frame.contentWindow;
+        if (!win.presenter || !win.presenter.apply) {
+          throw new Error("no window.presenter.apply — rebuild the deck (see the hook in PRESENTER_UI_JS)");
+        }
+        row = measure(win, p.screen, next, screens.length);
+      } catch (err) {
+        row = { error: String(err.message || err) };
+      }
+      const checks = row.error ? [["fail", row.error]] : judge(row);
+      results.push(Object.assign({ name: p.name, cue: p.screen.id, viewport: w + "x" + h,
+        checks: checks, verdict: verdictOf(checks) }, row));
+    }
+  }
+  window.presenterProbe = {
+    deck: DECK,
+    sizes: SIZES,
+    results: results,
+    summary: {
+      pass: results.filter((r) => r.verdict === "pass").length,
+      warn: results.filter((r) => r.verdict === "warn").length,
+      fail: results.filter((r) => r.verdict === "fail").length
+    }
+  };
+  paint(window.presenterProbe);
+  return window.presenterProbe;
+}
+
+function paint(report) {
+  // innerHTML here only ever clears (empty string) or sets the summary, which
+  // is assembled from counts. Every measured value goes in through textContent.
+  // The deck's own notes HTML is never injected by this page: it travels as
+  // data into the presenter frame, which renders it through the same path a
+  // live deck push uses.
+  tbody.innerHTML = "";
+  findings.innerHTML = "";
+  for (const r of report.results) {
+    const tr = document.createElement("tr");
+    tr.className = r.verdict;
+    const cells = r.error
+      ? [r.name, r.viewport, "—", "—", "—", "—", "—", "—", "fail"]
+      : [r.name + " (" + r.cue.replace(/^.*-/, "#") + ")", r.viewport,
+         r.paneW.cur + ":" + r.paneW.next,
+         r.preview.cur.w + "×" + r.preview.cur.h,
+         r.preview.next.w + "×" + r.preview.next.h,
+         r.notes.cur.fontPx + " / " + r.notes.next.fontPx,
+         r.paneOverflow + "px",
+         r.solo ? "solo" : (r.notes.cur.twoCol ? "two-col" : "natural"),
+         r.verdict];
+    for (const c of cells) {
+      const td = document.createElement("td");
+      td.textContent = c;
+      if (/^[\d.]+(:[\d.]+)?$|^[\d.]+×[\d.]+$|^[\d.]+ \/ [\d.]+$|^\d+px$/.test(c)) td.className = "num";
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+    for (const [level, msg] of r.checks) {
+      const li = document.createElement("li");
+      li.className = level;
+      li.textContent = r.name + " @ " + r.viewport + ": " + msg;
+      findings.appendChild(li);
+    }
+  }
+  const s = report.summary;
+  summaryEl.innerHTML = '<span class="pass">' + s.pass + " pass</span> · " +
+    '<span class="warn">' + s.warn + " warn</span> · " +
+    '<span class="fail">' + s.fail + " fail</span>";
+  stateEl.textContent = "deck: " + report.deck + " · window.presenterProbe.results for the JSON";
+  console.log("--- presenter probe ---\n" + JSON.stringify(report, null, 2) + "\n--- end presenter probe ---");
+}
+
+document.getElementById("copy").addEventListener("click", () => {
+  const text = JSON.stringify(window.presenterProbe, null, 2);
+  navigator.clipboard.writeText(text).then(
+    () => { stateEl.textContent = "copied " + text.length + " chars"; },
+    () => { stateEl.textContent = "clipboard refused — read the console"; });
+});
+
+run().catch((err) => {
+  summaryEl.innerHTML = '<span class="fail">probe error</span>';
+  stateEl.textContent = String(err.message || err);
+  window.presenterProbe = { error: String(err.message || err) };
+});
+</script>
+</body>
+</html>

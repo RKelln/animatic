@@ -128,6 +128,12 @@ default in every theme); the framed "piece" look is opt-in per shot.
   presentation layers — deliberately interactive, because its whole purpose is
   to be scrolled and copied. It sits outside `.screen-body`, so the
   click-through rule that governs the slide body does not apply to it.
+- Presenter layout (`s`, 2026-09-15): the window exists to be read from, so it is
+  a priority order, not fixed boxes — current pane 2fr against next-up 1fr, the
+  current notes the largest type in the window (1.12rem vs 0.88rem), the preview
+  the first thing to give up space (34vh down to a 12vh thumbnail) and scrolling
+  the last resort via the `fitNotes()` ladder (natural → two columns → solo).
+  Full contract + the probe that measures it: `docs/presenter-view.md`.
 - Feel-test round 2 (2026-09-05, roles-demo + L01 live in Firefox):
   (1) text over full-bleed media is THE common slide — every text role
   (title card, fit hero, stat, quote, list) can take a background via a

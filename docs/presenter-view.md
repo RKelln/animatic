@@ -80,6 +80,58 @@ source resolves identically and one theme styles both. What the clone is not:
 Cloned buttons and videos are taken out of the tab order and made
 click-through, so a preview can never be operated by accident.
 
+## The layout contract, and the probe that checks it
+
+The window exists to be READ FROM, so the layout has a priority order rather
+than a set of fixed boxes:
+
+1. **The current pane is two thirds, next-up one third.** That split is what
+   makes the current screen obvious at a glance.
+2. **The current screen's notes are the largest type in the window** (1.12rem
+   against next-up's 0.88rem, on a 0.72rem label scale). A presenter should not
+   be squinting at the thing they are speaking from.
+3. **The preview gives up its space first.** It starts at a third of the
+   viewport, shrinks as the notes need room, stops at a 12vh thumbnail, and next
+   -up's preview is capped to whatever the current one actually ended up at, so
+   the secondary screen can never read bigger than the primary one.
+4. **Scrolling is the last resort.** The fit ladder in `fitNotes()` runs on
+   every arrival: natural flow, then the current notes in two columns, then
+   `solo` — the current pane takes the whole window and next-up steps aside. Only
+   a screen whose notes defeat all three scrolls, and the probe reports the
+   pixels when one does.
+
+`tools/presenter-probe.html` automates the checks, because this class of bug is
+invisible to `tests/run.py` (state, never pixels) and hand-driving CDP for every
+layout change is a five-step incantation nobody repeats:
+
+```bash
+python3 tools/presenter-probe.py --deck out-w01      # serves, prints the URL
+python3 tools/presenter-probe.py --deck out-w01 --sizes 1280x800,1920x1080 --open
+```
+
+It drives the real presenter page in an iframe and hands it a constructed state
+through `window.presenter.apply()` — the same function a live deck push calls,
+so the fit ladder runs exactly as it would in a talk. Content comes from the
+deck: its longest-notes screen, the median, the shortest, and the live screen.
+It reports pass/warn/fail per case per viewport, prints the JSON to the console,
+and exposes `window.presenterProbe.results`.
+
+Measured on W01 (2026-09-15, after the 2fr/1fr split and the ladder landed): 6
+pass, 2 warn, 0 fail. The warns are the deck's own worst screen — cue 011, 3300
+characters of notes — which needs the `solo` rung at 800px tall and still
+overflows by 180px there, while the same screen fits in two columns at 1080p.
+That is a fact about how long that screen's notes are rather than a layout
+defect: no readable font size makes 3300 characters fit a small window. The
+probe reports it with the pixels so the decision is visible.
+
+It must be **served, not opened from disk**: a `file://` page cannot script an
+iframe of another `file://` page (opaque origins), and scripting the frame is
+the entire method.
+
+What it does not do: press `s`, so the popup path and the two-window handshake
+are still hand-verified; and it cannot judge taste — it reports measurements,
+and a warn is a question for a person, not a verdict.
+
 ## When the browser blocks the popup
 
 `window.open()` needs a user gesture. A keypress is one, so the ordinary case

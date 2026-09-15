@@ -1119,6 +1119,43 @@ PRESENTER_UI_JS = r"""
     }
   }
 
+  function fitNotes() {
+    // Fit ladder for the pane being read from. The notes are why this window
+    // exists, so a scroll mid-sentence is the LAST resort, not the default.
+    // Measured on the deck's own worst screen (3300 chars of notes):
+    //   rung 0 natural flow        - fits a median screen
+    //   rung 1 two columns         - fits the worst screen at 1080p, not at 800
+    //   rung 2 solo                - the current pane takes the whole width and
+    //                                next-up steps aside (the presenter still
+    //                                has cue id, movement and position in the
+    //                                header, and the next notes come back the
+    //                                moment a screen fits again)
+    // Beyond that the pane scrolls and says nothing, which is honest: there is
+    // no font size left that is still readable at a glance.
+    var panes = document.querySelector(".presenter-panes");
+    var pane = document.querySelector(".presenter-pane-current");
+    if (!pane || !panes) return;
+    var notes = pane.querySelector(".presenter-notes");
+    if (!notes) return;
+    panes.classList.remove("solo");
+    notes.classList.remove("two-col");
+    if (pane.scrollHeight <= pane.clientHeight + 2) { tieNextPreview(panes); return; }   // rung 0 holds
+    notes.classList.add("two-col");
+    if (pane.scrollHeight <= pane.clientHeight + 2) { tieNextPreview(panes); return; }   // rung 1 holds
+    panes.classList.add("solo");                              // rung 2
+  }
+
+  // The current screen's preview is the one that gives up space, so next-up's
+  // must never end up the bigger of the two: it reads as "the next screen is the
+  // important one". Measured (probe, 1920x1080, long notes): current shrank to
+  // 219px while next-up sat at 238px. CSS cannot compare two boxes, so the
+  // settled height is published as a variable and next-up caps itself to it.
+  function tieNextPreview(panes) {
+    var cur = document.querySelector(".presenter-pane-current .preview");
+    if (!cur || !panes) return;
+    panes.style.setProperty("--cur-preview-h", Math.round(cur.getBoundingClientRect().height) + "px");
+  }
+
   function paint() {
     if (!state) return;
     var i = state.index;
@@ -1136,6 +1173,7 @@ PRESENTER_UI_JS = r"""
     fillPreview(el["next-preview"], state.nextPreview, nxt);
     fillNotes(el.notes, state.notes);
     fillNotes(el["next-notes"], state.nextNotes);
+    fitNotes();
     say("");
   }
 
@@ -1185,6 +1223,16 @@ PRESENTER_UI_JS = r"""
   tick();
   if (window.opener && !state) say("Waiting for the deck to send its state.");
   window.setTimeout(hello, 1500);   // a slow deck still gets its handshake
+
+  // Test surface for the layout harness (tools/presenter-probe.html): it fills
+  // this page with a constructed state and drives the REAL paint path, so what
+  // it measures is what a live push renders — including the notes fit ladder,
+  // which only runs inside paint(). Render-only by design: it never posts back
+  // to a deck, so a probe can never move a talk.
+  window.presenter = {
+    apply: function (s) { state = s; paint(); },
+    current: function () { return state; }
+  };
 })();
 """
 
@@ -1535,13 +1583,13 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 </header>
 <p class="presenter-cue" id="presenter-cue"></p>
 <main class="presenter-panes">
-<section class="presenter-pane">
+<section class="presenter-pane presenter-pane-current">
 <h2 class="presenter-label">On screen now</h2>
 <p class="presenter-title" id="presenter-title"></p>
 <div class="preview" id="presenter-preview"></div>
 <div class="presenter-notes" id="presenter-notes"></div>
 </section>
-<section class="presenter-pane">
+<section class="presenter-pane presenter-pane-next">
 <h2 class="presenter-label">Next up</h2>
 <p class="presenter-title" id="presenter-next-title"></p>
 <div class="preview" id="presenter-next-preview"></div>
