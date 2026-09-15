@@ -189,6 +189,19 @@ def check(fx, errors: list) -> None:
         if not re.search(r"pointer-events:\s*auto", pres_text):
             err(errors, "live deck: nothing inside the text layer re-enables "
                         "pointer events, so interactive text would be dead")
+        # The frame must hug the picture: a `piece` box is shaped by the
+        # viewport, so a capture of another shape got `object-fit: contain`
+        # bars inside it, and the border (on the element) outlined the bars.
+        # Two halves, because checking for the attribute name alone is a
+        # false-green generator: the stylesheet mentions `[data-live-ratio]` in
+        # a selector, so the CSS satisfies a naive check even when nothing ever
+        # sets it (caught by negative control, not by review).
+        if "[data-live-ratio]" not in pres_text or "--live-ratio" not in pres_text:
+            err(errors, "live deck: no frame-fit rule, so a capture of any "
+                        "other shape gets letterbox bars inside the frame")
+        if 'setAttribute("data-live-ratio"' not in pres_text:
+            err(errors, "live deck: nothing ever sets the frame ratio from the "
+                        "stream, so the fit rule can never take effect")
 
     # -- the deck's side of the presenter window ----------------------------
     # Two bindings moved when the presenter became a second window, and one
@@ -222,6 +235,14 @@ def check(fx, errors: list) -> None:
     if "window.animatic.presenter" not in pres_text:
         err(errors, "present: nothing exposes whether a presenter window is "
                     "actually open, so the dump would guess")
+    if 'id="presenter-live"' not in presenter_text:
+        err(errors, "presenter: no live control slot, so a capture can only be "
+                    "stopped from the deck window")
+    if "animatic-live" not in presenter_text:
+        err(errors, "presenter: the live control cannot reach the deck")
+    if "liveCue" not in pres_text:
+        err(errors, "present: the payload carries no live cue, so the presenter "
+                    "cannot say what the capture is doing")
     if not re.search(r'id="stage"[^>]*data-deck="', pres_text):
         err(errors, "present: the stage carries no deck slug, so a dump "
                     "cannot say which deck produced it")

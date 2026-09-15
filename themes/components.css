@@ -359,7 +359,7 @@
     font-weight: 600; color: var(--stage-muted);
   }
   .live-start, .live-stop {
-    font-family: var(--font-ui); font-size: 0.85em;
+    font-family: var(--font-ui); font-size: 0.78em;
     padding: 0.5em 1em; border-radius: 0.6em; cursor: pointer;
     color: var(--stage-ink);
     border: 1px solid var(--piece-border);
@@ -367,24 +367,49 @@
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   }
   .live-start[disabled] { opacity: 0.45; cursor: not-allowed; }
+  /* While the capture is live the controls sit BELOW the frame, in the stage's
+     own shadow rather than over the picture: they are presenter tools, and the
+     projected slide should be the shared window and nothing else. They were
+     over the bottom-right of the capture, which is also where a shared browser
+     puts its own controls. The default placement stays inside for a full-bleed
+     live screen, where "below the frame" is off the bottom of the display. */
   .live-controls {
     position: absolute; right: 2vw; bottom: 2.5vh;
     display: none; align-items: center; gap: 0.6em;
     font-family: var(--font-ui); color: var(--stage-ink);
   }
+  .media-zone.piece .live-host[data-live-ratio] .live-controls {
+    left: 0; right: 0; bottom: auto; top: calc(100% + 0.9em);
+    justify-content: center;
+  }
   .live-host[data-live-state="live"] .live-controls { display: flex; }
   .live-chip {
-    font-size: 0.72em; letter-spacing: 0.06em; font-weight: 600;
+    font-family: var(--font-ui); font-size: 0.78em; letter-spacing: 0.06em;
+    font-weight: 600;
     padding: 0.35em 0.7em; border-radius: 0.6em;
     background: var(--stage-overlay-bg);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   }
   .live-status {
     position: absolute; left: 0; right: 0; bottom: 4vh; margin: 0;
-    font-family: var(--font-ui); font-size: 0.8em;
+    font-family: var(--font-ui); font-size: 0.78em;
     color: var(--stage-muted); text-align: center;
   }
+  .media-zone.piece .live-host[data-live-ratio] .live-status {
+    bottom: auto; top: calc(100% + 3.4em);
+  }
   .media-zone.piece .live-host { position: relative; inset: auto; width: 100%; height: 100%; }
+  /* A live capture inside a piece frame takes the STREAM's shape, so the frame
+     is the picture and there is no letterbox. The zone supplies the measuring
+     stick (its own height) because "fit this ratio in that box" cannot be said
+     in percentages; the host then sizes itself against it. Measured on a
+     1000x400 canvas stream: host box 1000x400 in a 16:9 zone, zero bars. */
+  .media-zone.piece { container-type: size; }
+  .media-zone.piece .live-host[data-live-ratio] {
+    width: min(100%, calc(100cqh * var(--live-ratio, 1.7778)));
+    height: auto;
+    aspect-ratio: var(--live-ratio, 1.7778);
+  }
   .media-zone.piece .live-host .live-poster,
   .media-zone.piece .live-host .live-surface {
     border: 1px solid var(--piece-border);
@@ -659,6 +684,24 @@
   }
   .presenter-notes p { margin: 0.35em 0; }
   .presenter-notes p.stage-note { color: var(--stage-muted); font-size: 0.85em; font-style: italic; }
+  /* the live control: presenter-side state and a Stop. It only appears on a
+     screen that actually carries a live capture, so it costs nothing on the
+     other 23. Start is deliberately absent — see fillLive in the module. */
+  .presenter-live {
+    display: none; flex: 0 0 auto;
+    align-items: center; gap: 0.8rem; flex-wrap: wrap;
+    font-family: var(--font-ui); font-size: 0.85rem; color: var(--stage-muted);
+  }
+  .presenter-live.open { display: flex; }
+  .presenter-live-state { color: var(--stage-muted); }
+  .presenter-live button {
+    font-family: var(--font-ui); font-size: 0.85rem;
+    padding: 0.3em 0.8em; border-radius: 0.5em; cursor: pointer;
+    color: var(--stage-ink);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 22%, transparent);
+    background: var(--stage-overlay-bg);
+  }
+  .presenter-live button:hover { color: var(--stage-accent); }
   .presenter-status { display: none; margin: 0; color: var(--stage-muted); font-size: 0.8rem; }
   .presenter-status.open { display: block; }
 

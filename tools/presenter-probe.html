@@ -121,6 +121,10 @@ async function deckContent() {
       notes: { vo: vo, stage: stage },
       notesText: vo.concat(stage).join(" ").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
       isLive: /live/i.test(s.className) || !!s.querySelector("[data-live-surface]"),
+      liveHost: s.querySelector("[data-live-surface]")
+        ? { slug: s.querySelector("[data-live-surface]").getAttribute("data-live-slug"),
+            state: s.querySelector("[data-live-surface]").getAttribute("data-live-state") || "idle" }
+        : null,
       slide: s.outerHTML
     };
   });
@@ -142,7 +146,7 @@ function casesFrom(screens) {
   return picks;
 }
 
-function buildState(screen, next, count) {
+function buildState(screen, next, count, liveState) {
   return {
     type: "animatic-state",
     schema: "animatic.presenter.v1",
@@ -152,14 +156,19 @@ function buildState(screen, next, count) {
     notes: screen.notes,
     nextNotes: next ? next.notes : null,
     preview: screen.isLive ? null : screen.slide,
-    nextPreview: next && !next.isLive ? next.slide : null
+    nextPreview: next && !next.isLive ? next.slide : null,
+    // the deck computes this per push; a live screen gets presenter-side state
+    // and a Stop (never a Start — see fillLive in the presenter module)
+    liveCue: screen.liveHost
+      ? { slug: screen.liveHost.slug, state: liveState || screen.liveHost.state, status: "" }
+      : null
   };
 }
 
 // One measurement per (case, size). Reads the frame's own document — the reason
 // the page must be served, not opened from disk.
-function measure(win, screen, next, count) {
-  win.presenter.apply(buildState(screen, next, count));
+function measure(win, screen, next, count, liveState) {
+  win.presenter.apply(buildState(screen, next, count, liveState));
   const d = win.document;
   const cur = d.querySelector(".presenter-pane-current");
   const nxt = d.querySelector(".presenter-pane-next");
@@ -178,6 +187,8 @@ function measure(win, screen, next, count) {
   };
   const curPreview = cur.querySelector(".preview");
   const clone = curPreview.querySelector(".animatic-slide");
+  const liveBlock = d.getElementById("presenter-live");
+  const liveBtn = liveBlock ? liveBlock.querySelector("button") : null;
   const curBox = rect(curPreview), nxtBox = rect(nxt.querySelector(".preview"));
   const curPaneBox = rect(cur), nxtPaneBox = rect(nxt);
   const panes = d.querySelector(".presenter-panes");
@@ -199,6 +210,11 @@ function measure(win, screen, next, count) {
       next: safeRatio(nxtBox.w, nxtBox.h)
     },
     notes: { cur: notes(cur), next: notes(nxt) },
+    liveControl: {
+      open: !!(liveBlock && liveBlock.classList.contains("open")),
+      text: liveBlock ? liveBlock.textContent.trim() : "",
+      button: liveBtn ? liveBtn.textContent.trim() : null
+    },
     rootPx: rootPx,
     paneOverflow: Math.max(0, cur.scrollHeight - cur.clientHeight),
     cloneScale: clone
@@ -207,8 +223,34 @@ function measure(win, screen, next, count) {
   };
 }
 
-function judge(c) {
+function judge(c, expect) {
   const out = [];
+  // the live-control cases are about behaviour, not layout: one screen, three
+  // states, and the rule that a Stop is offered when a capture is running and
+  // never a Start (getDisplayMedia needs activation in the deck's window)
+  if (expect) {
+    const lc = c.liveControl;
+    if (!lc.open) {
+      out.push(["fail", "the live control did not open for state '" + expect + "'"]);
+    } else {
+      const wantsButton = expect === "live" || expect === "stalled";
+      if (wantsButton && lc.button !== "Stop sharing") {
+        out.push(["fail", "state '" + expect + "' offers " +
+          (lc.button ? "'" + lc.button + "'" : "no button") + ", expected a Stop"]);
+      }
+      if (!wantsButton && lc.button) {
+        out.push(["fail", "state '" + expect + "' offers '" + lc.button +
+          "' — nothing to stop, and a Start belongs in the deck's window"]);
+      }
+      if (!/press d in the deck/.test(lc.text) && !/sharing a window/.test(lc.text)) {
+        out.push(["warn", "state '" + expect + "' reads '" + lc.text + "'"]);
+      }
+    }
+    if (expect !== "live" && c.notes.cur.fontPx < c.rootPx * 1.05) {
+      out.push(["warn", "current notes " + c.notes.cur.fontPx + "px is under 1.05x the root " + c.rootPx + "px"]);
+    }
+    return out;
+  }
   if (c.solo) {
     // rung 2: next-up stepped aside on purpose, so the split and the two
     // previews cannot be judged — only whether the notes then fit.
@@ -272,11 +314,19 @@ function verdictOf(checks) {
 async function run() {
   const results = [];
   const screens = await deckContent();
-  const picks = casesFrom(screens);
+  const picks = casesFrom(screens).map((p) => ({ name: p.name, screen: p.screen }));
+  // the live control is its own axis of behaviour: one screen, three states
+  const liveScreen = screens.find((s) => s.liveHost);
+  if (liveScreen) {
+    for (const st of ["live", "stalled", "idle"]) {
+      picks.push({ name: "live control: " + st, screen: liveScreen, liveState: st, expect: st });
+    }
+  }
   for (const p of picks) {
     const next = screens[p.screen.index + 1] || null;
-    for (const [w, h] of SIZES) {
-      frame.dataset.src = "../" + DECK + "/present/presenter.html?probe=" + w + "x" + h;
+    const sizes = p.expect ? [SIZES[0]] : SIZES;   // state behaviour, not layout
+    for (const [w, h] of sizes) {
+      frame.dataset.src = "../" + DECK + "/present/presenter.html?probe=" + p.name + "-" + w + "x" + h;
       frame.style.width = w + "px";
       frame.style.height = h + "px";
       await waitLoad(frame);
@@ -287,13 +337,13 @@ async function run() {
         if (!win.presenter || !win.presenter.apply) {
           throw new Error("no window.presenter.apply — rebuild the deck (see the hook in PRESENTER_UI_JS)");
         }
-        row = measure(win, p.screen, next, screens.length);
+        row = measure(win, p.screen, next, screens.length, p.liveState);
       } catch (err) {
         row = { error: String(err.message || err) };
       }
-      const checks = row.error ? [["fail", row.error]] : judge(row);
-      results.push(Object.assign({ name: p.name, cue: p.screen.id, viewport: w + "x" + h,
-        checks: checks, verdict: verdictOf(checks) }, row));
+      const checks = row.error ? [["fail", row.error]] : judge(row, p.expect);
+      results.push(Object.assign({ name: p.name, cue: p.screen.id, expect: p.expect || null,
+        viewport: w + "x" + h, checks: checks, verdict: verdictOf(checks) }, row));
     }
   }
   window.presenterProbe = {
@@ -329,7 +379,8 @@ function paint(report) {
          r.preview.next.w + "×" + r.preview.next.h,
          r.notes.cur.fontPx + " / " + r.notes.next.fontPx,
          r.paneOverflow + "px",
-         r.solo ? "solo" : (r.notes.cur.twoCol ? "two-col" : "natural"),
+         r.expect ? ("live: " + (r.liveControl.button || "no button"))
+                  : (r.solo ? "solo" : (r.notes.cur.twoCol ? "two-col" : "natural")),
          r.verdict];
     for (const c of cells) {
       const td = document.createElement("td");

@@ -234,6 +234,37 @@ Then click it for real (mouse events through the input pipeline, or by hand) and
 watch `data-live-state` go `idle` → `live`. `html_props` pins the click-through
 rule for any deck that has a live screen, so a theme edit cannot quietly undo it.
 
+## The frame fits the picture, and the controls stay out of it
+
+Two things a person notices immediately on a live screen, both fixed 2026-09-15:
+
+**The frame takes the stream's shape.** A `piece` box is inset from the stage and
+shaped by the viewport, so a capture of any other shape was drawn inside it with
+`object-fit: contain` — and because the border is drawn on the element, the frame
+outlined the bars. That read as "the deck has letterboxing". Now the module
+publishes the stream's own ratio (`--live-ratio`, set from `videoWidth/Height`
+on metadata and re-set on resize) and the host takes it, so the border hugs the
+picture. Verified in a real engine with a 1000x400 stream: host box 1152x461,
+ratio 2.500 exactly, no bars; a 1920x1080 stream stays inside the zone. When no
+stream has reported a size, no ratio is claimed — the frame keeps the zone's
+shape rather than guessing.
+
+**The controls sit below the frame.** While a capture is live, the chip and Stop
+move under the picture (the default placement stays inside for a full-bleed live
+screen, where "below the frame" is off the bottom of the display). All three
+controls — the state chip, Stop, and the idle Share button — are one type size.
+They are presenter tools, and the projected slide should be the shared window and
+nothing else; the corner they used to occupy is also where a shared browser puts
+its own controls.
+
+**The presenter window carries a Stop.** When the deck's presenter window is
+open, the pane for a live screen shows the capture's state and a `Stop sharing`
+button, which posts back to the deck. It cannot offer a *Start*: `getDisplayMedia`
+requires transient user activation in the document that calls it (MDN), and a
+window opened with `s` has none, so a Start there would be refused rather than
+honoured. Starting stays in the deck window (`d`, or the screen's own button
+when idle) — which is also where the gesture is free.
+
 ## Diagnostics: `i`
 
 Pressing `i` dumps one JSON object — to the console, to an on-screen panel (text

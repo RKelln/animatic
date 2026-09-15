@@ -619,15 +619,58 @@ LIVE_JS = r"""
     var video = videoOf(host);
     if (!session || !video) return;
     if (video.srcObject !== session.stream) video.srcObject = session.stream;
+    fitFrame(host);
+    if (video.readyState === 0 || !video.videoWidth) {
+      video.addEventListener("loadedmetadata", function () { fitFrame(host); }, { once: true });
+    }
     var p = video.play();
     if (p && p.catch) p.catch(function () {});
     state(host, "live");
   }
 
+  // The frame must hug the PICTURE, not the zone. A `piece` box is inset from
+  // the stage and shaped by the viewport, so a capture of any other shape gets
+  // `object-fit: contain` bars inside it — and because the border is drawn on
+  // the element, the frame outlined the bars: the "side and top bars" the deck
+  // appeared to have on a shared window. Publishing the stream's real ratio and
+  // letting the host take it removes the letterbox entirely.
+  function fitFrame(host) {
+    var video = videoOf(host);
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+    var ratio = video.videoWidth / video.videoHeight;
+    host.style.setProperty("--live-ratio", ratio.toFixed(4));
+    host.setAttribute("data-live-ratio", "");
+  }
+
+  // A shared window can be resized mid-talk (or the capture switched to another
+  // window), and the frame has to follow it rather than keep the first shape.
+  window.addEventListener("resize", function () {
+    hosts.forEach(fitFrame);
+  });
+
   function detach(host) {
     var video = videoOf(host);
     if (!video) return;
     try { video.pause(); video.srcObject = null; } catch (err) {}
+    // drop the fitted shape with the stream: a poster or the idle block should
+    // get the zone's shape back, and re-attaching re-fits from the stream's own
+    // cached metadata, so there is no visible jump.
+    host.removeAttribute("data-live-ratio");
+    host.style.removeProperty("--live-ratio");
+  }
+
+  // Read/measure surface for the diagnostics dump and the layout probe: the
+  // states of every live host, and the frame fit, which is otherwise only
+  // observable by eye (a letterboxed capture looks like "the frame has bars").
+  // It never starts a capture — `fit` only measures an existing stream.
+  if (window.animatic) {
+    window.animatic.live = {
+      hosts: function () { return hosts.slice(); },
+      fit: fitFrame,
+      states: function () {
+        return hosts.map(function (h) { return h.getAttribute("data-live-state"); });
+      }
+    };
   }
 
   // Frame cost is gated on visibility: only the active slide holds a sink.
@@ -925,6 +968,17 @@ PRESENTER_JS = r"""
     return clone.outerHTML;
   }
 
+  function liveCueOf(i) {
+    var sec = slides[i];
+    var host = sec ? sec.querySelector("[data-live-surface]") : null;
+    if (!host) return null;
+    return {
+      slug: host.getAttribute("data-live-slug"),
+      state: host.getAttribute("data-live-state"),
+      status: (host.querySelector(".live-status") || {}).textContent || ""
+    };
+  }
+
   function payload() {
     var i = window.animatic.current();
     var n = slides.length;
@@ -937,8 +991,25 @@ PRESENTER_JS = r"""
       notes: notesOf(slides[i]),
       nextNotes: i + 1 < n ? notesOf(slides[i + 1]) : null,
       preview: previewOf(i),
-      nextPreview: previewOf(i + 1)
+      nextPreview: previewOf(i + 1),
+      liveCue: liveCueOf(i)
     };
+  }
+
+  // The presenter window may STOP a capture, never start one. getDisplayMedia
+  // requires transient user activation in the document that calls it (MDN), and
+  // a postMessage confers none, so a Start there would be refused by the browser
+  // rather than honoured. Stopping needs no activation, and releasing a capture
+  // is the thing you want within reach while presenting. Every live screen keeps
+  // its own buttons in the deck either way, so nothing depends on this path.
+  function stopLive(slug) {
+    var all = document.querySelectorAll("[data-live-surface]");
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].getAttribute("data-live-slug") !== slug) continue;
+      var btn = all[i].querySelector(".live-stop");
+      if (btn) btn.click();
+      return;
+    }
   }
 
   function push() {
@@ -988,6 +1059,9 @@ PRESENTER_JS = r"""
     else if (d.type === "animatic-go" && typeof d.index === "number") {
       window.animatic.go(d.index);
     }
+    else if (d.type === "animatic-live" && d.action === "stop" && d.slug) {
+      stopLive(d.slug);
+    }
   });
 
   document.addEventListener("keydown", function (e) {
@@ -1028,7 +1102,7 @@ PRESENTER_UI_JS = r"""
   var state = null;
   var el = {};
   ["wall", "elapsed", "ordinal", "count", "cue", "title", "next-title",
-   "preview", "next-preview", "notes", "next-notes", "status"]
+   "preview", "next-preview", "notes", "next-notes", "status", "live"]
     .forEach(function (key) {
       el[key] = document.getElementById("presenter-" + key);
     });
@@ -1173,8 +1247,44 @@ PRESENTER_UI_JS = r"""
     fillPreview(el["next-preview"], state.nextPreview, nxt);
     fillNotes(el.notes, state.notes);
     fillNotes(el["next-notes"], state.nextNotes);
+    fillLive(state.liveCue);
     fitNotes();
     say("");
+  }
+
+  function liveLabel(state_) {
+    return state_ === "live" ? "sharing a window"
+      : state_ === "stalled" ? "share stopped \u2014 press d in the deck to re-hook"
+      : state_ === "armed" ? "hooked, on another screen"
+      : "not hooked up \u2014 press d in the deck to share";
+  }
+
+  // The presenter window can STOP a capture but never start one: getDisplayMedia
+  // wants transient user activation in the document that calls it, and this
+  // window is opened by `s`, so it has none. The deck owns the picker; this is
+  // the release valve you want within reach mid-talk.
+  function fillLive(cue) {
+    var node = el.live;
+    if (!node) return;
+    node.textContent = "";
+    if (!cue) { node.classList.remove("open"); return; }
+    node.classList.add("open");
+    // NOT label(): that helper makes a `.preview-note`, which is absolutely
+    // positioned to cover the preview box — it would swallow the whole pane
+    var text = document.createElement("span");
+    text.className = "presenter-live-state";
+    text.textContent = liveLabel(cue.state);
+    node.appendChild(text);
+    if (cue.state === "live" || cue.state === "stalled") {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "presenter-live-stop";
+      b.textContent = "Stop sharing";
+      b.addEventListener("click", function () {
+        post({ type: "animatic-live", action: "stop", slug: cue.slug });
+      });
+      node.appendChild(b);
+    }
   }
 
   function post(msg) {
@@ -1328,6 +1438,13 @@ DEBUG_JS = r"""
         var control = host.querySelector(
           state === "live" || state === "stalled" ? ".live-stop" : ".live-start");
         var track = trackOf(video);
+        // letterbox: the frame hugging the picture is the thing a person
+        // actually notices ("why does it have bars?"), and it is invisible to
+        // every state check
+        var box = host.getBoundingClientRect();
+        var frameRatio = box.height ? box.width / box.height : null;
+        var streamRatio = (video && video.videoWidth && video.videoHeight)
+          ? video.videoWidth / video.videoHeight : null;
         return {
           slug: host.getAttribute("data-live-slug"),
           group: host.getAttribute("data-live-group"),
@@ -1338,6 +1455,10 @@ DEBUG_JS = r"""
             readyState: video.readyState,
             size: video.videoWidth + "x" + video.videoHeight
           } : null,
+          frame: { w: Math.round(box.width), h: Math.round(box.height) },
+          streamRatio: streamRatio ? +streamRatio.toFixed(3) : null,
+          letterboxed: (frameRatio && streamRatio)
+            ? Math.abs(frameRatio - streamRatio) > 0.02 : null,
           track: track ? {
             label: track.label,
             muted: track.muted,
@@ -1587,6 +1708,7 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 <h2 class="presenter-label">On screen now</h2>
 <p class="presenter-title" id="presenter-title"></p>
 <div class="preview" id="presenter-preview"></div>
+<div class="presenter-live" id="presenter-live"></div>
 <div class="presenter-notes" id="presenter-notes"></div>
 </section>
 <section class="presenter-pane presenter-pane-next">

@@ -51,6 +51,11 @@ function makeVideo() {
     srcObject: null,
     paused: true,
     playCount: 0,
+    // what the browser knows once a stream's metadata arrives; the frame fit
+    // depends on these (they are 0 until then, in a real engine too)
+    videoWidth: 0,
+    videoHeight: 0,
+    addEventListener(ev, fn) { this["on" + ev] = fn; },
     play() {
       this.paused = false;
       this.playCount++;
@@ -73,7 +78,13 @@ function makeHost(slug, group, slide) {
   const host = {
     attrs: { "data-live-slug": slug },
     state: "idle",
+    style: {
+      props: {},
+      setProperty(k, v) { this.props[k] = v; },
+      removeProperty(k) { delete this.props[k]; },
+    },
     _slide: slide,
+    removeAttribute(k) { delete this.attrs[k]; },
     getAttribute(k) {
       if (k === "data-live-state") return this.state;
       return this.attrs[k] !== undefined ? this.attrs[k] : null;
@@ -173,10 +184,14 @@ function makeStream(label) {
 }
 
 const pendingPrompts = [];
+let promptCount = 0;
 const navigatorStub = {
+  _promptCount: 0,
   mediaDevices: {
     getDisplayMedia(constraints) {
       navigatorStub._lastConstraints = constraints;
+      navigatorStub._promptCount++;
+      promptCount++;
       return new Promise((resolve, reject) => pendingPrompts.push({ resolve, reject }));
     },
   },
@@ -210,8 +225,10 @@ const documentStub = {
   },
 };
 
+const winHandlers = {};
 const windowStub = {
   isSecureContext: true,
+  addEventListener(ev, fn) { (winHandlers[ev] = winHandlers[ev] || []).push(fn); },
   animatic: {
     go() {},
     count: () => slides.length,
@@ -279,6 +296,40 @@ async function main() {
   check("an ungrouped host is untouched by the group's session",
     hostWindow.state === "idle" && hostBare.state === "idle",
     hostWindow.state + "/" + hostBare.state);
+
+  // -- the frame fits the picture (no letterbox) -----------------------------
+  // A `piece` frame is shaped by the viewport, so a capture of another shape
+  // got `object-fit: contain` bars inside it — and since the border is drawn on
+  // the element, the frame outlined the bars. The module publishes the stream's
+  // own ratio instead and the stylesheet sizes the host with it.
+  const fitVideo = hostPairA._els.video;
+  check("no frame ratio is claimed before the stream reports its size",
+    hostPairA.attrs["data-live-ratio"] === undefined && fitVideo.videoWidth === 0,
+    "attr=" + String(hostPairA.attrs["data-live-ratio"]) + " w=" + fitVideo.videoWidth);
+
+  fitVideo.videoWidth = 1000;   // a deliberately un-16:9 window
+  fitVideo.videoHeight = 400;
+  windowStub.animatic.live.fit(hostPairA);
+  check("a 1000x400 stream gives the frame that ratio, not the viewport's",
+    hostPairA.attrs["data-live-ratio"] !== undefined &&
+    hostPairA.style.props["--live-ratio"] === "2.5000",
+    "attr=" + String(hostPairA.attrs["data-live-ratio"]) +
+    " var=" + String(hostPairA.style.props["--live-ratio"]));
+
+  // a window can be resized mid-talk, or the capture switched to another window
+  hostBare.state = "live";
+  hostBare._els.video.videoWidth = 1920;
+  hostBare._els.video.videoHeight = 1080;
+  (winHandlers.resize || []).forEach((fn) => fn());
+  check("a resize re-fits every host from its own stream",
+    hostBare.attrs["data-live-ratio"] !== undefined &&
+    hostBare.style.props["--live-ratio"] === "1.7778",
+    "var=" + String(hostBare.style.props["--live-ratio"]));
+  check("the fit surface never starts a capture (it only measures)",
+    typeof windowStub.animatic.live.fit === "function" &&
+    typeof windowStub.animatic.live.hosts === "function" &&
+    navigatorStub._promptCount === 1,
+    "prompts=" + navigatorStub._promptCount);
 
   // slide change: same session, sink moves
   slideA.classList.remove("active");
