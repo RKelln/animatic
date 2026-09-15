@@ -55,16 +55,18 @@ VIDEO_EXTS = {e for e, t in MEDIA_EXTS.items() if t == "video"}
 @dataclass
 class MediaRef:
     slug: str
-    type: str = "unknown"              # image | video | chart | composite | unknown
+    type: str = "unknown"              # image | video | chart | composite | live | unknown
     status: str = "missing"            # card status, else 'missing'
     found: bool = False
     file: Optional[str] = None         # absolute path when found
-    source: str = "none"               # cards | deckdir | library
+    source: str = "none"               # cards | deckdir | library | standin | live
     alt: str = ""
     credit: str = ""
     licence: str = ""
     note: str = ""                     # card brief first line / library note
     reason: str = ""                   # why not found (placeholder labelling)
+    live: bool = False                 # runtime window capture (card `type: live`)
+    poster: Optional[str] = None       # live only: the still the handout prints
 
 
 @dataclass
@@ -177,9 +179,12 @@ class MediaResolver:
         """Card-declared media paths in spec: Media order: `approved:` then
         `file:` then `outputs[]`.  Paths are DECK-relative strings (e.g.
         `media/<slug>/attempts/<slug>-a2.mp4`); existence is the caller's
-        check.  Non-string / empty values are skipped."""
+        check.  Non-string / empty values are skipped.  A live card's
+        `poster:` is declared like any other path, so a poster that names a
+        file which is not there warns (check 10) instead of silently
+        vanishing from the handout."""
         out = []
-        for key in ("approved", "file"):
+        for key in ("approved", "file", "poster"):
             v = card.get(key)
             if isinstance(v, str) and v:
                 out.append(v)
@@ -188,10 +193,53 @@ class MediaResolver:
             out.extend(v for v in outs if isinstance(v, str) and v)
         return out
 
+    def _live_ref(self, slug: str, card: dict) -> MediaRef:
+        """`type: live` — a runtime window capture, not a file.
+
+        Nothing resolves on disk and nothing should: the present view hosts a
+        capture the presenter starts in the browser (`getDisplayMedia`, spec:
+        docs/live-capture.md).  `found=True` is correct rather than a lie — the
+        screen is complete and the renderer emits the capture host, never a
+        placeholder — and `source='live'` keeps the manifest honest that no
+        file exists.  `poster:` is the one optional disk artifact: the still
+        the document view prints and the fallback the presenter shows when
+        capture is unavailable.
+        """
+        poster = None
+        raw = card.get("poster")
+        if isinstance(raw, str) and raw:
+            p = self.talk_dir / raw
+            if p.is_file():
+                poster = str(p.resolve())
+        ref = MediaRef(
+            slug=slug,
+            type="live",
+            status=str(card.get("status") or "live"),
+            found=True,
+            file=None,
+            source="live",
+            alt=str(card.get("alt", "") or ""),
+            credit=str(card.get("credit", "") or ""),
+            licence=str(card.get("licence", "") or ""),
+            live=True,
+            poster=poster,
+        )
+        brief = card.get("brief")
+        if isinstance(brief, str) and brief.strip():
+            ref.note = brief.strip().splitlines()[0]
+        elif isinstance(brief, list) and brief:
+            ref.note = str(brief[0])
+        return ref
+
     def _resolve(self, slug: str) -> MediaRef:
         card = self.card_for(slug)
         ctype = card.get("type") if card else None
         cstatus = card.get("status") if card else None
+
+        # 0) a live card never looks for a file: the screen IS the capture
+        #    host, and the only disk artifact it can declare is a poster.
+        if card and str(ctype or "").lower() == "live":
+            return self._live_ref(slug, card)
 
         # 1) card-declared paths — spec: Media order: `approved:` then `file:`
         #    then `outputs[]`, first existing file wins.  Declared paths are
@@ -289,10 +337,16 @@ class MediaResolver:
         """resolve() + publication override: once media has been published to
         out/_media, refs carry the out-root-relative path instead of the
         absolute source path, so decks render from anywhere (file://, http,
-        an sftp mount)."""
+        an sftp mount).  A live ref has no file; its poster (when it has one)
+        is published under `<slug>-poster.<ext>` and swapped in the same way,
+        so the handout travels with the deck folder."""
         ref = self._resolve(slug)
         if ref.found and slug in self.published:
             ref.file = self.published[slug]
+        if ref.live:
+            published_poster = self.published.get(slug + "-poster")
+            if published_poster:
+                ref.poster = published_poster
         return ref
 
     def publish(self, out_root: Path, slugs: list) -> None:
@@ -303,9 +357,19 @@ class MediaResolver:
         media_dir = Path(out_root) / "_media"
         media_dir.mkdir(parents=True, exist_ok=True)
         for slug in slugs:
-            if slug in self.published:
+            if slug in self.published or (slug + "-poster") in self.published:
                 continue
             ref = self._resolve(slug)
+            if ref.live:
+                # the poster is the only file a live screen contributes
+                if not ref.poster:
+                    continue
+                ext = Path(ref.poster).suffix.lower() or ".bin"
+                dst = media_dir / f"{slug}-poster{ext}"
+                shutil.copyfile(ref.poster, dst)
+                self.published[slug + "-poster"] = str(
+                    Path("_media") / f"{slug}-poster{ext}")
+                continue
             if not (ref.found and ref.file):
                 continue
             ext = Path(ref.file).suffix.lower() or ".bin"

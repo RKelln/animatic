@@ -551,17 +551,29 @@ cross-talk reuse and third-party credits.
 # REQUIRED (builder reads; missing = error)
 slug: <unique>          # matches the shot slug it serves
 status: brief | to-find | file | url | prompting | candidate | shortlist | approved | rejected
-type: image | video | chart | composite | audio
+type: image | video | chart | composite | audio | live
 
 # OPTIONAL, builder-consumed
 approved: <path>        # outranks the attempts heuristic
 file: <path>            # then outputs[]
 outputs: []
+poster: <path>          # live only: the still the document view prints
 alt / credit / licence / brief / prompts.{image,video}
 
 # FREE — never read, never validated
 style: {}   notes:  refs:  source:  keep:  surprise:  …any future key
 ```
+
+**`type: live` (additive, 2026-09-15).** A live card declares no file: the
+screen hosts a window capture the presenter starts in the browser
+(`getDisplayMedia`), so the present view and the document view legitimately
+differ, and the manifest records `source: live` with `file: null`. It still
+counts as found — the screen is complete and never becomes a placeholder.
+`poster:` is the one optional disk artifact, and it is the still the handout
+prints, because a printed page cannot be live. A live screen takes no `kb` and
+no `dim`: drift and a scrim both fight a moving picture. Full contract, and the
+secure-context requirement that governs where a deck can be presented:
+`docs/live-capture.md`.
 
 - **`status: file`** means a local media file is in hand — buildable now.
   **`status: url`** means a verified remote source is recorded but not yet

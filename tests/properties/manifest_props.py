@@ -56,10 +56,40 @@ def check(fx, errors: list) -> None:
         found = md.get("found")
         f = md.get("file")
         src = md.get("source")
+        if src == "live":
+            # `type: live`: a runtime window capture (docs/live-capture.md).
+            # There is no file by definition, and the one disk artifact it can
+            # contribute is a poster for the document view.
+            if not md.get("live"):
+                err(errors, f"slug {slug!r}: source 'live' without live flag")
+            if f is not None:
+                err(errors, f"slug {slug!r}: live ref carries a file {f!r}")
+            if md.get("reason"):
+                err(errors, f"slug {slug!r}: live ref carries a reason: "
+                            f"{md.get('reason')[:80]!r}")
+            if md.get("type") != "live":
+                err(errors, f"slug {slug!r}: live ref type {md.get('type')!r} "
+                            f"!= 'live'")
+            poster = md.get("poster")
+            if poster is not None:
+                if not (isinstance(poster, str) and poster.startswith("_media/")):
+                    err(errors, f"slug {slug!r}: live poster {poster!r} must be "
+                                f"an out-root-relative _media/ path")
+                else:
+                    if not (fx.out / poster).is_file():
+                        err(errors, f"slug {slug!r}: published poster missing "
+                                    f"on disk: {poster}")
+                    if not poster.split("/")[-1].startswith(slug + "-poster."):
+                        err(errors, f"slug {slug!r}: published poster name "
+                                    f"{poster!r} must start with "
+                                    f"'{slug}-poster.'")
+            continue
         if found:
             if src not in ("cards", "deckdir", "library", "standin"):
                 err(errors, f"slug {slug!r}: found but source {src!r} not in "
                             f"cards/deckdir/library/standin")
+            if md.get("live"):
+                err(errors, f"slug {slug!r}: live flag on a file-backed ref")
             if not (isinstance(f, str) and f.startswith("_media/")):
                 err(errors, f"slug {slug!r}: found media file {f!r} must be "
                             f"an out-root-relative _media/ path")

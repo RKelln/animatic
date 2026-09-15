@@ -1,0 +1,18 @@
+# cards.yaml for the live-capture fixture — the `type: live` media shape
+# (added 2026-09-15). A live card declares no file: the screen hosts a window
+# capture the presenter starts (`getDisplayMedia`, docs/live-capture.md). The
+# optional `poster:` is deck-relative like every other declared path, and it is
+# what the document view prints (a handout can never be live).
+- slug: live-window
+  status: live
+  type: live
+  alt: A live window capture, with a still for the handout
+  poster: media/live-window-poster.png
+  credit: Ryan Kelln (fixture)
+  licence: CC BY-SA
+  brief: fixture live screen whose card declares a poster
+- slug: live-bare
+  status: live
+  type: live
+  alt: A live window capture with no poster
+  brief: fixture live screen with nothing on disk at all

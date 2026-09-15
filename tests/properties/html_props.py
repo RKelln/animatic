@@ -67,11 +67,28 @@ def check(fx, errors: list) -> None:
             err(errors, f"{name} html leaks machine-local paths: {hits[:5]}")
         if "<video" in text:
             if name == "present":
-                for attr in ("autoplay", "muted", "loop", "playsinline"):
-                    if f" {attr} " not in f" {text} ":
-                        err(errors, f"present video missing {attr}")
-                if re.search(r"<video[^>]*\scontrols\b", text):
-                    err(errors, "present video must not carry native controls")
+                # file-backed media videos carry the cinematic attribute set
+                # (autoplay muted loop playsinline, no native controls). A live
+                # capture surface is the exception and is checked below: a live
+                # stream has nothing to autoplay until the presenter starts it,
+                # and no end to loop.
+                for m in re.finditer(r"<video[^>]*>", text):
+                    tag = m.group(0)
+                    if "live-surface" in tag:
+                        for attr in ("muted", "playsinline"):
+                            if attr not in tag:
+                                err(errors, f"present live surface missing {attr}")
+                        if re.search(r"\scontrols\b", tag):
+                            err(errors, "present live surface must not carry "
+                                        "native controls")
+                        continue
+                    if "media-video" not in tag:
+                        continue
+                    for attr in ("autoplay", "muted", "loop", "playsinline"):
+                        if attr not in tag:
+                            err(errors, f"present video missing {attr}")
+                    if re.search(r"\scontrols\b", tag):
+                        err(errors, "present video must not carry native controls")
             if 'src="http' in text:
                 err(errors, f"{name} video/asset src is remote")
 
@@ -102,6 +119,21 @@ def check(fx, errors: list) -> None:
     for cue in cues["cues"]:
         media = cue.get("media")
         if not media:
+            continue
+        if media.get("source") == "live":
+            # a live screen renders the capture host, never an img/video file
+            label = f'data-live-slug="{media.get("slug")}"'
+            if label not in pres_text:
+                err(errors, f"cue {cue['id']}: live host for "
+                            f"{media.get('slug')!r} missing from present html")
+            if 'data-live-surface' not in pres_text:
+                err(errors, f"cue {cue['id']}: live host lacks data-live-surface")
+            poster = media.get("poster")
+            if poster:
+                want = "../" + poster
+                if want not in pres_text:
+                    err(errors, f"cue {cue['id']}: live poster {want!r} missing "
+                                f"from present html")
             continue
         if media.get("found"):
             want = "../" + media.get("file", "")

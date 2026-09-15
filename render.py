@@ -258,11 +258,70 @@ DIM_OVERLAY = (
 )
 
 
+def live_host_html(ref: MediaRef, css_class: str = "slide-media") -> str:
+    """The present-view host for a `type: live` card: a window capture.
+
+    `getDisplayMedia` is secure-context only and always needs a user gesture
+    (spec: docs/live-capture.md), so the markup ships an idle state with a
+    start control, a surface the stream attaches to, and a status line that
+    names the remedy when capture is unavailable.  The stream is attached to
+    the surface and never torn down by slide changes, so visibility is a slide
+    change and nothing else.
+
+    The surface carries no `controls` and is not `loop`ed: a live stream has no
+    end to loop and the presenter stops it from the deck's own control.
+    """
+    poster = ""
+    if ref.poster:
+        # same relative-path rule as file media: a published poster is
+        # out-root-relative, and both views sit one level below the out root
+        poster_src = ref.poster if Path(ref.poster).is_absolute() else "../" + ref.poster
+        poster = (
+            f'<img class="live-poster media-image" src="{html.escape(poster_src)}" '
+            f'alt="{html.escape(ref.alt or ref.slug)}">'
+        )
+    return (
+        f'<div class="{css_class} live-host" data-live-surface '
+        f'data-live-state="idle" data-live-slug="{html.escape(ref.slug)}">'
+        f'{poster}'
+        f'<video class="live-surface" muted playsinline aria-label="'
+        f'{html.escape(ref.alt or ref.slug)}"></video>'
+        f'<div class="live-idle">'
+        f'<p class="live-hint">Live window</p>'
+        f'<button class="live-start" type="button">Share a window</button>'
+        f'</div>'
+        f'<div class="live-controls">'
+        f'<span class="live-chip">sharing a window</span>'
+        f'<button class="live-stop" type="button">Stop</button>'
+        f'</div>'
+        f'<p class="live-status" role="status"></p>'
+        f'</div>'
+    )
+
+
 def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "figure-media") -> str:
-    """One resolved media element (image / video / placeholder)."""
+    """One resolved media element (image / video / live capture / placeholder)."""
     flags = shot_flags or {}
     parts = []
-    if ref.found and ref.file:
+    if ref.live:
+        if "slide-media" in css_class.split():
+            parts.append(live_host_html(ref, css_class=css_class))
+        elif ref.poster:
+            # document figure: the handout prints the still, never a live stream
+            poster_src = ref.poster if Path(ref.poster).is_absolute() else "../" + ref.poster
+            parts.append(
+                f'<img class="{css_class} media-image" src="{html.escape(poster_src)}" '
+                f'alt="{html.escape(ref.alt or ref.slug)}" loading="lazy">'
+            )
+        else:
+            parts.append(
+                f'<div class="{css_class} media-note" role="img" '
+                f'aria-label="live capture: {html.escape(ref.slug)}">'
+                f'<span class="ph-type">live window capture</span>'
+                f'<span class="ph-note">shown live in the room; not printed in '
+                f'the handout</span></div>'
+            )
+    elif ref.found and ref.file:
         ext = Path(ref.file).suffix.lower()
         if ext in (".mp4", ".webm", ".mov", ".m4v"):
             src = html.escape(ref.file if Path(ref.file).is_absolute() else "../" + ref.file)
@@ -327,8 +386,15 @@ def media_zone_html(ref: MediaRef, flags: dict) -> str:
         duo_cls = " duo"
     # Role-driven rendering: stat payloads render as screen objects; lower/credits
     # as overlays. The yaml-backed vocabulary keeps this deterministic.
-    media_flags = {k: v for k, v in flags.items() if k != "dim" and k not in ("layout",)} if piece else flags
-    kbcls = f" kb-{flags['kb']}" if flags.get("kb") in ("in", "out") else ""
+    if ref.live:
+        # a capture is live: Ken Burns drift and a dim scrim both fight it,
+        # so a live screen takes neither (fit and layout still apply)
+        media_flags = {k: v for k, v in flags.items()
+                       if k not in ("dim", "kb", "layout")}
+        kbcls = ""
+    else:
+        media_flags = {k: v for k, v in flags.items() if k != "dim" and k not in ("layout",)} if piece else flags
+        kbcls = f" kb-{flags['kb']}" if flags.get("kb") in ("in", "out") else ""
     media = media_html(ref, media_flags, css_class=f"slide-media{kbcls}")
     if kbcls and not piece:
         # camera drift: the lens moves over an oversized, already-rasterized
@@ -452,6 +518,95 @@ PAGER_JS = """
 """
 
 
+LIVE_JS = r"""
+(function () {
+  "use strict";
+  // Live window capture (card `type: live`, spec: docs/live-capture.md).
+  // The pager never destroys a slide, so a stream attached here survives every
+  // slide change: showing or hiding the capture is a slide change and nothing
+  // else. getDisplayMedia is secure-context only and the permission cannot be
+  // persisted, so the idle state names the remedy instead of failing silently.
+  var hosts = Array.prototype.slice.call(
+    document.querySelectorAll("[data-live-surface]"));
+  if (!hosts.length) return;
+
+  var secure = window.isSecureContext;
+  var supported = !!(navigator.mediaDevices &&
+                     typeof navigator.mediaDevices.getDisplayMedia === "function");
+
+  function status(host, msg) {
+    var el = host.querySelector(".live-status");
+    if (el) el.textContent = msg || "";
+  }
+
+  function state(host, s) { host.setAttribute("data-live-state", s); }
+
+  for (var i = 0; i < hosts.length; i++) {
+    (function (host) {
+      var video = host.querySelector("video.live-surface");
+      var start = host.querySelector(".live-start");
+      var stop = host.querySelector(".live-stop");
+      var stream = null;
+
+      if (!supported || !video) {
+        state(host, "unavailable");
+        if (start) start.disabled = true;
+        status(host, secure
+          ? "This browser does not offer window capture."
+          : "Window capture needs a secure context: open this deck over file:// or http://localhost.");
+        return;
+      }
+
+      function teardown(msg) {
+        if (stream) {
+          try {
+            stream.getTracks().forEach(function (t) { t.stop(); });
+          } catch (e) { /* already gone */ }
+        }
+        stream = null;
+        try { video.srcObject = null; } catch (e) {}
+        state(host, "idle");
+        status(host, msg || "");
+      }
+
+      if (start) {
+        start.addEventListener("click", function () {
+          var constraints = {
+            video: { displaySurface: "window" },
+            audio: false,
+            // never offer this deck's own tab: the hall of mirrors
+            selfBrowserSurface: "exclude",
+            surfaceSwitching: "include"
+          };
+          navigator.mediaDevices.getDisplayMedia(constraints).then(function (s) {
+            stream = s;
+            video.srcObject = s;
+            var p = video.play();
+            if (p && p.catch) p.catch(function () {});
+            state(host, "live");
+            status(host, "");
+            var track = s.getVideoTracks()[0];
+            if (track && track.addEventListener) {
+              track.addEventListener("ended", function () {
+                teardown("sharing ended");
+              });
+            }
+          }).catch(function (err) {
+            status(host, "capture refused: " +
+              (err && err.name ? err.name : "error"));
+          });
+        });
+      }
+
+      if (stop) {
+        stop.addEventListener("click", function () { teardown("stopped"); });
+      }
+    })(hosts[i]);
+  }
+})();
+"""
+
+
 def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     theme = resolve_theme(talk)
@@ -463,6 +618,14 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
         sections.append(_present_section(talk, screen, resolver, first=first))
     meta = talk.meta
     title = html.escape(str(meta.get("title", deck_slug(talk))))
+    # the capture script ships only to decks that have a live screen, so a
+    # deck with no live card keeps byte-identical HTML
+    has_live = any(
+        resolver.resolve(s.media_shot.slug).live
+        for s in talk.screens
+        if s.media_shot and s.media_shot.slug
+    )
+    live_script = f"<script>\n{LIVE_JS}\n</script>\n" if has_live else ""
     doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -485,7 +648,7 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <script>
 {PAGER_JS}
 </script>
-</body>
+{live_script}</body>
 </html>
 """
     path = out_dir / "index.html"
@@ -864,7 +1027,7 @@ def meta_get(talk: Talk, key: str, default):
 
 
 def media_ref_dict(ref: MediaRef) -> dict:
-    return {
+    d = {
         "slug": ref.slug,
         "type": ref.type,
         "status": ref.status,
@@ -877,6 +1040,12 @@ def media_ref_dict(ref: MediaRef) -> dict:
         "note": ref.note,
         "reason": ref.reason,
     }
+    # live refs are the one shape with no file, so they carry their own two
+    # fields and nothing else in the manifest changes shape (goldens stay put)
+    if ref.live:
+        d["live"] = True
+        d["poster"] = ref.poster
+    return d
 
 
 def render_manifest(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:

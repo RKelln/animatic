@@ -1,0 +1,124 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "live-capture",
+    "title": "Live capture fixture",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "live-capture-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Live capture fixture",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "Live capture fixture"
+        }
+      ],
+      "script": "A live screen hosts a window capture the presenter starts; the handout prints the still.",
+      "stage": null,
+      "est_seconds": 6.0
+    },
+    {
+      "id": "live-capture-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "media",
+      "title": "A live window",
+      "shots": [
+        {
+          "slug": "live-window",
+          "role": null,
+          "flags": {
+            "layout": "piece"
+          }
+        }
+      ],
+      "media": {
+        "slug": "live-window",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A live window capture, with a still for the handout",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture live screen whose card declares a poster",
+        "reason": "",
+        "live": true,
+        "poster": "_media/live-window-poster.png"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A live window"
+        }
+      ],
+      "script": "This screen is a window share. The card declares a poster, which is what the handout prints.",
+      "stage": null,
+      "est_seconds": 6.8
+    },
+    {
+      "id": "live-capture-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "media",
+      "title": "A live window with nothing on disk",
+      "shots": [
+        {
+          "slug": "live-bare",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "live-bare",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A live window capture with no poster",
+        "credit": "",
+        "licence": "",
+        "note": "fixture live screen with nothing on disk at all",
+        "reason": "",
+        "live": true,
+        "poster": null
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A live window with nothing on disk"
+        }
+      ],
+      "script": "Same shape with no poster: the handout says so instead of printing a placeholder.",
+      "stage": null,
+      "est_seconds": 5.6
+    }
+  ],
+  "warnings": []
+}

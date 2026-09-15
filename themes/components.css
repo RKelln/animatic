@@ -310,6 +310,66 @@
     box-shadow: var(--piece-shadow, 0 24px 70px rgba(0, 0, 0, 0.45));
   }
 
+  /* live capture screens (card `type: live`): a window share the presenter
+     starts with one click. Idle shows the poster (when the card declares one)
+     plus a start control; live shows the stream alone. No Ken Burns and no dim
+     scrim: both fight a moving picture. Controls use the established
+     translucent-glass treatment (stage-overlay-bg + backdrop blur), never a
+     crisp box, and never filter + backdrop-filter on one element. */
+  .live-host { position: absolute; inset: 0; z-index: 1; }
+  .live-host .live-poster,
+  .live-host .live-surface {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: contain; background: transparent;
+  }
+  .live-host .live-surface { display: none; }
+  .live-host[data-live-state="live"] .live-surface { display: block; }
+  .live-host[data-live-state="live"] .live-poster,
+  .live-host[data-live-state="live"] .live-idle { display: none; }
+  .live-idle {
+    position: absolute; inset: auto 0 12vh;
+    display: flex; flex-direction: column; align-items: center; gap: 1.2vh;
+    font-family: var(--font-ui); text-align: center;
+  }
+  .live-hint {
+    margin: 0;
+    font-size: 0.8em; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 600; color: var(--stage-muted);
+  }
+  .live-start, .live-stop {
+    font-family: var(--font-ui); font-size: 0.85em;
+    padding: 0.5em 1em; border-radius: 0.6em; cursor: pointer;
+    color: var(--stage-ink);
+    border: 1px solid var(--piece-border);
+    background: var(--stage-overlay-bg);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .live-start[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .live-controls {
+    position: absolute; right: 2vw; bottom: 2.5vh;
+    display: none; align-items: center; gap: 0.6em;
+    font-family: var(--font-ui); color: var(--stage-ink);
+  }
+  .live-host[data-live-state="live"] .live-controls { display: flex; }
+  .live-chip {
+    font-size: 0.72em; letter-spacing: 0.06em; font-weight: 600;
+    padding: 0.35em 0.7em; border-radius: 0.6em;
+    background: var(--stage-overlay-bg);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .live-status {
+    position: absolute; left: 0; right: 0; bottom: 4vh; margin: 0;
+    font-family: var(--font-ui); font-size: 0.8em;
+    color: var(--stage-muted); text-align: center;
+  }
+  .media-zone.piece .live-host { position: relative; inset: auto; width: 100%; height: 100%; }
+  .media-zone.piece .live-host .live-poster,
+  .media-zone.piece .live-host .live-surface {
+    border: 1px solid var(--piece-border);
+    box-shadow: var(--piece-shadow);
+  }
+
   /* unresolved media: builder transparency in the work surface */
   .media-placeholder {
     position: absolute; inset: 0; z-index: 2;

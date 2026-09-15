@@ -1,0 +1,45 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "live-capture",
+  "referenced": [
+    {
+      "slug": "live-window",
+      "first_cue": "live-capture-002",
+      "media": {
+        "slug": "live-window",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A live window capture, with a still for the handout",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture live screen whose card declares a poster",
+        "reason": "",
+        "live": true,
+        "poster": "_media/live-window-poster.png"
+      }
+    },
+    {
+      "slug": "live-bare",
+      "first_cue": "live-capture-003",
+      "media": {
+        "slug": "live-bare",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A live window capture with no poster",
+        "credit": "",
+        "licence": "",
+        "note": "fixture live screen with nothing on disk at all",
+        "reason": "",
+        "live": true,
+        "poster": null
+      }
+    }
+  ],
+  "unreferenced_cards": []
+}
