@@ -39,6 +39,44 @@
         "live": true,
         "poster": null
       }
+    },
+    {
+      "slug": "live-pair-a",
+      "first_cue": "live-capture-004",
+      "media": {
+        "slug": "live-pair-a",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A grouped live screen, first of two sharing one capture",
+        "credit": "",
+        "licence": "",
+        "note": "fixture live screen in the `demos` group; shares one session with live-pair-b",
+        "reason": "",
+        "live": true,
+        "poster": null
+      }
+    },
+    {
+      "slug": "live-pair-b",
+      "first_cue": "live-capture-005",
+      "media": {
+        "slug": "live-pair-b",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A grouped live screen, second of two sharing one capture",
+        "credit": "",
+        "licence": "",
+        "note": "fixture live screen in the `demos` group; same session as live-pair-a",
+        "reason": "",
+        "live": true,
+        "poster": null
+      }
     }
   ],
   "unreferenced_cards": []

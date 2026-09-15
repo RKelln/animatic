@@ -118,6 +118,84 @@
       "script": "Same shape with no poster: the handout says so instead of printing a placeholder.",
       "stage": null,
       "est_seconds": 5.6
+    },
+    {
+      "id": "live-capture-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "media",
+      "title": "Two slides, one window, part one",
+      "shots": [
+        {
+          "slug": "live-pair-a",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "live-pair-a",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A grouped live screen, first of two sharing one capture",
+        "credit": "",
+        "licence": "",
+        "note": "fixture live screen in the `demos` group; shares one session with live-pair-b",
+        "reason": "",
+        "live": true,
+        "poster": null
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Two slides, one window, part one"
+        }
+      ],
+      "script": "Grouped live screens share a single capture session, so the hookup panel has one row for both.",
+      "stage": null,
+      "est_seconds": 6.8
+    },
+    {
+      "id": "live-capture-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "media",
+      "title": "Two slides, one window, part two",
+      "shots": [
+        {
+          "slug": "live-pair-b",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "live-pair-b",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A grouped live screen, second of two sharing one capture",
+        "credit": "",
+        "licence": "",
+        "note": "fixture live screen in the `demos` group; same session as live-pair-a",
+        "reason": "",
+        "live": true,
+        "poster": null
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Two slides, one window, part two"
+        }
+      ],
+      "script": "Arriving here re-attaches the same stream: one picker, two slides.",
+      "stage": null,
+      "est_seconds": 4.0
     }
   ],
   "warnings": []

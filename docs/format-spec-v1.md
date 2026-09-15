@@ -558,6 +558,7 @@ approved: <path>        # outranks the attempts heuristic
 file: <path>            # then outputs[]
 outputs: []
 poster: <path>          # live only: the still the document view prints
+live_group: <name>      # live only: hosts sharing one capture session
 alt / credit / licence / brief / prompts.{image,video}
 
 # FREE — never read, never validated

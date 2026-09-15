@@ -24,3 +24,13 @@ This screen is a window share. The card declares a poster, which is what the han
 ### A live window with nothing on disk
 
 Same shape with no poster: the handout says so instead of printing a placeholder.
+
+<!-- shot: live-pair-a -->
+### Two slides, one window, part one
+
+Grouped live screens share a single capture session, so the hookup panel has one row for both.
+
+<!-- shot: live-pair-b -->
+### Two slides, one window, part two
+
+Arriving here re-attaches the same stream: one picker, two slides.

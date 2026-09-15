@@ -148,6 +148,14 @@ def check(fx, errors: list) -> None:
                 err(errors, f"cue {cue['id']}: placeholder figure for "
                             f"{media.get('slug')!r} missing from present html")
 
+    # the hookup panel ships exactly when the deck has a live screen
+    any_live = any(
+        (c.get("media") or {}).get("source") == "live" for c in cues["cues"])
+    has_panel = 'id="hookup-panel"' in pres_text
+    if any_live != has_panel:
+        err(errors, "hookup panel presence does not match the deck's live "
+                    f"screens (live={any_live}, panel={has_panel})")
+
     # -- document view ------------------------------------------------------
     deck = cues["deck"]
     deck_title = str(deck.get("title") or fx.slug)

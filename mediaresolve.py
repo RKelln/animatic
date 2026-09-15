@@ -67,6 +67,7 @@ class MediaRef:
     reason: str = ""                   # why not found (placeholder labelling)
     live: bool = False                 # runtime window capture (card `type: live`)
     poster: Optional[str] = None       # live only: the still the handout prints
+    group: Optional[str] = None        # live only: hosts sharing one capture session
 
 
 @dataclass
@@ -223,6 +224,7 @@ class MediaResolver:
             licence=str(card.get("licence", "") or ""),
             live=True,
             poster=poster,
+            group=(str(card.get("live_group")) if card.get("live_group") else None),
         )
         brief = card.get("brief")
         if isinstance(brief, str) and brief.strip():

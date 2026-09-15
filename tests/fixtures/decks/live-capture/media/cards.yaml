@@ -16,3 +16,15 @@
   type: live
   alt: A live window capture with no poster
   brief: fixture live screen with nothing on disk at all
+- slug: live-pair-a
+  status: live
+  type: live
+  alt: A grouped live screen, first of two sharing one capture
+  live_group: demos
+  brief: fixture live screen in the `demos` group; shares one session with live-pair-b
+- slug: live-pair-b
+  status: live
+  type: live
+  alt: A grouped live screen, second of two sharing one capture
+  live_group: demos
+  brief: fixture live screen in the `demos` group; same session as live-pair-a

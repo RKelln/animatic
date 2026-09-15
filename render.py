@@ -280,10 +280,13 @@ def live_host_html(ref: MediaRef, css_class: str = "slide-media") -> str:
             f'<img class="live-poster media-image" src="{html.escape(poster_src)}" '
             f'alt="{html.escape(ref.alt or ref.slug)}">'
         )
+    group_attr = (
+        f' data-live-group="{html.escape(ref.group)}"' if ref.group else ""
+    )
     return (
         f'<div class="{css_class} live-host" data-live-surface '
-        f'data-live-state="idle" data-live-slug="{html.escape(ref.slug)}">'
-        f'{poster}'
+        f'data-live-state="idle" data-live-slug="{html.escape(ref.slug)}"{group_attr}>'
+        f"{poster}"
         f'<video class="live-surface" muted playsinline aria-label="'
         f'{html.escape(ref.alt or ref.slug)}"></video>'
         f'<div class="live-idle">'
@@ -450,6 +453,9 @@ PAGER_JS = """
     if (fill) fill.style.width = ((cur + 1) / slides.length * 100) + "%";
     if (curEl) curEl.textContent = String(cur + 1);
     if (panel && panel.classList.contains("open")) panel.innerHTML = notesFor(cur);
+    if (window.animatic && typeof window.animatic.onChange === "function") {
+      try { window.animatic.onChange(cur); } catch (err) { /* never break nav */ }
+    }
     // autoplay the active slide's video; pause everything else
     for (var i = 0; i < slides.length; i++) {
       var v = slides[i].querySelector("video[data-autoplay]");
@@ -487,6 +493,17 @@ PAGER_JS = """
   if (nextBtn) nextBtn.addEventListener("click", next);
   if (prevBtn) prevBtn.addEventListener("click", prev);
 
+  // Tiny public surface for the modules that live beside the pager (live
+  // capture reads the current slide to gate its sinks; the hookup panel jumps
+  // between demo slides). Additive: nothing here changes pager behaviour, and
+  // an onChange throwing cannot break navigation.
+  window.animatic = {
+    go: go, next: next, prev: prev,
+    count: function () { return slides.length; },
+    current: function () { return cur; },
+    onChange: null
+  };
+
   document.addEventListener("keydown", function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     switch (e.key) {
@@ -522,33 +539,223 @@ LIVE_JS = r"""
 (function () {
   "use strict";
   // Live window capture (card `type: live`, spec: docs/live-capture.md).
-  // The pager never destroys a slide, so a stream attached here survives every
-  // slide change: showing or hiding the capture is a slide change and nothing
-  // else. getDisplayMedia is secure-context only and the permission cannot be
-  // persisted, so the idle state names the remedy instead of failing silently.
+  //
+  // Two properties this module is built around:
+  //  1. One capture SESSION per key (a card's `live_group`, else its slug).
+  //     Hosts sharing a group share one stream, so several demo slides can
+  //     show the same window with a single picker.
+  //  2. The session is not the sink. Frames are only pulled while a <video> is
+  //     attached to the stream, so every host detaches when its slide is not
+  //     active and re-attaches on arrival. The session (and the permission)
+  //     survive that, so re-attaching costs nothing and never re-prompts.
   var hosts = Array.prototype.slice.call(
     document.querySelectorAll("[data-live-surface]"));
   if (!hosts.length) return;
 
+  var supportsCapture = !!(navigator.mediaDevices &&
+    typeof navigator.mediaDevices.getDisplayMedia === "function");
   var secure = window.isSecureContext;
-  var supported = !!(navigator.mediaDevices &&
-                     typeof navigator.mediaDevices.getDisplayMedia === "function");
+  var panel = document.getElementById("hookup-panel");
+  var rowsEl = document.getElementById("hookup-rows");
+  var slides = Array.prototype.slice.call(
+    document.querySelectorAll(".animatic-slide"));
 
+  var sessions = {};   // key -> { stream: MediaStream, label: string }
+  var byKey = {};      // key -> [host, ...]
+
+  function keyOf(host) {
+    return host.getAttribute("data-live-group") ||
+           host.getAttribute("data-live-slug");
+  }
+  function videoOf(host) { return host.querySelector("video.live-surface"); }
+  function state(host, s) { host.setAttribute("data-live-state", s); }
   function status(host, msg) {
     var el = host.querySelector(".live-status");
     if (el) el.textContent = msg || "";
   }
+  function slideIndexOf(host) {
+    var section = host.closest ? host.closest(".animatic-slide") : null;
+    return section ? slides.indexOf(section) : -1;
+  }
+  function isActive(host) {
+    var section = host.closest ? host.closest(".animatic-slide") : null;
+    return !!(section && section.classList.contains("active"));
+  }
 
-  function state(host, s) { host.setAttribute("data-live-state", s); }
+  function attach(host) {
+    var session = sessions[keyOf(host)];
+    var video = videoOf(host);
+    if (!session || !video) return;
+    if (video.srcObject !== session.stream) video.srcObject = session.stream;
+    var p = video.play();
+    if (p && p.catch) p.catch(function () {});
+    state(host, "live");
+  }
+
+  function detach(host) {
+    var video = videoOf(host);
+    if (!video) return;
+    try { video.pause(); video.srcObject = null; } catch (err) {}
+  }
+
+  // Frame cost is gated on visibility: only the active slide holds a sink.
+  // State follows the SESSION, not history: a hidden host of a hooked group is
+  // "armed" the moment the group is hooked, even if it was never attached (it
+  // must not offer to hook again), and "idle" means genuinely unhooked.
+  // "unavailable" hosts are left alone: they never had a session to report.
+  function syncVisibility() {
+    for (var i = 0; i < hosts.length; i++) {
+      var host = hosts[i];
+      if (host.getAttribute("data-live-state") === "unavailable") continue;
+      var session = sessions[keyOf(host)];
+      if (isActive(host)) {
+        if (session) attach(host);
+      } else {
+        detach(host);
+        state(host, session ? "armed" : "idle");
+      }
+    }
+    paint();
+  }
+
+  function teardown(key, message) {
+    var session = sessions[key];
+    if (session) {
+      try {
+        session.stream.getTracks().forEach(function (t) { t.stop(); });
+      } catch (err) {}
+      delete sessions[key];
+    }
+    var group = byKey[key] || [];
+    for (var i = 0; i < group.length; i++) {
+      var video = videoOf(group[i]);
+      if (video) { try { video.srcObject = null; } catch (err) {} }
+      state(group[i], "idle");
+      if (message) status(group[i], message);
+    }
+    paint();
+  }
+
+  function hook(key) {
+    var group = byKey[key] || [];
+    if (!group.length) return;
+    status(group[0], "");
+    navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: "window" },
+      audio: false,
+      // never offer this deck's own tab: the hall of mirrors
+      selfBrowserSurface: "exclude",
+      surfaceSwitching: "include"
+    }).then(function (stream) {
+      var track = stream.getVideoTracks()[0];
+      var label = "";
+      try { label = (track && track.label) || ""; } catch (err) {}
+      sessions[key] = { stream: stream, label: label };
+      if (track && track.addEventListener) {
+        track.addEventListener("ended", function () {
+          teardown(key, "sharing ended");
+        });
+      }
+      syncVisibility();
+    }).catch(function (err) {
+      var name = err && err.name ? err.name : "error";
+      status(group[0], "capture refused: " + name);
+      paint();
+    });
+  }
+
+  // ---- the hookup panel: one row per session key -------------------------
+
+  function makeButton(text, onClick) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "hookup-button";
+    b.textContent = text;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  function paint() {
+    if (!rowsEl) return;
+    rowsEl.textContent = "";
+    var keys = Object.keys(byKey);
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      var group = byKey[key];
+      var session = sessions[key];
+      var row = document.createElement("div");
+      row.className = "hookup-row";
+      if (session) row.setAttribute("data-hooked", "1");
+
+      var name = document.createElement("p");
+      name.className = "hookup-name";
+      name.textContent = key;
+      row.appendChild(name);
+
+      var cues = [];
+      for (var j = 0; j < group.length; j++) {
+        var idx = slideIndexOf(group[j]);
+        if (idx >= 0) cues.push(idx + 1);
+      }
+      var where = document.createElement("p");
+      where.className = "hookup-where";
+      where.textContent = cues.length > 1
+        ? "slides " + cues.join(", ")
+        : "slide " + (cues[0] || "?");
+      row.appendChild(where);
+
+      var stateEl = document.createElement("p");
+      stateEl.className = "hookup-state";
+      stateEl.textContent = session
+        ? ("hooked" + (session.label ? ": " + session.label : ""))
+        : "not hooked";
+      row.appendChild(stateEl);
+
+      var actions = document.createElement("div");
+      actions.className = "hookup-actions";
+      if (session) {
+        actions.appendChild(makeButton("stop", function () { teardown(key, ""); }));
+      } else {
+        actions.appendChild(makeButton("hook up", function () { hook(key); }));
+      }
+      actions.appendChild(makeButton("go", function () {
+        var idx = slideIndexOf(group[0]);
+        if (idx >= 0 && window.animatic && window.animatic.go) {
+          window.animatic.go(idx);
+        }
+        closePanel();
+      }));
+      row.appendChild(actions);
+      rowsEl.appendChild(row);
+    }
+  }
+
+  function openPanel() {
+    if (!panel) return;
+    panel.classList.add("open");
+    paint();
+  }
+  function closePanel() {
+    if (panel) panel.classList.remove("open");
+  }
+  function togglePanel() {
+    if (!panel) return;
+    if (panel.classList.contains("open")) closePanel();
+    else openPanel();
+  }
+
+  // ---- wiring ------------------------------------------------------------
 
   for (var i = 0; i < hosts.length; i++) {
     (function (host) {
-      var video = host.querySelector("video.live-surface");
+      var key = keyOf(host);
+      if (!byKey[key]) byKey[key] = [];
+      byKey[key].push(host);
+
       var start = host.querySelector(".live-start");
       var stop = host.querySelector(".live-stop");
-      var stream = null;
 
-      if (!supported || !video) {
+      if (!supportsCapture || !videoOf(host)) {
         state(host, "unavailable");
         if (start) start.disabled = true;
         status(host, secure
@@ -557,52 +764,24 @@ LIVE_JS = r"""
         return;
       }
 
-      function teardown(msg) {
-        if (stream) {
-          try {
-            stream.getTracks().forEach(function (t) { t.stop(); });
-          } catch (e) { /* already gone */ }
-        }
-        stream = null;
-        try { video.srcObject = null; } catch (e) {}
-        state(host, "idle");
-        status(host, msg || "");
-      }
-
       if (start) {
-        start.addEventListener("click", function () {
-          var constraints = {
-            video: { displaySurface: "window" },
-            audio: false,
-            // never offer this deck's own tab: the hall of mirrors
-            selfBrowserSurface: "exclude",
-            surfaceSwitching: "include"
-          };
-          navigator.mediaDevices.getDisplayMedia(constraints).then(function (s) {
-            stream = s;
-            video.srcObject = s;
-            var p = video.play();
-            if (p && p.catch) p.catch(function () {});
-            state(host, "live");
-            status(host, "");
-            var track = s.getVideoTracks()[0];
-            if (track && track.addEventListener) {
-              track.addEventListener("ended", function () {
-                teardown("sharing ended");
-              });
-            }
-          }).catch(function (err) {
-            status(host, "capture refused: " +
-              (err && err.name ? err.name : "error"));
-          });
-        });
+        start.addEventListener("click", function () { hook(key); });
       }
-
       if (stop) {
-        stop.addEventListener("click", function () { teardown("stopped"); });
+        stop.addEventListener("click", function () { teardown(key, "stopped"); });
       }
     })(hosts[i]);
   }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "d" || e.key === "D") { e.preventDefault(); togglePanel(); }
+    else if (e.key === "Escape") closePanel();
+  });
+
+  if (window.animatic) window.animatic.onChange = function () { syncVisibility(); };
+  paint();
+  syncVisibility();
 })();
 """
 
@@ -626,6 +805,15 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
         if s.media_shot and s.media_shot.slug
     )
     live_script = f"<script>\n{LIVE_JS}\n</script>\n" if has_live else ""
+    hookup = (
+        '<aside class="hookup-panel" id="hookup-panel" aria-label="demo hookup">\n'
+        '<h2 class="hookup-title">Demo hookup</h2>\n'
+        '<p class="hookup-lede">Hook each live screen before the talk. '
+        'The permission cannot be remembered, so this is once per session. '
+        'Press <kbd>d</kbd> to close.</p>\n'
+        '<div class="hookup-rows" id="hookup-rows"></div>\n'
+        '</aside>\n'
+    ) if has_live else ""
     doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -645,7 +833,7 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <button type="button" id="next-slide" aria-label="next">&#8250;</button>
 </nav>
 <aside class="notes-panel" id="notes-panel" aria-live="polite"></aside>
-<script>
+{hookup}<script>
 {PAGER_JS}
 </script>
 {live_script}</body>

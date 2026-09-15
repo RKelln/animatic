@@ -327,6 +327,9 @@
   .live-host[data-live-state="live"] .live-surface { display: block; }
   .live-host[data-live-state="live"] .live-poster,
   .live-host[data-live-state="live"] .live-idle { display: none; }
+  /* armed: a session exists for this host's group but its slide is not up.
+     Nothing to show and nothing to offer, so the idle block goes quiet. */
+  .live-host[data-live-state="armed"] .live-idle { display: none; }
   .live-idle {
     position: absolute; inset: auto 0 12vh;
     display: flex; flex-direction: column; align-items: center; gap: 1.2vh;
@@ -368,6 +371,44 @@
   .media-zone.piece .live-host .live-surface {
     border: 1px solid var(--piece-border);
     box-shadow: var(--piece-shadow);
+  }
+
+  /* the hookup panel: a pre-talk setup surface, one row per capture session.
+     Same translucent-glass register as the notes panel; it never appears
+     during the talk unless the presenter opens it (key `d`). */
+  .hookup-panel {
+    position: fixed; inset: 6vh 6vw auto 6vw;
+    display: none; z-index: 40;
+    padding: 2.4vh 2.4vw;
+    border-radius: 1.1em;
+    background: var(--stage-overlay-bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: var(--quote-panel-shadow);
+    font-family: var(--font-ui); color: var(--stage-ink);
+  }
+  .hookup-panel.open { display: block; }
+  .hookup-title {
+    margin: 0 0 0.4em; font-family: var(--font-ui);
+    font-size: 0.85em; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .hookup-lede { margin: 0 0 1.4em; font-size: 0.8em; color: var(--stage-muted); }
+  .hookup-row {
+    display: grid; grid-template-columns: minmax(9em, 1fr) auto minmax(12em, 1.4fr) auto;
+    align-items: center; gap: 1.2em;
+    padding: 0.7em 0; border-top: 1px solid var(--piece-border);
+  }
+  .hookup-row[data-hooked] .hookup-name::after {
+    content: " \2022 hooked"; color: var(--stage-accent);
+  }
+  .hookup-name, .hookup-where, .hookup-state { margin: 0; font-size: 0.8em; }
+  .hookup-where, .hookup-state { color: var(--stage-muted); }
+  .hookup-actions { display: flex; gap: 0.6em; }
+  .hookup-button {
+    font-family: var(--font-ui); font-size: 0.78em;
+    padding: 0.35em 0.8em; border-radius: 0.5em; cursor: pointer;
+    color: var(--stage-ink);
+    border: 1px solid var(--piece-border);
+    background: var(--stage-overlay-bg);
   }
 
   /* unresolved media: builder transparency in the work surface */

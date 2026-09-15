@@ -105,6 +105,77 @@ autoplay until it starts and no end to loop, so the cinematic attribute set
 does not apply to it); `manifest_props.py` asserts the file-less shape and the
 published poster. The fixture is `tests/fixtures/decks/live-capture/`.
 
+## The hookup panel: one session, or several slides
+
+The permission cannot be remembered, so hooking up is a pre-talk ritual, not a
+mid-talk improvisation. Press **`d`** in the present view for the hookup panel:
+one row per capture session, showing which slides it feeds, whether it is
+hooked, the label of the window the browser actually gave you, and three
+controls (`hook up`, `stop`, `go`). `go` jumps to the slide; `d` or `Escape`
+closes the panel.
+
+A live host is also self-sufficient: while its slide is up and nothing is hooked
+it offers its own "Share a window" control, so a one-demo deck needs no ritual
+at all.
+
+### Several demo slides
+
+`live_group` in a card makes hosts share one session:
+
+```yaml
+- slug: demo-arena
+  type: live
+  live_group: demos
+- slug: demo-arena-again      # a second slide showing the same window
+  type: live
+  live_group: demos
+```
+
+One picker, one stream, both slides. Two ways to work with several demos:
+
+| Approach | Pickers | What changes between slides |
+| --- | --- | --- |
+| One group, one window; switch tabs or scroll inside it | 1 | your own window's content |
+| One group per window | one each | the whole captured window |
+
+The first is cheaper and simpler, and it is the reason groups exist. Its one
+cost: a normal browser window carries its tab strip and URL bar into the
+capture, whereas a chrome-less app window (`chromium --app=<url>`) captures
+clean but has no tabs. Pick per deck: chrome-less windows and one session per
+demo, or one tabbed window and one session for all of them.
+
+## Frame cost is gated on visibility
+
+There is no polling anywhere. One capture session is one live stream, and the
+lever is whether a `<video>` is *attached* to it: frames are pulled only while
+something is consuming them. So every host detaches its sink when its slide is
+not active and re-attaches on arrival, while the session (and the permission)
+stays alive. Re-attaching is instant and never re-prompts.
+
+That is also why a deck with several demo slides costs no more than a deck with
+one: at any moment exactly one host is attached, and the rest are `armed`
+(hooked, no sink). `data-live-state` carries this: `idle` (no session),
+`armed` (session, hidden), `live` (session, attached), `unavailable` (no
+capture API on this origin or in this browser).
+
+## Verification
+
+`tools/check-live-js.js` runs the present view's capture module against a stub
+DOM in node and asserts the behaviour that cannot be clicked in CI: one session
+per key, hosts sharing a group sharing one stream, the sink following the
+active slide, no second prompt on a slide change, teardown stopping every host
+in a group, and the panel's rows and hook markers.
+
+```
+python3 -c "import render; open('/tmp/live.js','w').write(render.LIVE_JS)"
+node tools/check-live-js.js /tmp/live.js
+```
+
+Those two properties (one session per key; frames only for the visible slide)
+are the module's whole contract. The harness also caught a real bug the first
+time it ran honestly: an assertion made before the promise queue drained
+false-passed, which is why it awaits a tick after every resolution.
+
 ## Limits, stated plainly
 
 - One capture per host, no audio, and no recording of the stream by the builder.
