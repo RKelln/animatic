@@ -24,6 +24,12 @@ One command, one exit code:
   `timing-drift.talk.md` declares `dur: 45 min` on a two-screen deck: the
   clock (check 19) must report the divergence and the deck must still build
   (spec: Timing; T15).
+  `paraphrase-pair.talk.md` pins the `paraphrase` role (spec §4 Roles): one
+  screen carries a leading quote and its `~` attribution (source's words,
+  screen-only) AND an entry of kind `paraphrase` whose text is also the
+  screen's script (our words, shown and spoken), and a second screen pins the
+  plain payload shape — the paragraph directly after the role shot. It reuses
+  the pool slug `sample-art` rather than adding a row.
 - `fixtures/constructs/media/cards.yaml` — the construct-corpus media pool.
   Flat constructs share one deck dir, hence one pool: every media slug any
   construct references must be carded here (check 11 silence). Pool cards

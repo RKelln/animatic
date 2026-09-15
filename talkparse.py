@@ -10,8 +10,13 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   the paragraph appears in the file, i.e. the screen opened by the shot that
   precedes them.  Text spoken while a screen is up sits between this screen's
   shot and the next screen's shot in file order.
-- A paragraph immediately following a role shot (`<!-- shot: role=stat -->`)
-  is CONSUMED as that role's on-screen payload: screen text, never VO.
+- A role's payload is the NEXT PARAGRAPH ON ITS SCREEN after any leading
+  quote / attribution / list blocks (`<!-- shot: <slug> role=paraphrase -->`
+  with a `>` quote, its `~ ` attribution, then a paragraph: the paragraph is
+  the payload).  One screen therefore carries the source's words AND our own
+  line.  The payload is that role's screen text; a spoken role (`stat`,
+  `paraphrase`) is also VO.  A role whose screen never produces a paragraph
+  warns — the payload is still required, only the position is relaxed.
 - Roles attach to a screen through the `role=` flag, written on the screen's
   own shot (`<!-- shot: <slug> role=<role> -->`).  There is NO implicit merge:
   a bare role shot always opens its own screen, and one that directly follows
@@ -117,16 +122,25 @@ def _load_layouts_yaml(path):
 
 
 def load_vocab(deck_path=None):
+    """Effective (roles, layouts) vocabulary for a deck.
+
+    `deck_path` is the directory that holds the talkfile — resolution is
+    deck -> shared -> built-in (spec: Roles): a `roles.yaml` sitting next to
+    the talkfile layers over the shared repo vocabulary, and the built-in
+    sets stand in only when no yaml exists at all.  Callers that pass nothing
+    (or a directory with no yaml, e.g. the historic literal `deck/`) get the
+    shared vocabulary alone.
+    """
     from pathlib import Path
     base = Path(__file__).resolve().parent
     deck_path = Path(str(deck_path) if deck_path else base / "deck")
     roles = set()
-    for p in [deck_path / "roles.yaml", base / "roles.yaml"]:
+    for p in [base / "roles.yaml", deck_path / "roles.yaml"]:
         if p.exists():
             roles |= _load_roles_yaml(p)
     roles = roles or set(ROLES)
     layouts = set()
-    for p in [deck_path / "layouts.yaml", base / "layouts.yaml"]:
+    for p in [base / "layouts.yaml", deck_path / "layouts.yaml"]:
         if p.exists():
             layouts |= _load_layouts_yaml(p)
     layouts = layouts or set(LAYOUTS)
@@ -145,17 +159,24 @@ _DEFAULT_ROLE_BUNDLES = {
 }
 
 # form -> canonical block kind (the fixed IR vocabulary render.py consumes).
-FORM_TO_KIND = {"callout": "stat", "lower-third": "lower", "end-roll": "credits"}
+FORM_TO_KIND = {"callout": "stat", "lower-third": "lower", "end-roll": "credits",
+                "paraphrase": "paraphrase"}
 
 
 def load_role_bundles(deck_path=None):
-    """Role name -> {spoken, form} from roles.yaml (deck -> shared)
-    with the hardcoded defaults as fallback."""
+    """Role name -> {spoken, form} from roles.yaml (deck wins over shared)
+    with the hardcoded defaults as fallback.
+
+    `deck_path` is the directory that holds the talkfile (spec: Roles — the
+    per-deck override); the shared repo roles.yaml is always layered in
+    first, so a deck's own file adds to the vocabulary and may restate a
+    shared role to change it.
+    """
     from pathlib import Path
     base = Path(__file__).resolve().parent
     deck_path = Path(str(deck_path) if deck_path else base / "deck")
     bundles = {}
-    for p in [deck_path / "roles.yaml", base / "roles.yaml"]:
+    for p in [base / "roles.yaml", deck_path / "roles.yaml"]:
         if p.exists():
             try:
                 data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
@@ -175,14 +196,21 @@ def load_role_bundles(deck_path=None):
 ROLE_BUNDLES = load_role_bundles()
 
 
-def _canonical_role_kind(role: str) -> str:
-    """Role name -> canonical block kind (stat|lower|credits) via the yaml form."""
-    form = ROLE_BUNDLES.get(role, {}).get("form", "")
+def _canonical_role_kind(role: str, bundles: Optional[dict] = None) -> str:
+    """Role name -> canonical block kind via the yaml form.
+
+    `bundles` is the CALLING deck's role vocabulary (deck -> shared ->
+    built-in); the module-level bundles are the fallback for callers that
+    parsed with no deck context.
+    """
+    bundles = ROLE_BUNDLES if bundles is None else bundles
+    form = bundles.get(role, {}).get("form", "")
     return FORM_TO_KIND.get(form, role)
 
 
-def _role_spoken(role: str) -> bool:
-    return bool(ROLE_BUNDLES.get(role, {}).get("spoken", False))
+def _role_spoken(role: str, bundles: Optional[dict] = None) -> bool:
+    bundles = ROLE_BUNDLES if bundles is None else bundles
+    return bool(bundles.get(role, {}).get("spoken", False))
 
 
 # ---------------------------------------------------------------------------
@@ -236,8 +264,8 @@ class Shot:
 class Block:
     """One content block on a screen, in document order."""
 
-    kind: str                     # vo|heading|quote|quote-source|list|stat|lower|credits
-    text: str = ""                # for vo/heading/quote/stat/lower/credits
+    kind: str                     # vo|heading|quote|quote-source|list|stat|lower|credits|paraphrase
+    text: str = ""                # for vo/heading/quote/stat/lower/credits/paraphrase
     level: Optional[int] = None   # heading depth (1..6)
     items: list = field(default_factory=list)   # list items
     stage: list = field(default_factory=list)   # extracted parentheticals
@@ -330,6 +358,18 @@ class Talk:
     screens: list = field(default_factory=list)     # list[Screen]
     warnings: list = field(default_factory=list)    # human-readable notes
     footnote_ids: list = field(default_factory=list)   # `[^id]` refs, doc order (Text)
+    # The vocabulary THIS deck parsed with (deck -> shared -> built-in, spec:
+    # Roles / The shot directive).  Carried on the model so a checker can ask
+    # "was this role known for this deck?" without re-deriving the deck dir.
+    role_vocab: tuple = ()
+    layout_vocab: tuple = ()
+    role_bundles: dict = field(default_factory=dict)
+
+    @property
+    def role_names(self) -> set:
+        """Vocabulary roles for this deck (module-level fallback for a model
+        built without deck context)."""
+        return set(self.role_vocab or ROLES_DYNAMIC)
 
 
 # ---------------------------------------------------------------------------
@@ -472,13 +512,17 @@ def _lex_frontmatter(body: str, source: str) -> tuple[dict, list]:
     return meta, rest
 
 
-def _lex_blocks(lines: list, source: str) -> list:
+def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None) -> list:
     """Tokenize source lines into primitive blocks (list of dicts).
 
     Blank lines separate paragraphs; consecutive non-blank prose lines merge
     (markdown soft-wrap).  Markers (heading / quote / list / comment / hr)
     always start a fresh block.  Non-shot comments are dropped: provenance and
     receipts live in the bank, per grammar rule 3.
+
+    `role_vocab` / `layout_vocab` are the deck's effective vocabularies
+    (deck -> shared -> built-in); they decide which `role=` / `layout=`
+    tokens are known.
     """
     blocks: list[dict] = []
     para_buf: list[str] = []
@@ -508,7 +552,7 @@ def _lex_blocks(lines: list, source: str) -> list:
                 comment_buf = None
                 if SHOT_RE.match(comment):
                     flush_para()
-                    shot = _parse_shot(comment, lineno)
+                    shot = _parse_shot(comment, lineno, role_vocab, layout_vocab)
                     shot.line_begin = comment_start
                     blocks.append(
                         {"kind": "shot", "shot": shot, "line": lineno,
@@ -522,7 +566,7 @@ def _lex_blocks(lines: list, source: str) -> list:
                 continue
             if SHOT_RE.match(line):
                 flush_para()
-                shot = _parse_shot(line, lineno)
+                shot = _parse_shot(line, lineno, role_vocab, layout_vocab)
                 shot.line_begin = lineno
                 blocks.append(
                     {"kind": "shot", "shot": shot, "line": lineno,
@@ -591,13 +635,13 @@ def _lex_blocks(lines: list, source: str) -> list:
     return blocks
 
 
-def _apply_role_flag(shot: Shot, value: str, token: str) -> None:
-    """Apply a `role=<name>` flag token."""
-    vocab = set(ROLES_DYNAMIC)
-    if value not in vocab:
+def _apply_role_flag(shot: Shot, value: str, token: str, vocab=None) -> None:
+    """Apply a `role=<name>` flag token against the deck's role vocabulary."""
+    vocab = tuple(vocab) if vocab is not None else ROLES_DYNAMIC
+    if value not in set(vocab):
         shot.warnings.append(
             f"check 25: {token!r} names unknown role {value!r}; "
-            f"known roles: {', '.join(ROLES_DYNAMIC)} — token ignored"
+            f"known roles: {', '.join(vocab)} — token ignored"
         )
         return
     # Role is now a config flag; it drives payload consumption (pending_role)
@@ -613,13 +657,13 @@ def _apply_role_flag(shot: Shot, value: str, token: str) -> None:
         shot.role = value
 
 
-def _apply_layout_flag(shot: Shot, value: str, token: str) -> None:
+def _apply_layout_flag(shot: Shot, value: str, token: str, vocab=None) -> None:
     """Apply a `layout=<name>` flag token (replaces flat piece/duo)."""
-    vocab = set(LAYOUTS_DYNAMIC)
-    if value not in vocab:
+    vocab = tuple(vocab) if vocab is not None else LAYOUTS_DYNAMIC
+    if value not in set(vocab):
         shot.warnings.append(
             f"check 25: {token!r} names unknown layout {value!r}; "
-            f"known layouts: {', '.join(LAYOUTS_DYNAMIC)} — token ignored"
+            f"known layouts: {', '.join(vocab)} — token ignored"
         )
         return
     shot.flags["layout"] = value
@@ -650,7 +694,8 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
     shot.flags[name] = value
 
 
-def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
+def _parse_shot(raw: str, line: Optional[int] = None,
+                role_vocab=None, layout_vocab=None) -> Shot:
     """Parse a full `<!-- shot ... -->` comment into a Shot.
 
     `line` is the directive's 1-based source line, threaded from every
@@ -660,6 +705,9 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
     directive MAY span multiple lines (spec: Screens, check 27); interior
     whitespace is insignificant, and a multi-line directive is reported at
     the line where it closes.
+
+    `role_vocab` / `layout_vocab` are the deck's effective vocabularies; they
+    decide which `role=` / `layout=` tokens are known.
 
     Token vocabulary (spec: Screens/Text/The shot directive): the FIRST token is the shot's slug, its
     role (stat/lower/credits/black), a `role=<name>` flag, a `layout=<name>`
@@ -675,18 +723,19 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
         return shot
     tokens = spec.split()
     first = tokens[0]
+    vocab = tuple(role_vocab) if role_vocab is not None else ROLES_DYNAMIC
 
     # --- first token: slug | role=<name> flag | layout=<name> | black | known flag ----------
-    if first in ROLES_DYNAMIC or first == BLACK_ROLE:
+    if first in vocab or first == BLACK_ROLE:
         # Bare role shot (e.g. `<!-- shot: stat -->`) — opens its own screen.
         # The `role=` syntax is preferred; bare role preserved for backward compat.
         shot.role = first
     elif first.startswith("role="):
         value = first[5:]
-        _apply_role_flag(shot, value, first)
+        _apply_role_flag(shot, value, first, vocab)
     elif first.startswith("layout="):
         value = first[7:]
-        _apply_layout_flag(shot, value, first)
+        _apply_layout_flag(shot, value, first, layout_vocab)
     else:
         fm = FLAG_RE.match(first)
         if fm and fm.group(1) in KNOWN_FLAGS:
@@ -708,11 +757,11 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
     for tok in tokens[1:]:
         if tok.startswith("role="):
             value = tok[5:]
-            _apply_role_flag(shot, value, tok)
+            _apply_role_flag(shot, value, tok, vocab)
             continue
         if tok.startswith("layout="):
             value = tok[7:]
-            _apply_layout_flag(shot, value, tok)
+            _apply_layout_flag(shot, value, tok, layout_vocab)
             continue
         fm = FLAG_RE.match(tok)
         if not fm:
@@ -724,7 +773,7 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
         name = fm.group(1)
         value = fm.group(2) or ""
         # `piece` and `duo` are no longer flat flags; they come via `layout=`.
-        if name in LAYOUTS_DYNAMIC:
+        if name in (tuple(layout_vocab) if layout_vocab is not None else LAYOUTS_DYNAMIC):
             shot.warnings.append(
                 f"check 25: {name!r} is no longer a flat flag — use "
                 f"layout={name!r} (spec: The shot directive redesign) — token ignored"
@@ -740,17 +789,35 @@ def _parse_shot(raw: str, line: Optional[int] = None) -> Shot:
 
 
 def build_talk(path, source: Optional[str] = None) -> Talk:
-    """Parse a talkfile path into a Talk model."""
+    """Parse a talkfile path into a Talk model.
+
+    The deck directory is the directory that HOLDS the talkfile: that is
+    where a deck-local `roles.yaml` / `layouts.yaml` lives (deck -> shared ->
+    built-in, spec: Roles), so the vocabulary the parser accepts and the one
+    the checker reports against are resolved once, here.
+    """
+    from pathlib import Path
     source = source or str(path)
     with open(path, "r", encoding="utf-8") as fh:
         body = fh.read()
+    deck_dir = Path(path).resolve().parent
+    role_vocab, layout_vocab = load_vocab(deck_dir)
+    role_bundles = load_role_bundles(deck_dir)
     meta, lines = _lex_frontmatter(body, source)
-    raw_blocks = _lex_blocks(lines, source)
-    return assemble(meta, raw_blocks, source)
+    raw_blocks = _lex_blocks(lines, source, role_vocab, layout_vocab)
+    return assemble(meta, raw_blocks, source, role_vocab=role_vocab,
+                    layout_vocab=layout_vocab, role_bundles=role_bundles)
 
 
-def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
+def assemble(meta: dict, raw_blocks: list, source: str,
+             role_vocab=None, layout_vocab=None, role_bundles=None) -> Talk:
     talk = Talk(meta=meta, source=source)
+    vocab = tuple(role_vocab) if role_vocab is not None else tuple(ROLES_DYNAMIC)
+    bundles = dict(role_bundles) if role_bundles is not None else dict(ROLE_BUNDLES)
+    talk.role_vocab = vocab
+    talk.layout_vocab = (tuple(layout_vocab) if layout_vocab is not None
+                         else tuple(LAYOUTS_DYNAMIC))
+    talk.role_bundles = bundles
     screens: list[Screen] = []
     cur: Optional[Screen] = None
     movement_index = 0            # 0 = opening/title zone, then 1..N
@@ -773,7 +840,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
             for w in shot.warnings:          # tokenizer notes (check 25)
                 talk.warnings.append(f"line {shot.line}: {w}")
             role = shot.role
-            is_role = role in ROLES_DYNAMIC  # any vocab role; payload becomes a role block
+            is_role = role in vocab          # any vocab role; payload becomes a role block
 
             # A role's payload paragraph never crosses a shot boundary: if a
             # previous role shot is still waiting for its paragraph, it lost
@@ -800,7 +867,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                         f"role={role} -->'); this shot opens its own screen"
                     )
                 new_screen(shot.line).shots.append(shot)
-                credits_open = shot.slug is None and _canonical_role_kind(role) == "credits"  # bare end-roll screen
+                credits_open = shot.slug is None and _canonical_role_kind(role or "", bundles) == "credits"  # bare end-roll screen
                 pending_role = role
                 role_line = shot.line
                 continue
@@ -855,10 +922,17 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 )
 
         # --- content blocks ---------------------------------------------------
-        # Role payloads (stat / lower / overlay credits) expect a paragraph.
+        # Role payloads (stat / lower / overlay credits / paraphrase) expect a
+        # paragraph.  The paragraph is the NEXT PARAGRAPH ON THIS SCREEN, not
+        # necessarily the block that directly follows the shot: a leading
+        # quote, its `~ ` attribution, and list items are screen objects that
+        # ride ahead of the payload (spec: Roles — this is what lets one
+        # screen carry the source's words AND our paraphrase).  Any other
+        # block kind still means the payload is missing.
         # On a credits SCREEN (credits_open), paragraphs, list items, and
         # headings are screen content, consumed until the next shot.
-        if pending_role is not None and kind not in ("para", "vo") and not credits_open:
+        if (pending_role is not None and not credits_open
+                and kind not in ("para", "vo", "quote", "list")):
             # role shot expects a payload paragraph; a non-paragraph arrived
             talk.warnings.append(
                 f"line {role_line}: '{pending_role}' shot not followed by a "
@@ -947,8 +1021,7 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
             bkind = "vo"
             is_spoken = False
             if (
-                pending_role is None
-                and not credits_open
+                not credits_open
                 and cur.blocks
                 and cur.blocks[-1].kind == "quote"
                 and spoken.startswith("~ ")
@@ -958,11 +1031,15 @@ def assemble(meta: dict, raw_blocks: list, source: str) -> Talk:
                 # is a quote (tilde stripped on screen).  `~` is the ONLY
                 # attribution form (spec: Text; the `Source: ` shape was deleted
                 # — T03/D4 — and falls through to VO with a check-24 warning).
+                #
+                # Attribution OUTRANKS a pending role payload: on the both-up
+                # screen (quote + attribution + our paraphrase) the credit line
+                # belongs to the quote, and the payload is the next paragraph.
                 bkind = "quote-source"
                 spoken = spoken[2:]
             elif pending_role is not None:
-                bkind = _canonical_role_kind(pending_role)
-                is_spoken = _role_spoken(pending_role)
+                bkind = _canonical_role_kind(pending_role, bundles)
+                is_spoken = _role_spoken(pending_role, bundles)
                 if not spoken:
                     talk.warnings.append(
                         f"line {role_line}: '{pending_role}' shot payload is empty "

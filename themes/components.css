@@ -160,6 +160,32 @@
     color: var(--stage-muted);
   }
 
+  /* our paraphrase beside the source's words (`role=paraphrase`): NOT a quote.
+     Upright and heavier than the source line, in accent ink, with an over-rule
+     where the quote carries a left rule — it has to read as the speaker's own
+     sentence, never as a second quotation (spec: Roles).  It sits in the same
+     centered column as the quote block it follows, so the both-up screen reads
+     source on top, our line under it. */
+  .animatic-slide .paraphrase-block {
+    width: 100%;
+    max-width: 26em;
+    margin-top: 1.3em;
+    padding-top: 0.85em;
+    border-top: 1px solid color-mix(in srgb, var(--stage-accent) 55%, transparent);
+  }
+  .animatic-slide .paraphrase-text {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 1.15em;
+    font-weight: 600;
+    font-style: normal;
+    line-height: 1.42;
+    letter-spacing: 0.005em;
+    color: var(--stage-accent);
+    text-shadow: var(--stage-text-glow);
+    text-wrap: balance;
+  }
+
   /* text over full-bleed background media ----------------------------------
      The common slide: a full-bleed image or video with screen text on it.
      Regular text rides on the glow/scrim discipline; a QUOTE sits on a
@@ -745,6 +771,25 @@
   }
   .stat-callout p { margin: 0; }
 
+  /* our paraphrase in the handout: a callout-level object in the prose flow
+     (the .stat-callout treatment is the model — tinted panel, accent rule),
+     never a figure, so the page shows the source's words and ours as two
+     different things (spec: Roles) */
+  .view-document .paraphrase-block {
+    margin: 1.2em 0 1.6em; padding: 0.9em 1.2em;
+    background: var(--doc-callout-bg);
+    border-left: 4px solid var(--doc-accent);
+    border-radius: 2px;
+  }
+  .view-document .paraphrase-text {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 1.02rem;
+    font-weight: 600;
+    font-style: normal;
+    color: var(--doc-ink);
+  }
+
   .doc-quote-source {
     margin: 0.4em 0 1.4em;
     text-align: right;
@@ -784,7 +829,7 @@
     @page { size: letter; margin: 16mm 15mm; }
     body.view-document { max-width: none; padding: 0; }
     h2.movement { page-break-before: always; }
-    figure.shot, .stat-callout, blockquote, .doc-credits { page-break-inside: avoid; }
+    figure.shot, .stat-callout, .paraphrase-block, blockquote, .doc-credits { page-break-inside: avoid; }
     ol.doc-sources li { page-break-inside: avoid; }
   }
 }

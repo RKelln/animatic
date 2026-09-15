@@ -1,0 +1,91 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "paraphrase-pair",
+    "title": "The source's words and ours on one screen",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "lecture",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "paraphrase-pair-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": "paraphrase",
+          "flags": {
+            "role": "paraphrase"
+          }
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "I would rather address the question of how to enhance the capabilities of those involved to change the constraining rules of the game."
+        },
+        {
+          "kind": "source",
+          "text": "Elinor Ostrom, Governing the Commons, 1990, p.6"
+        },
+        {
+          "kind": "paraphrase",
+          "text": "The question is not who to blame for the game. It is who gets to change the rules."
+        }
+      ],
+      "script": "The question is not who to blame for the game. It is who gets to change the rules.",
+      "stage": null,
+      "est_seconds": 7.2
+    },
+    {
+      "id": "paraphrase-pair-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "paraphrase",
+          "flags": {
+            "role": "paraphrase"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "paraphrase",
+          "text": "A paraphrase with no source above it is still the payload: the paragraph after the shot."
+        }
+      ],
+      "script": "A paraphrase with no source above it is still the payload: the paragraph after the shot.",
+      "stage": null,
+      "est_seconds": 6.4
+    }
+  ],
+  "warnings": []
+}

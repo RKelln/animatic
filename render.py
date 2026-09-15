@@ -5,7 +5,7 @@
   .stage; VO + stage directions go to the speaker-notes asides ('n' shows
   them in this window; 's' opens the second-window presenter view —
   docs/presenter-view.md); on-screen objects (media, title, stat, lower,
-  credits, quotes, lists) render as the slide body.  All look lives in themes/
+  credits, quotes, lists, paraphrase) render as the slide body.  All look lives in themes/
   (layer reset > base > components > theme) and every value comes from the
   selected theme's tokens.
 - PRESENTER page: present/presenter.html, the speaker UI for the second
@@ -1805,6 +1805,15 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 body.append(f"<ul>{items}</ul>")
             elif b.kind == "stat":
                 body.append(f'<div class="stat">{inline_md(b.text)}</div>')
+            elif b.kind == "paraphrase":
+                # Our words, not the source's: no quotation styling. The block
+                # rides alongside the quote above it on the same screen (the
+                # both-up screen, spec: Roles).
+                if b.text.strip():
+                    body.append(
+                        f'<div class="paraphrase-block">'
+                        f'<p class="paraphrase-text">{inline_md(b.text)}</p></div>'
+                    )
             # lower / credits overlays are positioned (below); credits entries
             # on a credits screen were rendered above.
             i += 1
@@ -1985,6 +1994,15 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         elif b.kind == "stat":
             if b.text.strip():
                 out.append(f'<div class="stat-callout"><p>{inline_md(b.text)}</p></div>')
+        elif b.kind == "paraphrase":
+            # Callout-level object in the prose flow (the stat-callout
+            # treatment is the model), never a figure: our words beside the
+            # source's, in the handout as on the stage (spec: Roles).
+            if b.text.strip():
+                out.append(
+                    f'<div class="paraphrase-block">'
+                    f'<p class="paraphrase-text">{inline_md(b.text)}</p></div>'
+                )
         elif b.kind in ("lower", "credits") and not is_credits:
             if b.text.strip():
                 out.append(f'<p class="screen-caption">{html.escape(b.text)}</p>')
@@ -2033,7 +2051,7 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
                 text.append({"kind": "source", "text": b.text})
             elif b.kind == "list":
                 text.append({"kind": "list", "items": list(b.items)})
-            elif b.kind in ("stat", "lower", "credits"):
+            elif b.kind in ("stat", "lower", "credits", "paraphrase"):
                 if b.text.strip():
                     text.append({"kind": b.kind, "text": b.text})
         screen_text = text if text else None

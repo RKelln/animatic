@@ -459,34 +459,13 @@ def check_8_flag_combos(talk, resolver, report: Report) -> None:
                        f"lens wraps full-bleed media only; a framed object "
                        f"has no lens (spec: The shot directive interaction table)",
                        line=mshot.line, screen=s.idx)
-    # Validate role=/layout= against yaml vocabulary (spec: Text/The shot directive redesign)
-    import yaml
-    roles_dynamic, layouts_dynamic = talkparse.load_vocab()
-    roles_yaml = set(roles_dynamic)
-    layouts_yaml = set(layouts_dynamic)
-    for root in [".", "~/Documents/art/animatic"]:
-        for p in [__import__('pathlib').Path(root) / "roles.yaml", __import__('pathlib').Path(root) / "deck/roles.yaml"]:
-            if p.exists():
-                try:
-                    data = yaml.safe_load(p.read_text()) or {}
-                    roles_data = data.get("roles", {})
-                    if isinstance(roles_data, dict):
-                        roles_yaml.update(str(k) for k in roles_data)
-                    elif isinstance(roles_data, list):
-                        roles_yaml.update(str(item.get("name", "")) for item in roles_data if isinstance(item, dict))
-                except Exception:
-                    pass
-        for p in [__import__('pathlib').Path(root) / "layouts.yaml", __import__('pathlib').Path(root) / "deck/layouts.yaml"]:
-            if p.exists():
-                try:
-                    data = yaml.safe_load(p.read_text()) or {}
-                    layouts_data = data.get("layouts", {})
-                    if isinstance(layouts_data, dict):
-                        layouts_yaml.update(str(k) for k in layouts_data)
-                    elif isinstance(layouts_data, list):
-                        layouts_yaml.update(str(item.get("name", "")) for item in layouts_data if isinstance(item, dict))
-                except Exception:
-                    pass
+    # Validate role=/layout= against the deck's effective vocabulary
+    # (spec: Text/The shot directive redesign): deck -> shared -> built-in,
+    # resolved once at parse and carried on the model, so check and parser can
+    # never disagree about which names this deck knows (a deck-local
+    # roles.yaml is what makes `role=<new name>` a yaml-only change).
+    roles_yaml = talk.role_names
+    layouts_yaml = set(getattr(talk, "layout_vocab", ()) or talkparse.LAYOUTS_DYNAMIC)
     for s in talk.screens:
         for sh in s.shots:
             role_val = sh.flags.get("role")
@@ -503,7 +482,7 @@ def check_9_dup_overlay_roles(talk, resolver, report: Report) -> None:
     for s in talk.screens:
         roles = {}
         for sh in s.shots:
-            if sh.role in talkparse.ROLES_DYNAMIC:
+            if sh.role in talk.role_names:
                 roles.setdefault(sh.role, []).append(sh.line)
         for role, lines in sorted(roles.items()):
             if len(lines) > 1:

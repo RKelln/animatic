@@ -4,3 +4,6 @@ roles:
   stat: {spoken: true, form: callout}
   lower: {spoken: false, form: lower-third}
   credits: {spoken: false, form: end-roll}
+  # shown AND spoken: our plain-language line under a quoted source. The quote
+  # stays screen-only; this is the sentence the speaker reads (spec: Roles).
+  paraphrase: {spoken: true, form: paraphrase}

@@ -305,7 +305,7 @@ is a label that names the image, some is a credit that sits in the corner.
 Roles let a script distinguish these with one word, and let the renderer treat
 each kind the way it should.
 
-The role vocabulary is config, not grammar. Three roles ship in `roles.yaml`;
+The role vocabulary is config, not grammar. Four roles ship in `roles.yaml`;
 `black` is built in:
 
 | Role | Spoken? | On screen | Form |
@@ -313,6 +313,7 @@ The role vocabulary is config, not grammar. Three roles ship in `roles.yaml`;
 | `stat` | yes | yes | callout — a big number the speaker reads |
 | `lower` | no | yes | lower-third — a transient label naming the image |
 | `credits` | no | yes | end-roll — persistent attribution |
+| `paraphrase` | yes | yes | paraphrase — our plain-language line under a quoted source |
 | `black` | — | — | a deliberate black beat, no payload |
 
 ```yaml
@@ -321,6 +322,7 @@ roles:
   stat: {spoken: true, form: callout}
   lower: {spoken: false, form: lower-third}
   credits: {spoken: false, form: end-roll}
+  paraphrase: {spoken: true, form: paraphrase}
 ```
 
 A role is written with the `role=` flag:
@@ -332,12 +334,13 @@ A role is written with the `role=` flag:
 
 **The vocabulary grows by yaml, never by grammar.** Add a `quote` entry to
 `roles.yaml` with its `spoken` / `form`, and `role=quote` works
-— no parser change. The four names above are the frozen starting set; the
+— no parser change. The names above are the frozen starting set; the
 mechanism is additive.
 
-**The payload** is the paragraph that directly follows the role shot. It
-becomes that role's screen text (for `stat`, it is also spoken — the speaker
-reads the number). A role shot whose payload never arrives warns.
+**The payload** is the next paragraph on the screen, after any leading quote,
+attribution, or list blocks. It becomes that role's screen text (for `stat`
+and `paraphrase`, it is also spoken — the speaker reads it). A role shot whose
+payload never arrives warns.
 
 **One role per screen.** A second `role=` of the same value on one screen
 warns; an unknown role warns against the effective yaml and never fails.
@@ -361,6 +364,35 @@ preceding block is a quote. It is screen text (right-aligned under the quote),
 never spoken, and travels with the quote. Same-line attribution (`> q ~ Name`)
 is unsupported — the whole line renders as the quote. An attribution-shaped
 paragraph anywhere else is spoken, with a warning.
+
+### Showing the source, saying our line (paraphrase)
+
+A source's sentence and our plain-language version of it are two different
+objects, and one screen can carry both: the quote stays screen-only and
+unspoken, the paraphrase is shown **and** spoken. Write the paraphrase role on
+the screen's shot, then the quote, its attribution, and the line you will
+actually read:
+
+```
+<!-- shot: ostrom-rules-cover role=paraphrase -->
+
+> I would rather address the question of how to enhance the capabilities of those involved to change the constraining rules of the game.
+~ Elinor Ostrom, Governing the Commons, 1990, p.6
+
+The question is not who to blame for the game. It is who gets to change the rules.
+```
+
+The quote keeps its own treatment (`>` is screen text, never spoken, and the
+`~ ` attribution travels with it); the paraphrase renders as our words — no
+quotation styling, a distinct weight and accent — and lands in the script, so
+the same sentence reaches the speaker notes, the captions, and the recorded
+voice-over. The paragraph is the payload *after* the leading quote and
+attribution, not necessarily the block that directly follows the shot.
+
+`paraphrase` is the `stat` shape with a different form: shown and spoken. It is
+one line of yaml in `roles.yaml`, like every other name in the vocabulary — the
+grammar does not change, and a deck may add its own name for the same form in
+its own `roles.yaml`.
 
 ### Directions (parentheticals)
 
