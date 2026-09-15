@@ -102,6 +102,17 @@
     align-items: center; justify-content: center;
     text-align: center;
     padding: 6vh 7vw;
+    /* The text layer sits above the media zone (z-index 2 over 1) and is
+       presentational: nothing in it is interactive. Without this it swallows
+       every pointer event aimed at interactive media underneath, so a live
+       capture's controls get no click and not even a hover. Verified by
+       hit-testing the built deck (tools/check-live-js.js is state-level and
+       cannot see this class of bug). */
+    pointer-events: none;
+  }
+  /* ...but anything genuinely interactive inside the body keeps its input */
+  .screen-body a, .screen-body button, .screen-body [tabindex] {
+    pointer-events: auto;
   }
   .animatic-slide.black-beat .screen-body { background: transparent; }
 

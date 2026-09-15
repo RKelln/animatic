@@ -189,17 +189,42 @@ stalled session cannot linger or double.
 DOM in node and asserts the behaviour that cannot be clicked in CI: one session
 per key, hosts sharing a group sharing one stream, the sink following the
 active slide, no second prompt on a slide change, teardown stopping every host
-in a group, and the panel's rows and hook markers.
+in a group, both ways a capture dies (`ended` and `mute`), and the panel's rows
+and hook markers.
 
 ```
 python3 -c "import render; open('/tmp/live.js','w').write(render.LIVE_JS)"
 node tools/check-live-js.js /tmp/live.js
 ```
 
-Those two properties (one session per key; frames only for the visible slide)
-are the module's whole contract. The harness also caught a real bug the first
-time it ran honestly: an assertion made before the promise queue drained
-false-passed, which is why it awaits a tick after every resolution.
+### What the harness cannot see, and how to check it instead
+
+The harness asserts state, never pixels or layout. Two classes of bug live
+outside it, and both have bitten:
+
+- **A state with no CSS rule showing the right block.** Adding a state means
+  adding its stylesheet rule; nothing automated will notice if you forget.
+- **An interactive control that is covered.** The text layer (`.screen-body`)
+  sits above the media zone and is click-through on purpose, because a live
+  capture's controls live underneath it. Verify this by hit-testing, not by
+  calling `.click()`: a synthetic click dispatches straight to the element and
+  will happily "pass" while every real click lands on the layer above.
+
+With the deck served locally (`python3 -m http.server`), point a browser at
+`present/index.html#11` and check what is actually on top:
+
+```js
+window.animatic.go(10);                       // the live slide
+const host = document.querySelector('[data-live-slug="w01-arena-live"]');
+const b = host.querySelector('.live-start').getBoundingClientRect();
+document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+// want: BUTTON.live-start, inside the host.
+// not: DIV.screen-body, which means the text layer is eating the input.
+```
+
+Then click it for real (mouse events through the input pipeline, or by hand) and
+watch `data-live-state` go `idle` → `live`. `html_props` pins the click-through
+rule for any deck that has a live screen, so a theme edit cannot quietly undo it.
 
 ## Limits, stated plainly
 

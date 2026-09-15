@@ -156,6 +156,23 @@ def check(fx, errors: list) -> None:
         err(errors, "hookup panel presence does not match the deck's live "
                     f"screens (live={any_live}, panel={has_panel})")
 
+    # A live screen puts interactive controls UNDER the presentational text
+    # layer, which sits above the media zone. If the text layer is not
+    # click-through it swallows every pointer event aimed at the capture: no
+    # click, and not even a hover. This bit once (a real engine hit test showed
+    # elementFromPoint returning .screen-body at the button's centre while a
+    # synthetic .click() still "worked", which is why hit testing, not a
+    # synthetic click, is the test). Pin the rule for decks that have one.
+    if any_live:
+        if not re.search(r"\.screen-body\s*\{[^}]*pointer-events:\s*none",
+                         pres_text, re.S):
+            err(errors, "live deck: the text layer (.screen-body) is not "
+                        "click-through, so it would swallow input aimed at the "
+                        "capture's controls")
+        if not re.search(r"pointer-events:\s*auto", pres_text):
+            err(errors, "live deck: nothing inside the text layer re-enables "
+                        "pointer events, so interactive text would be dead")
+
     # -- document view ------------------------------------------------------
     deck = cues["deck"]
     deck_title = str(deck.get("title") or fx.slug)
