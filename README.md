@@ -21,7 +21,7 @@ The same file renders as:
 - `docs/format-spec-v1.md` — the talkfile grammar (normative; v1.0 draft, hardening 2026-09-08)
 - `docs/format-spec.md` — retired v0.5 (superseded marker only; see v1)
 - `docs/media-pipeline.md` — media cards, generation log, style cascade, engine posture
-- `docs/live-capture.md` — `type: live` screens: window capture, secure-context rule, hookup panel
+- `docs/live-capture.md` — `type: live` screens: window capture, secure-context rule, hookup panel, diagnostics dump
 - `docs/presenter-view.md` — the second window: `s` for the speaker UI, `n` for in-page notes, and why the sync is postMessage
 - `docs/engine-decision.md` — builder spike decision record (engine, PDF path, parse model)
 - `templates/` — starter media card set (style, cards, gen-log)

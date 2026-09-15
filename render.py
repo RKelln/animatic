@@ -997,6 +997,12 @@ PRESENTER_JS = r"""
 
   // Every arrival, including the ones the live module drives.
   window.animatic.addOnChange(push);
+
+  // Read-only surface for the diagnostics dump: whether a presenter window is
+  // actually open right now. Nothing here drives the presenter.
+  window.animatic.presenter = {
+    open: function () { return !!(win && !win.closed); }
+  };
 })();
 """
 
@@ -1183,6 +1189,214 @@ PRESENTER_UI_JS = r"""
 """
 
 
+DEBUG_JS = r"""
+(function () {
+  "use strict";
+  // Diagnostic dump on `i`. Three audiences, one payload:
+  //   - the console, so the presenter can copy-paste it as a bug report
+  //   - an on-screen panel, because devtools may not be open in a room
+  //   - window.animatic.debug(), so an agent driving the deck can read it
+  // The load-bearing part is the HIT TEST: today's two bugs were "the control
+  // is there but something is on top of it" and "the state hides the control",
+  // and neither is visible to a state-only check. This dump answers both.
+  var slides = Array.prototype.slice.call(
+    document.querySelectorAll(".animatic-slide"));
+  var stage = document.getElementById("stage");
+  var box = document.getElementById("debug-panel");
+  var out = document.getElementById("debug-output");
+  var problems = [];
+
+  window.addEventListener("error", function (e) {
+    problems.push("error: " + String(e.message || e));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e && e.reason;
+    problems.push("rejection: " + String((r && r.message) || r));
+  });
+
+  function describe(el) {
+    if (!el) return null;
+    var cls = (typeof el.className === "string" && el.className)
+      ? "." + el.className.split(" ")[0] : "";
+    return el.tagName + cls;
+  }
+
+  // Inactive slides are hidden with visibility, not display, so their controls
+  // still have a real rect. Without this, a hit test on a screen you are not
+  // looking at blames a cover that does not exist (measured: the deck reported
+  // "covered" on a healthy slide before this check existed).
+  function hiddenAncestor(el) {
+    var n = el;
+    var outermost = null;
+    while (n && n !== document.body) {
+      var s = window.getComputedStyle(n);
+      if (s.display === "none" || s.visibility === "hidden" || s.opacity === "0") {
+        outermost = describe(n);   // keep walking: the useful answer is the
+      }                            // outermost hider (the slide), not the leaf
+      n = n.parentElement;
+    }
+    return outermost;
+  }
+
+  function hit(el) {
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    if (!r.width || !r.height) {
+      return { target: describe(el), visible: false, note: "zero size" };
+    }
+    var hidden = hiddenAncestor(el);
+    if (hidden) {
+      return {
+        target: describe(el),
+        visible: false,
+        hiddenBy: hidden,
+        note: "not on the active screen"
+      };
+    }
+    var top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return {
+      target: describe(el),
+      visible: true,
+      rect: [Math.round(r.left), Math.round(r.top),
+             Math.round(r.width), Math.round(r.height)],
+      topAtCentre: describe(top),
+      reachable: !!(top && (el === top || el.contains(top) || top.contains(el)))
+    };
+  }
+
+  function trackOf(video) {
+    try {
+      var s = video && video.srcObject;
+      return s && s.getVideoTracks ? s.getVideoTracks()[0] : null;
+    } catch (err) { return null; }
+  }
+
+  function liveDump() {
+    return Array.prototype.slice
+      .call(document.querySelectorAll("[data-live-surface]"))
+      .map(function (host) {
+        var video = host.querySelector("video.live-surface");
+        var state = host.getAttribute("data-live-state");
+        var control = host.querySelector(
+          state === "live" || state === "stalled" ? ".live-stop" : ".live-start");
+        var track = trackOf(video);
+        return {
+          slug: host.getAttribute("data-live-slug"),
+          group: host.getAttribute("data-live-group"),
+          state: state,
+          video: video ? {
+            hasStream: !!video.srcObject,
+            paused: video.paused,
+            readyState: video.readyState,
+            size: video.videoWidth + "x" + video.videoHeight
+          } : null,
+          track: track ? {
+            label: track.label,
+            muted: track.muted,
+            readyState: track.readyState,
+            enabled: track.enabled
+          } : null,
+          control: hit(control),
+          status: (host.querySelector(".live-status") || {}).textContent || ""
+        };
+      });
+  }
+
+  function collect() {
+    var cur = (window.animatic && window.animatic.current)
+      ? window.animatic.current() : 0;
+    var sec = slides[cur] || null;
+    var heading = sec ? sec.querySelector(".slide-title") : null;
+    var presenter = null;
+    try {
+      presenter = (window.animatic && window.animatic.presenter
+        && window.animatic.presenter.open) ? window.animatic.presenter.open() : null;
+    } catch (err) { presenter = "error: " + String(err); }
+    return {
+      schema: "animatic.debug.v1",
+      deck: {
+        slug: stage ? stage.getAttribute("data-deck") : null,
+        title: document.title,
+        screens: slides.length,
+        hash: location.hash || "(none)"
+      },
+      env: {
+        href: location.href,
+        protocol: location.protocol,
+        secureContext: window.isSecureContext,
+        captureApi: !!(navigator.mediaDevices &&
+                       navigator.mediaDevices.getDisplayMedia),
+        viewport: window.innerWidth + "x" + window.innerHeight,
+        dpr: window.devicePixelRatio
+      },
+      position: {
+        ordinal: cur + 1,
+        cue: sec ? sec.id : null,
+        movement: sec ? Number(sec.getAttribute("data-movement")) : null,
+        kind: sec ? sec.getAttribute("data-kind") : null,
+        title: heading ? heading.textContent.trim() : null
+      },
+      panels: {
+        notes: !!(document.getElementById("notes-panel") &&
+                  document.getElementById("notes-panel").classList.contains("open")),
+        hookup: !!(document.getElementById("hookup-panel") &&
+                   document.getElementById("hookup-panel").classList.contains("open")),
+        debug: !!(box && box.classList.contains("open"))
+      },
+      presenterOpen: presenter,
+      hitTests: {
+        nextButton: hit(document.getElementById("next-slide")),
+        prevButton: hit(document.getElementById("prev-slide"))
+      },
+      live: liveDump(),
+      problems: problems.slice(-8)
+    };
+  }
+
+  function render(info) {
+    var text = JSON.stringify(info, null, 2);
+    if (out) out.textContent = text;
+    console.log("--- animatic debug ---\n" + text + "\n--- end animatic debug ---");
+    return text;
+  }
+
+  function toggle() {
+    if (!box) return null;
+    var opening = !box.classList.contains("open");
+    if (opening) {
+      var info = collect();
+      box.classList.add("open");
+      render(info);
+      if (out && window.getSelection && document.createRange) {
+        // pre-selected so a copy is one keystroke, no dragging
+        var range = document.createRange();
+        range.selectNodeContents(out);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      return info;
+    }
+    box.classList.remove("open");
+    return null;
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "i" || e.key === "I") { e.preventDefault(); toggle(); }
+    else if (e.key === "Escape" && box && box.classList.contains("open")) {
+      box.classList.remove("open");
+    }
+  });
+
+  if (window.animatic) {
+    window.animatic.debug = collect;
+    window.animatic.debugToggle = toggle;
+  }
+})();
+"""
+
+
 def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     theme = resolve_theme(talk)
@@ -1220,7 +1434,7 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 {theme_style_blocks(theme)}
 </head>
 <body class="view-present">
-<main class="stage" id="stage">
+<main class="stage" id="stage" data-deck="{html.escape(deck_slug(talk))}">
 {chr(10).join(sections)}
 </main>
 <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
@@ -1230,12 +1444,19 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <button type="button" id="next-slide" aria-label="next">&#8250;</button>
 </nav>
 <aside class="notes-panel" id="notes-panel" aria-live="polite"></aside>
+<aside class="debug-panel" id="debug-panel" aria-label="diagnostics">
+<div class="debug-head">diagnostics &middot; <code>i</code> to refresh &middot; <code>Esc</code> to close</div>
+<pre id="debug-output" tabindex="0"></pre>
+</aside>
 <p class="deck-status" id="deck-status" role="status" aria-live="polite"></p>
 {hookup}<script>
 {PAGER_JS}
 </script>
 <script>
 {PRESENTER_JS}
+</script>
+<script>
+{DEBUG_JS}
 </script>
 {live_script}</body>
 </html>
@@ -1464,7 +1685,8 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     if black:
         cls += " black-beat"
     return (
-        f'<section id="{cue_id}" class="{cls}" data-movement="{mv}">'
+        f'<section id="{cue_id}" class="{cls}" data-movement="{mv}"'
+        f' data-kind="{screen_kind(screen)}">'
         f'{"".join(inner)}'
         f'<aside class="notes">{notes_html}</aside>'
         f"</section>"

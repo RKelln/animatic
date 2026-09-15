@@ -120,9 +120,14 @@ default in every theme); the framed "piece" look is opt-in per shot.
   (remote content is blocked there, and even in browsers the CDN deck is
   one network failure from dead). E3 owns the present view: a small
   inline pager (keyboard, hash, `n` notes panel, `s` presenter window,
-  swipe, progress), one self-contained HTML file per deck plus the
-  presenter page. Media publishes to out/_media with
+  `i` diagnostics dump, swipe, progress), one self-contained HTML file per
+  deck plus the presenter page. Media publishes to out/_media with
   relative paths, so a deck is a portable folder.
+- Diagnostics panel (`i`, 2026-09-15): same translucent-glass register as the
+  notes and hookup panels, monospace, `user-select: text`, and — unlike the
+  presentation layers — deliberately interactive, because its whole purpose is
+  to be scrolled and copied. It sits outside `.screen-body`, so the
+  click-through rule that governs the slide body does not apply to it.
 - Feel-test round 2 (2026-09-05, roles-demo + L01 live in Firefox):
   (1) text over full-bleed media is THE common slide — every text role
   (title card, fit hero, stat, quote, list) can take a background via a

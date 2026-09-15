@@ -455,7 +455,7 @@ talkfile. `present/presenter.html` is a 1.x additive (2026-09-15): the frozen
 
 | Artifact | What it is | Why it exists |
 |---|---|---|
-| **present/** | the cinematic slides | the thing you speak from — full-bleed media, speaker notes, keyboard navigation |
+| **present/** | the cinematic slides | the thing you speak from — full-bleed media, speaker notes, keyboard navigation, and a diagnostics dump (`i`) for bug reports |
 | **present/presenter.html** | the speaker UI for the second window (`s`) | notes, the next cue and a preview of both screens, off the projection |
 | **document/** | the handout (printable HTML, then PDF) | the talk as readable prose — the voice-over with figures and citations |
 | **cues.json** | the structured form | the machine contract every tool reads (schema `animatic.cues.v1`) |

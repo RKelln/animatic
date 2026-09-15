@@ -201,6 +201,33 @@ def check(fx, errors: list) -> None:
                     "window has nowhere to say so on screen")
     if "presenter.html" not in pres_text:
         err(errors, "present: the pager never opens the presenter window")
+
+    # -- diagnostics ---------------------------------------------------------
+    # The dump exists because two bugs in one day were invisible to state
+    # checks: a control covered by an overlay, and a capture that died by
+    # `mute` rather than `ended`. So the panel, the key, and — the part that
+    # matters — a real elementFromPoint hit test must all be present. A dump
+    # that only reports state would have passed both times.
+    if 'id="debug-output"' not in pres_text:
+        err(errors, "present: no diagnostics panel, so the dump has nowhere "
+                    "to render on screen when devtools is shut")
+    if not re.search(r'e\.key === "i"', pres_text):
+        err(errors, "present: no key binding for the diagnostics dump")
+    if "window.animatic.debug = collect" not in pres_text:
+        err(errors, "present: the dump is not exposed on window.animatic, so "
+                    "an agent driving the deck cannot read it")
+    if "elementFromPoint" not in pres_text:
+        err(errors, "present: the diagnostics dump does no hit test, so a "
+                    "covered control would report as healthy")
+    if "window.animatic.presenter" not in pres_text:
+        err(errors, "present: nothing exposes whether a presenter window is "
+                    "actually open, so the dump would guess")
+    if not re.search(r'id="stage"[^>]*data-deck="', pres_text):
+        err(errors, "present: the stage carries no deck slug, so a dump "
+                    "cannot say which deck produced it")
+    if not re.search(r'class="animatic-slide[^"]*"[^>]*data-kind="', pres_text):
+        err(errors, "present: screens carry no data-kind, so a dump reports "
+                    "position without the screen's kind")
     if re.search(r'case "s":\s*case "S":\s*toggleNotes', pres_text):
         err(errors, "present: 's' still toggles the in-page notes panel; it "
                     "opens the presenter window now")

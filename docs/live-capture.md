@@ -234,6 +234,52 @@ Then click it for real (mouse events through the input pipeline, or by hand) and
 watch `data-live-state` go `idle` → `live`. `html_props` pins the click-through
 rule for any deck that has a live screen, so a theme edit cannot quietly undo it.
 
+## Diagnostics: `i`
+
+Pressing `i` dumps one JSON object — to the console, to an on-screen panel (text
+pre-selected, so a copy is one keystroke), and to `window.animatic.debug()` for an
+agent driving the deck. It exists because a bug report from a room is otherwise
+"the button didn't work", which is the least useful sentence in this file's
+subject matter.
+
+The load-bearing field is not the state, it is `control.reachable`: the dump hit
+tests each live control with `elementFromPoint` at its centre and reports which
+element is actually on top. Both of this feature's real bugs were invisible to a
+state check — a control covered by the text layer, and a capture that died by
+`mute` rather than `ended` — and the first one only fell out of a real hit test.
+So the test in `tests/properties/html_props.py` asserts the dump *does* a hit
+test; a state-only dump would have passed both bugs.
+
+A control reads one of three ways, and the third is why the first version of this
+dump was wrong: `reachable` (nothing in the way), `reachable: false` with a
+`topAtCentre` that is not the control (something is covering it), or
+`visible: false` with `hiddenBy` naming the slide — `not on the active screen`.
+Inactive screens are hidden with `visibility`, not `display`, so their controls
+keep a real rectangle and a naive hit test blames a cover that does not exist.
+That false alarm was measured on a healthy deck, not theorised.
+
+What the dump carries:
+
+| Field | Answers |
+|---|---|
+| `env.protocol`, `env.secureContext`, `env.captureApi` | why the share button is not there (the secure-context rule) |
+| `env.viewport`, `env.dpr` | what the projector is actually being given |
+| `deck`, `position` | which deck, which screen, cue id, movement, kind, title |
+| `panels`, `presenterOpen` | what is open, and whether the presenter window really is |
+| `live[]` | per capture: slug, group, state, whether the video holds a stream, the track's label/muted/readyState, the control's hit test, the status line |
+| `hitTests` | the pager's own buttons, same hit test (catches an overlay regression generally) |
+| `problems` | the last errors and unhandled rejections this window saw |
+
+Two limits, stated so they do not read as bugs: the dump is a reading at one
+moment (it cannot narrate, only a snapshot), and if the deck's JS is broken badly
+enough not to run, there is nothing to dump — in that case the console will carry
+the parse error instead, which is why the module keeps its own error listeners.
+An agent driving the deck can read the dump through
+`window.animatic.debug()`, but cannot read the *presenter window's* DOM from this
+side: `file://` gives every page an opaque origin, so the deck has no handle on
+it. Presenter-side questions are answered by the presenter's own page (see
+`docs/presenter-view.md`).
+
 ## Limits, stated plainly
 
 - One capture per host, no audio, and no recording of the stream by the builder.

@@ -429,6 +429,37 @@
     background: var(--stage-overlay-bg);
   }
 
+  /* the diagnostics panel: `i` dumps state for a bug report. Monospace and
+     text-selectable (the whole point is copying it), and click-through is NOT
+     relaxed here — the panel is deliberately interactive so it can be scrolled
+     and selected. Same glass register as the hookup panel. */
+  .debug-panel {
+    position: fixed; inset: 6vh 6vw auto 6vw;
+    display: none; z-index: 45;
+    max-height: 74vh;
+    padding: 1.6vh 1.6vw;
+    border-radius: 1.1em;
+    background: var(--stage-overlay-bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: var(--quote-panel-shadow);
+    color: var(--stage-ink);
+    overflow: auto;
+  }
+  .debug-panel.open { display: block; }
+  .debug-head {
+    font-family: var(--font-ui); font-size: 0.75em;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--stage-muted); margin-bottom: 0.8em;
+  }
+  .debug-head code { font-family: var(--font-mono, monospace); text-transform: none; }
+  .debug-panel pre {
+    margin: 0; font-family: var(--font-mono, monospace);
+    font-size: 0.68em; line-height: 1.45;
+    white-space: pre-wrap; word-break: break-word;
+    color: var(--stage-ink);
+    user-select: text; cursor: text;
+  }
+
   /* unresolved media: builder transparency in the work surface */
   .media-placeholder {
     position: absolute; inset: 0; z-index: 2;
