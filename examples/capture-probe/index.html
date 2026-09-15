@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animatic display-capture probe</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0 auto; max-width: 52rem; padding: 3vh 4vw 6vh;
+    background: #16130f; color: #efe6d8;
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font: 600 1.6rem/1.2 Georgia, serif; margin: 0 0 .3rem; }
+  p.lede { color: #c3b6a2; margin-top: 0; }
+  section { border-top: 1px solid #3a332a; margin-top: 2rem; padding-top: 1.2rem; }
+  h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .08em; color: #c9a227; margin: 0 0 .8rem; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; margin: 0; }
+  dt { color: #c3b6a2; }
+  dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .ok { color: #8fbf6a; }
+  .bad { color: #d98b6a; }
+  button {
+    font: inherit; padding: .6rem 1.1rem; margin: .4rem .6rem .4rem 0;
+    border-radius: .4rem; border: 1px solid #6b5f4c;
+    background: #2a2419; color: #efe6d8; cursor: pointer;
+  }
+  button:hover { background: #3a3325; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  #stage {
+    margin-top: 1rem; border: 1px solid #6b5f4c; border-radius: .4rem;
+    background: #0e0c09; min-height: 12rem; display: grid; place-items: center;
+  }
+  #stage video { width: 100%; height: auto; display: block; }
+  #stage .empty { color: #7d7263; padding: 3rem 1rem; text-align: center; }
+  pre { background: #221d15; padding: .8rem 1rem; border-radius: .4rem; overflow-x: auto; }
+  ol li, ul li { margin: .3rem 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .95em; }
+</style>
+</head>
+<body>
+
+<h1>Animatic display-capture probe</h1>
+<p class="lede">Can this page put a live view of another window inside a slide? The whole answer is the secure-context row below.</p>
+
+<section>
+  <h2>Where this page is running</h2>
+  <dl>
+    <dt>URL</dt><dd id="p-url">?</dd>
+    <dt>protocol</dt><dd id="p-proto">?</dd>
+    <dt>isSecureContext</dt><dd id="p-secure">?</dd>
+    <dt>mediaDevices</dt><dd id="p-md">?</dd>
+    <dt>getDisplayMedia</dt><dd id="p-gdm">?</dd>
+  </dl>
+  <p id="verdict" class="lede"></p>
+</section>
+
+<section>
+  <h2>The capture</h2>
+  <p><strong>Pick a window, not the screen.</strong> If you pick the display that is
+  showing this page, the picture recurses forever. Pick the browser window running
+  the arena.</p>
+  <button id="start">Share a window</button>
+  <button id="stop" disabled>Stop</button>
+  <div id="stage"><div class="empty">nothing captured yet</div></div>
+  <h2 style="margin-top:1.2rem">Track settings</h2>
+  <pre id="settings">(start a capture)</pre>
+</section>
+
+<section>
+  <h2>How to make the deck itself a secure context</h2>
+  <ol>
+    <li><strong>Open the built deck from disk.</strong> <code>file://</code> is a secure
+    context, and the deck has no remote assets and no fetch calls, so it runs straight
+    off the filesystem. This is the best option: nothing to serve, and it works with the
+    venue wifi down.</li>
+    <li><strong>Serve it on the presenter's own machine.</strong> <code>python3 -m http.server</code>
+    then open <code>http://localhost:8787</code>. <code>localhost</code> and
+    <code>127.0.0.1</code> are secure contexts.</li>
+    <li><strong>Or keep the Tailscale workflow and allowlist the host.</strong> In
+    <code>about:config</code>, set <code>dom.securecontext.allowlist</code> to the host
+    (comma separated, no port). This relaxes a security preference on that machine, so it
+    is the option to take last.</li>
+  </ol>
+  <p>A plain <code>http://</code> address on a LAN or Tailscale IP is not a secure context,
+  which is what this page will tell you if you are reading it that way.</p>
+</section>
+
+<script>
+(function () {
+  var url = document.getElementById("p-url");
+  var proto = document.getElementById("p-proto");
+  var secure = document.getElementById("p-secure");
+  var md = document.getElementById("p-md");
+  var gdm = document.getElementById("p-gdm");
+  var verdict = document.getElementById("verdict");
+  var settings = document.getElementById("settings");
+  var stage = document.getElementById("stage");
+  var startBtn = document.getElementById("start");
+  var stopBtn = document.getElementById("stop");
+  var stream = null;
+  var video = null;
+
+  function mark(el, value, good) {
+    el.textContent = value;
+    el.className = good === undefined ? "" : (good ? "ok" : "bad");
+  }
+
+  var hasMd = !!(navigator.mediaDevices);
+  var hasGdm = hasMd && typeof navigator.mediaDevices.getDisplayMedia === "function";
+
+  mark(url, location.href);
+  mark(proto, location.protocol || "(none)");
+  mark(secure, String(window.isSecureContext), window.isSecureContext);
+  mark(md, hasMd ? "available" : "missing", hasMd);
+  mark(gdm, hasGdm ? "available" : "undefined", hasGdm);
+
+  if (hasGdm) {
+    verdict.textContent = "This origin can capture a window. The capture API is live here.";
+    verdict.className = "lede ok";
+  } else if (!window.isSecureContext) {
+    verdict.textContent = "Not a secure context, so the capture API is hidden. Reopen this page over file://, http://localhost, or an allowlisted host.";
+    verdict.className = "lede bad";
+  } else {
+    verdict.textContent = "Secure context, but this browser does not expose getDisplayMedia.";
+    verdict.className = "lede bad";
+  }
+
+  function renderSettings(track) {
+    var out = {};
+    try { out = track.getSettings ? track.getSettings() : {}; } catch (e) { out = { error: String(e) }; }
+    var label = "";
+    try { label = track.label || ""; } catch (e) { label = ""; }
+    settings.textContent = JSON.stringify({ label: label, settings: out }, null, 2);
+  }
+
+  function showEmpty(message) {
+    // DOM-built, never innerHTML: nothing here is interpolated into markup,
+    // which keeps the probe free of XSS surface even though the only values
+    // involved are browser-generated error names.
+    var box = document.createElement("div");
+    box.className = "empty";
+    box.textContent = message;
+    stage.textContent = "";
+    stage.appendChild(box);
+  }
+
+  startBtn.addEventListener("click", function () {
+    if (!hasGdm) { return; }
+    var constraints = {
+      video: { displaySurface: "window" },
+      audio: false,
+      // never offer this page's own tab: the hall of mirrors
+      selfBrowserSurface: "exclude",
+      surfaceSwitching: "include"
+    };
+    navigator.mediaDevices.getDisplayMedia(constraints).then(function (s) {
+      stream = s;
+      stopBtn.disabled = false;
+      video = document.createElement("video");
+      video.autoplay = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = s;
+      stage.textContent = "";
+      stage.appendChild(video);
+      var track = s.getVideoTracks()[0];
+      renderSettings(track);
+      if (track && track.addEventListener) {
+        track.addEventListener("ended", function () { cleanup("the captured window closed its stream"); });
+      }
+    }).catch(function (err) {
+      showEmpty("capture refused or unavailable: " + (err && err.name ? err.name : "error"));
+      settings.textContent = String(err);
+    });
+  });
+
+  function cleanup(message) {
+    if (stream) {
+      try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    }
+    stream = null;
+    stopBtn.disabled = true;
+    showEmpty(message);
+  }
+
+  stopBtn.addEventListener("click", function () { cleanup("stopped"); });
+})();
+</script>
+
+</body>
+</html>
