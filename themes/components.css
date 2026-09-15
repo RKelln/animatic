@@ -330,6 +330,12 @@
   /* armed: a session exists for this host's group but its slide is not up.
      Nothing to show and nothing to offer, so the idle block goes quiet. */
   .live-host[data-live-state="armed"] .live-idle { display: none; }
+  /* stalled: the session exists but the track stopped delivering (Firefox mutes
+     a track when the captured window goes away). Hand the control back and keep
+     the session, so re-hooking is one click and a recovering stream is free. */
+  .live-host[data-live-state="stalled"] .live-idle { display: flex; }
+  .live-host[data-live-state="stalled"] .live-controls { display: flex; }
+  .live-host[data-live-state="stalled"] .live-chip { display: none; }
   .live-idle {
     position: absolute; inset: auto 0 12vh;
     display: flex; flex-direction: column; align-items: center; gap: 1.2vh;

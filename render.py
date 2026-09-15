@@ -573,6 +573,19 @@ LIVE_JS = r"""
     var el = host.querySelector(".live-status");
     if (el) el.textContent = msg || "";
   }
+  // A capture can die two ways. `ended` is final (stop sharing, and some
+  // platforms' response to the window closing). `mute` is Firefox's response to
+  // a captured window going away and it CAN recover, so it must never delete
+  // the session: it surfaces a stalled state that hands the control back
+  // without throwing away a session that might come back.
+  function isEnded(session) {
+    if (!session || !session.track) return false;
+    try { return session.track.readyState === "ended"; } catch (err) { return false; }
+  }
+  function isStalled(session) {
+    if (!session || !session.track) return false;
+    try { return session.track.muted === true; } catch (err) { return false; }
+  }
   function slideIndexOf(host) {
     var section = host.closest ? host.closest(".animatic-slide") : null;
     return section ? slides.indexOf(section) : -1;
@@ -602,17 +615,33 @@ LIVE_JS = r"""
   // State follows the SESSION, not history: a hidden host of a hooked group is
   // "armed" the moment the group is hooked, even if it was never attached (it
   // must not offer to hook again), and "idle" means genuinely unhooked.
+  // "stalled" means the session exists but the track is not delivering: the
+  // control comes back and the session is kept, because a mute can recover.
   // "unavailable" hosts are left alone: they never had a session to report.
   function syncVisibility() {
     for (var i = 0; i < hosts.length; i++) {
       var host = hosts[i];
       if (host.getAttribute("data-live-state") === "unavailable") continue;
-      var session = sessions[keyOf(host)];
+      var key = keyOf(host);
+      var session = sessions[key];
+      if (isEnded(session)) {
+        teardown(key, "the shared window closed; hook up again");
+        continue;
+      }
+      var stalled = isStalled(session);
       if (isActive(host)) {
-        if (session) attach(host);
+        if (!session) continue;               // stays idle, control offered
+        if (stalled) {
+          detach(host);
+          state(host, "stalled");
+          status(host, "the shared window stopped; hook up again");
+        } else {
+          attach(host);
+        }
       } else {
         detach(host);
-        state(host, session ? "armed" : "idle");
+        state(host, !session ? "idle" : (stalled ? "stalled" : "armed"));
+        if (stalled) status(host, "the shared window stopped; hook up again");
       }
     }
     paint();
@@ -639,6 +668,9 @@ LIVE_JS = r"""
   function hook(key) {
     var group = byKey[key] || [];
     if (!group.length) return;
+    // Re-hooking replaces whatever is there: a stalled or dead session must not
+    // linger, and a live one must not be silently doubled.
+    if (sessions[key]) teardown(key, "");
     status(group[0], "");
     navigator.mediaDevices.getDisplayMedia({
       video: { displaySurface: "window" },
@@ -650,10 +682,16 @@ LIVE_JS = r"""
       var track = stream.getVideoTracks()[0];
       var label = "";
       try { label = (track && track.label) || ""; } catch (err) {}
-      sessions[key] = { stream: stream, label: label };
+      sessions[key] = { stream: stream, track: track, label: label };
       if (track && track.addEventListener) {
         track.addEventListener("ended", function () {
-          teardown(key, "sharing ended");
+          syncVisibility();   // isEnded() sees it and tears the session down
+        });
+        track.addEventListener("mute", function () {
+          syncVisibility();   // stalled, control handed back, session kept
+        });
+        track.addEventListener("unmute", function () {
+          syncVisibility();   // came back: attach again
         });
       }
       syncVisibility();

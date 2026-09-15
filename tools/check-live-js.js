@@ -148,15 +148,27 @@ const created = [];
 
 const trackStops = [];
 function makeStream(label) {
+  const listeners = {};
   const track = {
     label,
     kind: "video",
-    addEventListener() {},
+    muted: false,
+    readyState: "live",
+    addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    // test hook: the browser's own events, fired by hand
+    _fire(type) {
+      if (type === "mute") track.muted = true;
+      if (type === "unmute") track.muted = false;
+      if (type === "ended") track.readyState = "ended";
+      (listeners[type] || []).forEach((fn) => fn());
+    },
+    _listeners: listeners,
   };
   return {
     getVideoTracks: () => [track],
     getTracks: () => [{ stop: () => trackStops.push(label), kind: "video" }],
     _label: label,
+    _track: track,
   };
 }
 
@@ -298,6 +310,57 @@ async function main() {
   const hookedRows = rowsEl.children.filter((r) => r.attrs["data-hooked"] === "1");
   check("panel rows carry a hook marker only while hooked", hookedRows.length === 0,
     "hooked rows=" + hookedRows.length);
+
+  // ---- Ryan's report, 2026-09-15: closing the shared window -----------------
+  //
+  // "it did correctly stop showing the window but the Start Sharing button
+  // wasn't clickable." The state machine has to offer the control back, and it
+  // must do so for BOTH ways a capture dies: the track ending (stop sharing,
+  // window closed on some platforms) and the track MUTING (Firefox's response
+  // to the captured window going away, which is recoverable, so it must not
+  // silently delete the session either).
+  slideB.classList.remove("active");
+  slideA.classList.add("active");
+  keyedOnChange(0);
+
+  hostWindow._els.start._fire();
+  const ownStream = makeStream("own-window");
+  pendingPrompts.shift().resolve(ownStream);
+  await tick();
+  check("a host hooks from its own button, not only the panel",
+    hostWindow.state === "live" && hostWindow._els.video.srcObject === ownStream,
+    hostWindow.state);
+
+  ownStream._track._fire("mute");
+  await tick();
+  check("a muted track offers the control back (state must not stay 'live')",
+    hostWindow.state !== "live",
+    "state after mute=" + hostWindow.state);
+
+  hostWindow._els.start._fire();
+  check("re-hooking after a mute raises a fresh prompt",
+    pendingPrompts.length === 1,
+    "pending=" + pendingPrompts.length);
+  pendingPrompts.shift().resolve(makeStream("second-try"));
+  await tick();
+  check("and the re-hooked stream attaches",
+    hostWindow.state === "live",
+    hostWindow.state);
+
+  // the harder case: the track ends outright
+  hostWindow._els.stop._fire();
+  hostWindow._els.start._fire();
+  const third = makeStream("third-try");
+  pendingPrompts.shift().resolve(third);
+  await tick();
+  third._track._fire("ended");
+  await tick();
+  check("an ended track returns the host to a state that offers the control",
+    hostWindow.state === "idle" || hostWindow.state === "stalled",
+    "state after ended=" + hostWindow.state);
+  check("the ended session is gone, not leaking",
+    trackStops.filter((l) => l === "third-try").length === 1,
+    trackStops.join(","));
 
   console.log("");
   if (failures.length) {

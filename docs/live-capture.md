@@ -154,9 +154,34 @@ stays alive. Re-attaching is instant and never re-prompts.
 
 That is also why a deck with several demo slides costs no more than a deck with
 one: at any moment exactly one host is attached, and the rest are `armed`
-(hooked, no sink). `data-live-state` carries this: `idle` (no session),
-`armed` (session, hidden), `live` (session, attached), `unavailable` (no
-capture API on this origin or in this browser).
+(hooked, no sink). `data-live-state` carries the full state:
+
+| State | Means | What is on the slide |
+| --- | --- | --- |
+| `idle` | no session | the poster if any, the hint, the "Share a window" control |
+| `armed` | session, slide not up | nothing; the panel reports it |
+| `live` | session, attached | the capture, plus a small stop chip |
+| `stalled` | session, track not delivering | the hint, the control (usable again), the stop chip, and a status line |
+| `unavailable` | no capture API here | the poster if any, and a status line naming the remedy |
+
+### When a capture dies
+
+A capture stops two ways and they need different handling, which cost a round
+trip to learn:
+
+- **`ended`** is final: the presenter hit stop, or the platform ends the track
+  when the captured window closes. The session is torn down and the host returns
+  to `idle` with the control back.
+- **`mute`** is Firefox's response to a captured window going away, and the
+  track can recover. Tearing the session down would throw away a live
+  permission, so a muted track surfaces `stalled` instead: the control comes
+  back, the session is kept, and `unmute` re-attaches with nothing to click.
+
+The bug that made this explicit: only `ended` was wired, so closing the shared
+window left the host in `live` with a dead track, which hides the idle block.
+The window correctly stopped showing, and the "Share a window" control was
+simply gone. Hooking again now also tears down whatever was there first, so a
+stalled session cannot linger or double.
 
 ## Verification
 
