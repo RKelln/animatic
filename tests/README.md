@@ -71,9 +71,14 @@ One command, one exit code:
   - `html_props` — present sections mirror cues 1:1 (id, order,
     data-movement), first slide is active server-side, notes asides exist,
     media renders found-vs-placeholder exactly as the manifest says,
-    black-beat sections carry the class; the document's movement sections,
+    black-beat sections carry the class; the presenter page exists for every
+    deck with no remote asset or machine-local path, its build-time cue index
+    mirrors cues.json cue for cue (ordinal, movement, label, kind, title, and
+    the live flag that makes a live screen preview-less), and the deck carries
+    the moved `n` notes binding plus the `s` presenter target and its status
+    line; the document's movement sections,
     Sources list, figures, and opening section must match cues.json; no
-    remote assets or machine-local paths in either view.
+    remote assets or machine-local paths in any view.
   - `nav_props` — the addressability map (T13): entries are exactly the cue
     ids in order and agree per screen on ordinal/movement/kind; the entry
     shape is frozen (no unit ids, no `id` field, no grouping span); ranges are

@@ -449,11 +449,14 @@ damages the archaeology.
 
 ## Outputs
 
-Three views and two sidecars, all generated from the one talkfile.
+Three views, the presenter page, and two sidecars, all generated from the one
+talkfile. `present/presenter.html` is a 1.x additive (2026-09-15): the frozen
+1.0 table below stays exhaustive because the row is here, not appended elsewhere.
 
 | Artifact | What it is | Why it exists |
 |---|---|---|
 | **present/** | the cinematic slides | the thing you speak from — full-bleed media, speaker notes, keyboard navigation |
+| **present/presenter.html** | the speaker UI for the second window (`s`) | notes, the next cue and a preview of both screens, off the projection |
 | **document/** | the handout (printable HTML, then PDF) | the talk as readable prose — the voice-over with figures and citations |
 | **cues.json** | the structured form | the machine contract every tool reads (schema `animatic.cues.v1`) |
 | **media-manifest.json** | the per-slug resolution audit | honesty about what resolved and what is still a placeholder |

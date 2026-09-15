@@ -10,8 +10,9 @@
   /* ===================================================================
      PRESENT VIEW — one .animatic-slide section per screen on a .stage.
      The pager (inline script, see render.py PAGER_JS) crossfades slides,
-     syncs the hash, and shows speaker notes on 's'. No external engine:
-     one self-contained file per deck.
+     syncs the hash, shows speaker notes in this window on 'n', and opens
+     the second-window presenter view on 's'. No external engine: one
+     self-contained file per deck.
      =================================================================== */
 
   .stage {
@@ -463,8 +464,11 @@
   .pager-ui button:hover { color: var(--stage-accent); }
   .pager-ui .counter { font-variant-numeric: tabular-nums; }
 
-  /* speaker notes: VO for the presenter. 's' toggles the panel. Notes
-     never appear on the projection; the .notes asides are hidden. */
+  /* speaker notes: VO for the presenter. 'n' toggles the panel in THIS
+     window (the one-screen room: a laptop on a table, no second display).
+     's' opens the second window instead; see the presenter view below and
+     docs/presenter-view.md. Notes never appear on the projection; the
+     .notes asides are hidden. */
   .notes { display: none; }
   .notes-panel {
     display: none;
@@ -480,7 +484,103 @@
   }
   .notes-panel.open { display: block; }
   .notes-panel p { margin: 0.4em 0; }
-  .notes-panel p.stage { color: var(--doc-muted); font-size: 0.85em; font-style: italic; }
+  /* `stage-note`, never `stage`: a paragraph matching the present view's
+     fixed full-viewport `.stage` container escapes the panel and covers the
+     slide (found by hit test, 2026-09-15). */
+  .notes-panel p.stage-note { color: var(--doc-muted); font-size: 0.85em; font-style: italic; }
+
+  /* the deck's own status line: where a module says something on screen
+     when it cannot do what was asked (the presenter window, blocked). Silent
+     until it has something to say, so a healthy deck never shows it. */
+  .deck-status {
+    display: none;
+    position: fixed; left: 50%; bottom: 4vh; transform: translateX(-50%);
+    z-index: 90; margin: 0;
+    max-width: 34em; padding: 0.7em 1.1em; border-radius: 0.6em;
+    background: var(--stage-overlay-bg); color: var(--stage-ink);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 22%, transparent);
+    font-family: var(--font-ui); font-size: 0.6em; line-height: 1.4;
+    text-align: center;
+  }
+  .deck-status.open { display: block; }
+
+  /* ===================================================================
+     PRESENTER VIEW — the second window ('s'): the speaker UI on its own
+     surface, so notes and previews never reach the projector. Layout only:
+     a preview box holds cloned slide markup, styled by the PRESENT view's
+     own rules above (one theme, one token set, no second stylesheet).
+     =================================================================== */
+
+  body.view-presenter {
+    background: var(--stage-bg); color: var(--stage-ink);
+    height: 100%; font-family: var(--font-ui);
+  }
+  .presenter {
+    height: 100vh;
+    display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: 0.8rem; padding: 0.8rem 1rem 1rem;
+  }
+  .presenter-head {
+    display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--stage-ink) 18%, transparent);
+  }
+  .presenter-deck {
+    margin: 0; font-size: 0.82rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--stage-muted);
+  }
+  .presenter-clock {
+    margin: 0 0 0 auto; font-size: 0.95rem; font-variant-numeric: tabular-nums;
+  }
+  .presenter-elapsed { margin-left: 0.9rem; color: var(--stage-muted); font-size: 0.85em; }
+  .presenter-nav { display: flex; align-items: center; gap: 0.5rem; }
+  .presenter-nav button {
+    padding: 0.15em 0.45em; border-radius: 0.5em; cursor: pointer;
+    background: var(--stage-overlay-bg); color: var(--stage-ink);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 22%, transparent);
+    font-size: 1.1rem; line-height: 1;
+  }
+  .presenter-nav button:hover { color: var(--stage-accent); }
+  .presenter-pos { color: var(--stage-muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+  .presenter-cue { margin: 0; color: var(--stage-muted); font-size: 0.8rem; letter-spacing: 0.05em; }
+
+  .presenter-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-height: 0; }
+  .presenter-pane { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
+  .presenter-label {
+    margin: 0; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--stage-accent);
+  }
+  .presenter-title { margin: 0; font-family: var(--font-body); font-size: 1.05rem; }
+
+  /* the preview is a lens: the clone inside is absolutely positioned like it
+     is on the stage, so this box only supplies the frame and the em base
+     (the deck scales .stage at 3vh; a scaled-down preview needs its own).
+     `flex: 0 0 auto` is load-bearing: as a shrinkable flex item the box lost
+     its aspect ratio when a pane's notes ran long, so the two previews came
+     out different heights and the slide inside was squashed. */
+  .preview {
+    position: relative; flex: 0 0 auto;
+    aspect-ratio: 16 / 9; overflow: hidden;
+    background: var(--stage-bg);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 16%, transparent);
+  }
+  .preview .animatic-slide { font-size: 0.9vw; opacity: 1; visibility: visible; transition: none; }
+  .preview video, .preview button { pointer-events: none; }
+  .preview-note {
+    position: absolute; inset: 0; margin: 0; padding: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--stage-muted); font-size: 0.8rem; letter-spacing: 0.05em;
+    text-align: center;
+  }
+
+  .presenter-notes {
+    flex: 1 1 auto; min-height: 0; overflow: auto;
+    font-family: var(--font-body); font-size: 0.92rem; line-height: 1.5;
+  }
+  .presenter-notes p { margin: 0.35em 0; }
+  .presenter-notes p.stage-note { color: var(--stage-muted); font-size: 0.85em; font-style: italic; }
+  .presenter-status { display: none; margin: 0; color: var(--stage-muted); font-size: 0.8rem; }
+  .presenter-status.open { display: block; }
 
   /* ===================================================================
      DOCUMENT VIEW — the VO as prose; shots become figures

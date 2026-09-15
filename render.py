@@ -2,11 +2,17 @@
 
 - PRESENT view : one self-contained HTML file per deck (no external engine;
   the pager is a small inline script).  One <section> per screen on a
-  .stage; VO + stage directions go to the speaker-notes asides ('s' shows
-  them); on-screen objects (media, title, stat, lower, credits, quotes,
-  lists) render as the slide body.  All look lives in themes/
+  .stage; VO + stage directions go to the speaker-notes asides ('n' shows
+  them in this window; 's' opens the second-window presenter view —
+  docs/presenter-view.md); on-screen objects (media, title, stat, lower,
+  credits, quotes, lists) render as the slide body.  All look lives in themes/
   (layer reset > base > components > theme) and every value comes from the
   selected theme's tokens.
+- PRESENTER page: present/presenter.html, the speaker UI for the second
+  window 's' opens (cue id, movement, ordinal, VO, stage notes, next cue,
+  wall clock, elapsed, and a preview of the current and next screen).  It
+  carries the build-time cue index and is fed by postMessage from the deck,
+  so it works over file://; a live screen is labelled, never previewed.
 - DOCUMENT view: a self-contained static HTML handout.  The VO prose IS the
   document (the format's answer to "the handout is your notes"); shots become
   figures, stat cards become callouts, card headings become subheadings.
@@ -423,6 +429,9 @@ PAGER_JS = """
   var totalEl = document.getElementById("slide-total");
   var cur = 0;
   var lastCur = -1;
+  // Modules that cannot own the single onChange slot register here instead
+  // (the presenter window wants every arrival; the live module owns onChange).
+  var listeners = [];
   totalEl.textContent = String(slides.length);
 
   function notesFor(i) {
@@ -455,6 +464,9 @@ PAGER_JS = """
     if (panel && panel.classList.contains("open")) panel.innerHTML = notesFor(cur);
     if (window.animatic && typeof window.animatic.onChange === "function") {
       try { window.animatic.onChange(cur); } catch (err) { /* never break nav */ }
+    }
+    for (var li = 0; li < listeners.length; li++) {
+      try { listeners[li](cur); } catch (err) { /* never break nav */ }
     }
     // autoplay the active slide's video; pause everything else
     for (var i = 0; i < slides.length; i++) {
@@ -495,13 +507,18 @@ PAGER_JS = """
 
   // Tiny public surface for the modules that live beside the pager (live
   // capture reads the current slide to gate its sinks; the hookup panel jumps
-  // between demo slides). Additive: nothing here changes pager behaviour, and
-  // an onChange throwing cannot break navigation.
+  // between demo slides; the presenter window pushes state on every arrival).
+  // Additive: nothing here changes pager behaviour, and a listener throwing
+  // cannot break navigation. `onChange` stays single-slot (the live module
+  // owns it); `addOnChange` is the fan-out for everyone else.
   window.animatic = {
     go: go, next: next, prev: prev,
     count: function () { return slides.length; },
     current: function () { return cur; },
-    onChange: null
+    onChange: null,
+    addOnChange: function (fn) {
+      if (typeof fn === "function") listeners.push(fn);
+    }
   };
 
   document.addEventListener("keydown", function (e) {
@@ -513,7 +530,9 @@ PAGER_JS = """
         e.preventDefault(); prev(); break;
       case "Home": e.preventDefault(); go(0); break;
       case "End": e.preventDefault(); go(slides.length - 1); break;
-      case "s": case "S": toggleNotes(); break;
+      // 'n' = notes in THIS window (a one-screen room); 's' = the second
+      // window with the speaker UI, which PRESENTER_JS binds (below).
+      case "n": case "N": toggleNotes(); break;
       case "Escape": if (panel) panel.classList.remove("open"); break;
     }
   });
@@ -824,6 +843,346 @@ LIVE_JS = r"""
 """
 
 
+# ---------------------------------------------------------------------------
+# PRESENTER window (the deck side: docs/presenter-view.md)
+# ---------------------------------------------------------------------------
+
+PRESENTER_JS = r"""
+(function () {
+  "use strict";
+  // Two-window presenter view. 's' opens a SECOND window holding the speaker
+  // UI; this module owns that window, holds its handle, and pushes the current
+  // state on every pager change. The deck stays the single source of truth and
+  // nothing is read back except navigation requests.
+  //
+  // Why postMessage and not BroadcastChannel/localStorage: a deck opened from
+  // file:// has an opaque origin and every file:// document gets its own, so
+  // two windows over the same folder are NOT same-origin and the same-origin
+  // channels never connect. postMessage is origin-agnostic by design, which is
+  // exactly what a folder-opened deck needs. `event.origin` is the string
+  // "null" for an opaque origin and is useless as a check, so the window
+  // handle (event.source) is what identifies the peer here.
+  var WIN_NAME = "animatic-presenter";
+  var win = null;
+  var slides = Array.prototype.slice.call(
+    document.querySelectorAll(".animatic-slide"));
+  var statusEl = document.getElementById("deck-status");
+  var startedAt = Date.now();
+
+  function say(msg) {
+    if (!statusEl) return;
+    statusEl.textContent = msg || "";
+    if (msg) statusEl.classList.add("open");
+    else statusEl.classList.remove("open");
+  }
+
+  function notesOf(sec) {
+    var vo = [], stage = [];
+    var aside = sec.querySelector(".notes");
+    if (aside) {
+      var kids = aside.children;
+      for (var i = 0; i < kids.length; i++) {
+        var k = kids[i];
+        // stage notes carry `stage-note`, never `stage`: `.stage` is the
+        // present view's fixed full-viewport slide container, and a paragraph
+        // matching it leaves the notes panel entirely.
+        if (k.className && /(^|\s)stage-note(\s|$)/.test(k.className)) {
+          stage.push(k.innerHTML);
+        } else {
+          vo.push(k.innerHTML);
+        }
+      }
+    }
+    return { vo: vo, stage: stage };
+  }
+
+  // A preview is a clone of the slide the deck already renders: same markup,
+  // same relative srcs (presenter.html sits beside index.html), so the theme
+  // styles it with no second stylesheet and no second build path.
+  function previewOf(i) {
+    if (i < 0 || i >= slides.length) return null;
+    var sec = slides[i];
+    // A live screen has nothing to preview, and a second sink attached to the
+    // capture stream would pull frames for a thumbnail. It is never cloned:
+    // the presenter shows a plain label instead.
+    if (sec.querySelector("[data-live-surface]")) return null;
+    var clone = sec.cloneNode(true);
+    var notes = clone.querySelector(".notes");
+    if (notes && notes.parentNode) notes.parentNode.removeChild(notes);
+    clone.classList.add("active");
+    var vids = clone.querySelectorAll("video");
+    for (var j = 0; j < vids.length; j++) {
+      // a preview is a look, not a second playback: hold the first frame
+      // rather than run a second decoder on the talk machine
+      vids[j].removeAttribute("autoplay");
+      vids[j].setAttribute("preload", "auto");
+      vids[j].setAttribute("data-preview-still", "");
+    }
+    var focusable = clone.querySelectorAll("button, [tabindex]");
+    for (var k = 0; k < focusable.length; k++) {
+      focusable[k].setAttribute("tabindex", "-1");
+    }
+    return clone.outerHTML;
+  }
+
+  function payload() {
+    var i = window.animatic.current();
+    var n = slides.length;
+    return {
+      type: "animatic-state",
+      schema: "animatic.presenter.v1",
+      index: i,
+      count: n,
+      startedAt: startedAt,
+      notes: notesOf(slides[i]),
+      nextNotes: i + 1 < n ? notesOf(slides[i + 1]) : null,
+      preview: previewOf(i),
+      nextPreview: previewOf(i + 1)
+    };
+  }
+
+  function push() {
+    if (!win || win.closed) { win = null; return; }
+    try { win.postMessage(payload(), "*"); }
+    catch (err) { win = null; }
+  }
+
+  function openPresenter() {
+    var w = window.open("presenter.html", WIN_NAME, "width=1180,height=820");
+    if (!w) {
+      // A keypress is a user gesture, so this only fires when the browser is
+      // blocking pop-ups outright. Say so on the deck's own screen: a silent
+      // failure here looks like a broken key.
+      say("The presenter window was blocked. Allow pop-ups for this page, "
+        + "then press s again.");
+      return;
+    }
+    win = w;
+    say("");
+    push();
+  }
+
+  function closePresenter() {
+    if (win && !win.closed) { try { win.close(); } catch (err) {} }
+    win = null;
+  }
+
+  function togglePresenter() {
+    if (win && !win.closed) closePresenter();
+    else openPresenter();
+  }
+
+  window.addEventListener("message", function (e) {
+    var d = e.data;
+    if (!d || typeof d !== "object" || typeof d.type !== "string") return;
+    if (d.type === "animatic-presenter-ready") {
+      // the presenter loaded or was reloaded by hand: adopt its handle when
+      // ours is gone, then re-push, so a reload re-syncs with nothing to click
+      if ((!win || win.closed) && e.source && e.source !== window) win = e.source;
+      push();
+      return;
+    }
+    if (!win || e.source !== win || !window.animatic) return;
+    if (d.type === "animatic-next") window.animatic.next();
+    else if (d.type === "animatic-prev") window.animatic.prev();
+    else if (d.type === "animatic-go" && typeof d.index === "number") {
+      window.animatic.go(d.index);
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "s" || e.key === "S") { e.preventDefault(); togglePresenter(); }
+  });
+
+  // Every arrival, including the ones the live module drives.
+  window.animatic.addOnChange(push);
+})();
+"""
+
+
+# ---------------------------------------------------------------------------
+# PRESENTER page (the presenter side: what runs in the second window)
+# ---------------------------------------------------------------------------
+
+PRESENTER_UI_JS = r"""
+(function () {
+  "use strict";
+  // The presenter window (docs/presenter-view.md). It owns no deck: the deck
+  // window pushes state in, and everything shown here comes from that message
+  // plus the cue index the builder wrote into this page. Identity facts (cue
+  // id, movement, ordinal, title, whether the screen is live) come from the
+  // index so they come from the same parse as cues.json; the script, the
+  // stage notes and the previews come from the deck, which owns them.
+  var cues = [];
+  try {
+    cues = (JSON.parse(document.getElementById("cue-index").textContent) || {}).cues || [];
+  } catch (err) { cues = []; }
+
+  var state = null;
+  var el = {};
+  ["wall", "elapsed", "ordinal", "count", "cue", "title", "next-title",
+   "preview", "next-preview", "notes", "next-notes", "status"]
+    .forEach(function (key) {
+      el[key] = document.getElementById("presenter-" + key);
+    });
+
+  var KIND_LABEL = {
+    black: "black beat", media: "media screen", stat: "stat screen",
+    card: "card screen", lower: "lower third", credits: "credits roll"
+  };
+
+  function say(msg) {
+    if (!el.status) return;
+    el.status.textContent = msg || "";
+    if (msg) el.status.classList.add("open");
+    else el.status.classList.remove("open");
+  }
+
+  function label(text) {
+    var p = document.createElement("p");
+    p.className = "preview-note";
+    p.textContent = text;
+    return p;
+  }
+
+  function cueTitle(cue) {
+    if (!cue) return "end of deck";
+    return cue.title || KIND_LABEL[cue.kind] || "screen " + cue.ordinal;
+  }
+
+  function fillNotes(node, notes) {
+    if (!node) return;
+    node.textContent = "";
+    if (!notes) return;
+    var i, p;
+    for (i = 0; i < notes.vo.length; i++) {
+      p = document.createElement("p");
+      // the deck's own notes markup, builder-escaped static output
+      p.innerHTML = notes.vo[i];
+      node.appendChild(p);
+    }
+    for (i = 0; i < notes.stage.length; i++) {
+      p = document.createElement("p");
+      // `stage-note`, not `stage`: `.stage` is the deck's fixed
+      // full-viewport slide container and would swallow this paragraph
+      p.className = "stage-note";
+      p.innerHTML = notes.stage[i];
+      node.appendChild(p);
+    }
+  }
+
+  // A cloned video is a still: one decode, one frame, no second playback.
+  function holdStill(video) {
+    function seek() {
+      try { video.currentTime = Math.min(0.05, video.duration || 0.1); }
+      catch (err) {}
+    }
+    if (video.readyState >= 1) seek();
+    else video.addEventListener("loadedmetadata", seek, { once: true });
+  }
+
+  function fillPreview(node, html, cue) {
+    if (!node) return;
+    node.textContent = "";
+    if (!cue) { node.appendChild(label("end of deck")); return; }
+    if (cue.live) {
+      // a live window has nothing to preview, and a second sink would pull
+      // frames off the capture for a thumbnail
+      node.appendChild(label("live window capture, no preview"));
+      return;
+    }
+    if (!html) { node.appendChild(label("no preview")); return; }
+    node.innerHTML = html;
+    var vids = node.querySelectorAll("video[data-preview-still]");
+    for (var i = 0; i < vids.length; i++) holdStill(vids[i]);
+  }
+
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+
+  function tick() {
+    var now = new Date();
+    if (el.wall) {
+      el.wall.textContent = two(now.getHours()) + ":" + two(now.getMinutes())
+        + ":" + two(now.getSeconds());
+    }
+    if (el.elapsed && state && state.startedAt) {
+      var s = Math.max(0, Math.floor((Date.now() - state.startedAt) / 1000));
+      var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+      el.elapsed.textContent = (h ? h + ":" + two(m) : String(m)) + ":" + two(s % 60);
+    }
+  }
+
+  function paint() {
+    if (!state) return;
+    var i = state.index;
+    var cur = cues[i] || null, nxt = cues[i + 1] || null;
+    if (el.ordinal) el.ordinal.textContent = String(i + 1);
+    if (el.count) el.count.textContent = String(cues.length || state.count);
+    if (el.cue) {
+      el.cue.textContent = cur
+        ? cur.id + (cur.movement_label ? " \u00b7 " + cur.movement_label : "")
+        : "";
+    }
+    if (el.title) el.title.textContent = cueTitle(cur);
+    if (el["next-title"]) el["next-title"].textContent = cueTitle(nxt);
+    fillPreview(el.preview, state.preview, cur);
+    fillPreview(el["next-preview"], state.nextPreview, nxt);
+    fillNotes(el.notes, state.notes);
+    fillNotes(el["next-notes"], state.nextNotes);
+    say("");
+  }
+
+  function post(msg) {
+    if (window.opener) window.opener.postMessage(msg, "*");
+  }
+
+  function hello() {
+    if (!window.opener) {
+      say("Open this window from the deck: press s in the deck window.");
+      return;
+    }
+    post({ type: "animatic-presenter-ready", schema: "animatic.presenter.v1" });
+  }
+
+  window.addEventListener("message", function (e) {
+    var d = e.data;
+    if (!d || typeof d !== "object" || d.type !== "animatic-state") return;
+    if (window.opener && e.source !== window.opener) return;
+    state = d;
+    paint();
+    tick();
+  });
+
+  var prevBtn = document.getElementById("presenter-prev");
+  var nextBtn = document.getElementById("presenter-next");
+  if (prevBtn) {
+    prevBtn.addEventListener("click", function () { post({ type: "animatic-prev" }); });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener("click", function () { post({ type: "animatic-next" }); });
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case "ArrowRight": case "ArrowDown": case "PageDown": case " ":
+        e.preventDefault(); post({ type: "animatic-next" }); break;
+      case "ArrowLeft": case "ArrowUp": case "PageUp":
+        e.preventDefault(); post({ type: "animatic-prev" }); break;
+      case "s": case "S": e.preventDefault(); window.close(); break;
+    }
+  });
+
+  window.setInterval(tick, 1000);
+  hello();
+  tick();
+  if (window.opener && !state) say("Waiting for the deck to send its state.");
+  window.setTimeout(hello, 1500);   // a slow deck still gets its handshake
+})();
+"""
+
+
 def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     theme = resolve_theme(talk)
@@ -871,13 +1230,113 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <button type="button" id="next-slide" aria-label="next">&#8250;</button>
 </nav>
 <aside class="notes-panel" id="notes-panel" aria-live="polite"></aside>
+<p class="deck-status" id="deck-status" role="status" aria-live="polite"></p>
 {hookup}<script>
 {PAGER_JS}
+</script>
+<script>
+{PRESENTER_JS}
 </script>
 {live_script}</body>
 </html>
 """
     path = out_dir / "index.html"
+    path.write_text(doc, encoding="utf-8")
+    return path
+
+
+def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
+    """The presenter window: present/presenter.html (docs/presenter-view.md).
+
+    The speaker UI lives in a SECOND window, which means it cannot be a copy of
+    the present view: two windows over the same folder may not be same-origin
+    (a deck opened from `file://` gets an opaque origin per document), so the
+    presenter cannot be loaded with its own pager and driven from outside. The
+    split is therefore: this page carries the identity half of every cue (id,
+    ordinal, movement, title, kind, live) as a build-time index, and the deck
+    pushes the runtime half (script, stage notes, previews, position) by
+    postMessage. The index is emitted from the same parse as cues.json, so a
+    live screen is marked preview-less BEFORE anything runs, and the property
+    suite can assert it without a browser.
+
+    Relative-path rule: this file sits beside `index.html` in the out root's
+    `present/` dir, which is what lets the deck's cloned slide markup (with its
+    `../_media/...` srcs) render here unchanged.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    theme = resolve_theme(talk)
+    meta = talk.meta
+    title = html.escape(str(meta.get("title", deck_slug(talk))))
+
+    index = []
+    for screen in talk.screens:
+        shot = screen.media_shot
+        ref = resolver.resolve(shot.slug) if (shot and shot.slug) else None
+        mv = next((m for m in talk.movements if m.index == screen.movement), None)
+        index.append({
+            "id": f"{deck_slug(talk)}-{screen.idx:03d}",
+            "ordinal": screen.idx,
+            "movement": screen.movement,
+            "movement_label": mv.label if mv is not None else "",
+            "kind": screen_kind(screen),
+            "title": plain_md(screen_title(screen)) if screen_title(screen) else "",
+            # a live screen has nothing to preview: the presenter labels it
+            # instead of showing a thumbnail
+            "live": bool(ref is not None and ref.live),
+        })
+
+    cue_index = json.dumps(
+        {"schema": "animatic.presenter.v1",
+         "deck": str(meta.get("title", deck_slug(talk))),
+         "cues": index},
+        ensure_ascii=False, separators=(",", ":"),
+    ).replace("<", "\\u003c")   # cannot open a script element from data
+
+    doc = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} — presenter view</title>
+{theme_style_blocks(theme)}
+</head>
+<body class="view-presenter">
+<div class="presenter">
+<header class="presenter-head">
+<p class="presenter-deck">{title}</p>
+<p class="presenter-clock"><span id="presenter-wall">--:--:--</span>
+<span class="presenter-elapsed">elapsed <span id="presenter-elapsed">0:00</span></span></p>
+<nav class="presenter-nav" aria-label="deck navigation">
+<button type="button" id="presenter-prev" aria-label="previous screen">&#8249;</button>
+<span class="presenter-pos"><span id="presenter-ordinal">1</span> / <span id="presenter-count">1</span></span>
+<button type="button" id="presenter-next" aria-label="next screen">&#8250;</button>
+</nav>
+</header>
+<p class="presenter-cue" id="presenter-cue"></p>
+<main class="presenter-panes">
+<section class="presenter-pane">
+<h2 class="presenter-label">On screen now</h2>
+<p class="presenter-title" id="presenter-title"></p>
+<div class="preview" id="presenter-preview"></div>
+<div class="presenter-notes" id="presenter-notes"></div>
+</section>
+<section class="presenter-pane">
+<h2 class="presenter-label">Next up</h2>
+<p class="presenter-title" id="presenter-next-title"></p>
+<div class="preview" id="presenter-next-preview"></div>
+<div class="presenter-notes" id="presenter-next-notes"></div>
+</section>
+</main>
+<p class="presenter-status" id="presenter-status" role="status"></p>
+<script type="application/json" id="cue-index">{cue_index}</script>
+<script>
+{PRESENTER_UI_JS}
+</script>
+</div>
+</body>
+</html>
+"""
+    path = out_dir / "presenter.html"
     path.write_text(doc, encoding="utf-8")
     return path
 
@@ -968,13 +1427,17 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
             elif b.kind == "credits" and b.text.strip():
                 inner.append(f'<div class="credits-line">{html.escape(b.text)}</div>')
 
-    # speaker notes: VO + stage directions (never on the slide body)
+    # speaker notes: VO + stage directions (never on the slide body). The
+    # stage-note class is deliberately NOT "stage": `.stage` is the present
+    # view's fixed, full-viewport slide container, so a paragraph carrying
+    # `class="stage"` inside the notes panel resolved to `position: fixed;
+    # inset: 0` and covered the whole screen instead of sitting in the panel.
     notes = []
     for b in vo_paragraphs(screen):
         notes.append(f"<p>{inline_md(b.text)}</p>")
     for b in screen.blocks:
         for st in b.stage:
-            notes.append(f'<p class="stage">({html.escape(st)})</p>')
+            notes.append(f'<p class="stage-note">({html.escape(st)})</p>')
     notes_html = "".join(notes)
 
     cls = "animatic-slide" + first

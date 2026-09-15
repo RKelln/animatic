@@ -21,11 +21,14 @@ The same file renders as:
 - `docs/format-spec-v1.md` — the talkfile grammar (normative; v1.0 draft, hardening 2026-09-08)
 - `docs/format-spec.md` — retired v0.5 (superseded marker only; see v1)
 - `docs/media-pipeline.md` — media cards, generation log, style cascade, engine posture
+- `docs/live-capture.md` — `type: live` screens: window capture, secure-context rule, hookup panel
+- `docs/presenter-view.md` — the second window: `s` for the speaker UI, `n` for in-page notes, and why the sync is postMessage
 - `docs/engine-decision.md` — builder spike decision record (engine, PDF path, parse model)
 - `templates/` — starter media card set (style, cards, gen-log)
 - `build.py` + `talkparse.py` + `mediaresolve.py` + `render.py` + `timing.py` — the builder (E2 spike):
-  one talkfile in, three outputs out: present view (own-pager deck, VO in
-  speaker notes), document view (static HTML handout, print-to-PDF via print CSS),
+  one talkfile in, four views out: present view (own-pager deck, VO in
+  speaker notes), presenter view (`present/presenter.html`, the second-window
+  speaker UI on `s`), document view (static HTML handout, print-to-PDF via print CSS),
   cues.json (ordered slide id to script text + `est_seconds`, the estimated
   clock, for the future controller), plus two
   generated sidecars: nav.json (cue id -> source line range, movement, kind —

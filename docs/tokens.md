@@ -119,8 +119,9 @@ default in every theme); the framed "piece" look is opt-in per shot.
 - Pager: reveal.js could not stand in at all in the desktop preview pane
   (remote content is blocked there, and even in browsers the CDN deck is
   one network failure from dead). E3 owns the present view: a small
-  inline pager (keyboard, hash, `s` notes panel, swipe, progress), one
-  self-contained HTML file per deck. Media publishes to out/_media with
+  inline pager (keyboard, hash, `n` notes panel, `s` presenter window,
+  swipe, progress), one self-contained HTML file per deck plus the
+  presenter page. Media publishes to out/_media with
   relative paths, so a deck is a portable folder.
 - Feel-test round 2 (2026-09-05, roles-demo + L01 live in Firefox):
   (1) text over full-bleed media is THE common slide — every text role

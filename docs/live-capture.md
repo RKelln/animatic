@@ -94,6 +94,7 @@ it is the last resort.
 | View | A `type: live` screen renders as |
 | --- | --- |
 | `present/` | a capture host: idle state (poster if declared, a start control, a status line that names the remedy when capture is unavailable), then the stream alone once sharing, with a small stop chip |
+| `present/presenter.html` | nothing previewed: the speaker window shows the label `live window capture, no preview` for that cue, because a second sink on the stream would pull frames for a thumbnail (`docs/presenter-view.md`) |
 | `document/` | the poster as a figure, or an honest note that a live capture happened there |
 | `media-manifest.json` | `type: live`, `found: true`, `source: live`, `file: null`, `poster` (published as `_media/<slug>-poster.<ext>`, or null) |
 
@@ -113,6 +114,13 @@ one row per capture session, showing which slides it feeds, whether it is
 hooked, the label of the window the browser actually gave you, and three
 controls (`hook up`, `stop`, `go`). `go` jumps to the slide; `d` or `Escape`
 closes the panel.
+
+Two other keys sit next to it: **`s`** opens the second-window presenter view and
+**`n`** toggles the in-page notes panel (notes used to be `s`; the presenter
+window is what reveal.js puts on that key, and it is where the speaker UI belongs
+now — `docs/presenter-view.md`). Both are safe on a live deck: the presenter
+window labels a live screen rather than previewing it, so arming a capture is
+never disturbed by opening the speaker view.
 
 A live host is also self-sufficient: while its slide is up and nothing is hooked
 it offers its own "Share a window" control, so a one-demo deck needs no ritual

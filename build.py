@@ -1,7 +1,8 @@
 """build.py — animatic builder spike (E2).
 
 One talkfile in, three views out:
-    out/present/index.html      reveal.js v6 stand-in deck (VO in speaker notes)
+    out/present/index.html      own-pager deck (VO in speaker notes)
+    out/present/presenter.html  speaker UI for the second window ('s')
     out/document/index.html     static HTML handout (VO as prose; print CSS for PDF)
 
 ...and three generated sidecars:
@@ -38,7 +39,7 @@ import yaml
 import talkparse
 from mediaresolve import MediaResolver
 from render import (render_cues, render_document, render_manifest, render_nav,
-                    render_present)
+                    render_present, render_presenter)
 
 
 def main(argv=None) -> int:
@@ -110,6 +111,7 @@ def main(argv=None) -> int:
     resolver.publish(out, [r.slug for r in media_refs])
 
     present = render_present(talk, resolver, out / "present")
+    presenter = render_presenter(talk, resolver, out / "present")
     document = render_document(talk, resolver, out / "document")
     cues = render_cues(talk, resolver, out)
     nav = render_nav(talk, out)
@@ -145,6 +147,7 @@ def main(argv=None) -> int:
         for w in talk.warnings:
             print(f"  - {w}")
     print(f"written   : {present}")
+    print(f"           : {presenter}")
     print(f"           : {document}")
     print(f"           : {cues}")
     print(f"           : {nav}")
