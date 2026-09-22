@@ -24,6 +24,14 @@ Usage:
     python3 ingest.py <talk.md> --dry-run       # say what would happen
     python3 ingest.py <talk.md> --no-recover    # name-match only, no fal calls
     python3 ingest.py <talk.md> --no-new-cards  # refuse unknown slugs
+    python3 ingest.py <talk.md> --promote SLUG [--take aN] [--dry-run]
+
+Promote: `attempts/` is raw takes and is gitignored in the deck repo, so a take
+you approve has to leave it. `--promote` copies the chosen take (the highest
+attempt unless `--take` names one) to `media/<slug>/<slug>.<ext>`, sets the
+card's `approved:` to that path and its status to `approved`, and logs which
+attempt it was. It copies rather than moves, so the attempts stay on disk.
+Your own finished media goes the same way: ingest it, then promote it.
 
 Naming, when you do name things: `slug.mp4`, `slug-anything.mp4`,
 `slug/anything.mp4`, or a raw fal download name (which normalises).
@@ -198,6 +206,89 @@ def _fill_card(cards_path: Path, slug: str, prompt: str, alt: str) -> list[str]:
     return notes
 
 
+def _set_card_field(cards_path: Path, slug: str, key: str, value: str) -> str | None:
+    """Set a top-level `key: value` on one card, in place, keeping the file's
+    comments and layout. Replaces the key's line if the card has one, else
+    inserts it after `status:` (or `type:`). Returns the old value, or None."""
+    body = cards_path.read_text()
+    pat = re.compile(rf"(?ms)^- slug: {re.escape(slug)}\n(.*?)(?=^- slug: |^# |\Z)")
+    m = pat.search(body)
+    if not m:
+        raise KeyError(slug)
+    block = m.group(0)
+    line = f"  {key}: {value}"
+    have = re.search(rf"(?m)^  {re.escape(key)}:[ \t]*(.*)$", block)
+    if have:
+        old = have.group(1).strip()
+        new_block = block[:have.start()] + line + block[have.end():]
+    else:
+        old = None
+        anchor = re.search(r"(?m)^  status:.*$", block) or re.search(r"(?m)^  type:.*$", block)
+        at = anchor.end() if anchor else block.index("\n")
+        new_block = block[:at] + "\n" + line + block[at:]
+    cards_path.write_text(body[:m.start()] + new_block + body[m.end():])
+    return old
+
+
+def promote(talk: Path, slug: str, take: str | None, dry_run: bool) -> int:
+    media_dir = talk.parent / "media"
+    cards_path = media_dir / "cards.yaml"
+    body = cards_path.read_text() if cards_path.is_file() else ""
+    if not re.search(rf"(?m)^- slug: {re.escape(slug)}\n", body):
+        print(f"error: no card '{slug}' in {cards_path}", file=sys.stderr)
+        return 2
+    adir = media_dir / slug / "attempts"
+    takes: dict[int, Path] = {}
+    if adir.is_dir():
+        for p in adir.iterdir():
+            m = re.match(rf"^{re.escape(slug)}-a(\d+)\.[a-z0-9]+$", p.name)
+            if m and p.suffix.lower() in MEDIA_EXTS:
+                takes[int(m.group(1))] = p
+    if not takes:
+        print(f"error: no takes in {adir}", file=sys.stderr)
+        return 2
+    if take:
+        m = re.fullmatch(r"a?(\d+)", take.strip())
+        if not m or int(m.group(1)) not in takes:
+            have = ", ".join(f"a{n}" for n in sorted(takes))
+            print(f"error: no take {take!r} for {slug} (have: {have})", file=sys.stderr)
+            return 2
+        n = int(m.group(1))
+    else:
+        n = max(takes)
+    src = takes[n]
+    dest = media_dir / slug / f"{slug}{src.suffix.lower()}"
+    rel = dest.relative_to(talk.parent).as_posix()
+    same_bytes = dest.is_file() and dest.read_bytes() == src.read_bytes()
+    replacing = dest.is_file() and not same_bytes
+    blk = re.search(rf"(?ms)^- slug: {re.escape(slug)}\n(.*?)(?=^- slug: |^# |\Z)", body).group(0)
+    if same_bytes and re.search(rf"(?m)^  approved: {re.escape(rel)}\s*$", blk) \
+            and re.search(r"(?m)^  status: approved\s*$", blk):
+        print(f"{slug} a{n} is already the approved take ({rel}); nothing to do")
+        return 0
+    print(f"  {src.relative_to(talk.parent)}  ->  {rel}"
+          + ("   [replaces the current file]" if replacing else ""))
+    if dry_run:
+        print("\ndry run: nothing copied, card and log unchanged")
+        return 0
+
+    shutil.copy2(src, dest)
+    old_approved = _set_card_field(cards_path, slug, "approved", rel)
+    old_status = _set_card_field(cards_path, slug, "status", "approved")
+    with (media_dir / "gen-log.md").open("a") as fh:
+        fh.write(f"\n## {dt.date.today().isoformat()} · promote · {slug}\n")
+        fh.write(f"- a{n} ← `{src.name}` promoted to `{rel}` (card `approved:`, status approved)\n")
+        if old_approved and old_approved != rel:
+            fh.write(f"- was approved: `{old_approved}` (left on disk)\n")
+        if old_status and old_status != "approved":
+            fh.write(f"- status was: {old_status}\n")
+    print(f"\npromoted {slug} a{n}; card status approved; gen-log updated")
+    if old_approved and old_approved != rel:
+        print(f"  note: the card previously approved {old_approved}; that file is left on disk")
+    print("  the promoted file is outside attempts/, so git tracks it (LFS in the deck repo)")
+    return 0
+
+
 def _collect(src: Path) -> list[Path]:
     if not src.is_dir():
         return []
@@ -214,12 +305,20 @@ def main(argv: list[str] | None = None) -> int:
                     help="skip the fal record read (name matching only)")
     ap.add_argument("--no-new-cards", action="store_true")
     ap.add_argument("--match-threshold", type=float, default=MATCH_THRESHOLD)
+    ap.add_argument("--promote", metavar="SLUG",
+                    help="approve a take: copy it out of attempts/ and set the card's approved:")
+    ap.add_argument("--take", metavar="aN",
+                    help="with --promote: which attempt (default: the highest)")
     args = ap.parse_args(argv)
 
     talk = args.talk.resolve()
     if not talk.is_file():
         print(f"error: no such talkfile: {talk}", file=sys.stderr)
         return 2
+    if args.take and not args.promote:
+        ap.error("--take only applies with --promote")
+    if args.promote:
+        return promote(talk, args.promote, args.take, args.dry_run)
     media_dir = talk.parent / "media"
     src = (args.src or (media_dir / "_incoming")).resolve()
     files = _collect(src)
