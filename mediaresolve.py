@@ -36,9 +36,9 @@ Playback (card `playback:`, video only; spec: Media pipeline contract):
   pingpong  forward then backward, looping.  Browsers cannot play video
             backwards reliably, so `publish()` bakes a forward+reverse copy with
             ffmpeg into `_media/<slug>-pingpong.mp4`, cached by source hash so a
-            rebuild copies identical bytes.  With no ffmpeg, a clip too long to
-            reverse in memory, or a failed encode, it falls back to `loop` and
-            records why (check 29).
+            rebuild copies identical bytes.  With no ffmpeg, a clip too big to
+            reverse in memory (PINGPONG_MAX_FRAME_BYTES), or a failed encode, it
+            falls back to `loop` and records why (check 29).
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Optional
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -66,7 +67,11 @@ MEDIA_EXTS = {
 VIDEO_EXTS = {e for e, t in MEDIA_EXTS.items() if t == "video"}
 
 PLAYBACK_VALUES = ("loop", "once", "pingpong")
-PINGPONG_MAX_SECONDS = 30.0        # ffmpeg's reverse filter holds every frame in memory
+# ffmpeg's reverse filter holds every decoded frame in memory, so the limit is
+# on the frames, not the seconds: width x height x 1.5 (yuv420p) x frame count.
+# Measured 2026-09-22: a 10 s 1928x1076 24 fps clip (~0.75 GB of frames) peaked
+# at ~2 GB, so ~2.6x.  A 1 GB budget is ~13 s of 1080p, ~30 s of 720p, ~3 s of 4K.
+PINGPONG_MAX_FRAME_BYTES = 1_000_000_000
 # Bump when the recipe changes, so cached pingpong files are re-baked.
 PINGPONG_RECIPE = ("pingpong-v1", "trim first frame of each leg", "libx264 crf 16 slow yuv420p")
 
@@ -472,6 +477,28 @@ def _cache_dir() -> Path:
     return Path(base) / "animatic" / "pingpong"
 
 
+def _frame_bytes(src: Path) -> Optional[int]:
+    """Decoded size of every frame (yuv420p), what ffmpeg's reverse must hold."""
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+             "stream=width,height,nb_frames,r_frame_rate:format=duration",
+             "-of", "json", str(src)],
+            capture_output=True, text=True, timeout=15, check=False)
+        info = json.loads(proc.stdout or "{}")
+        st = (info.get("streams") or [{}])[0]
+        w, h = int(st["width"]), int(st["height"])
+        frames = st.get("nb_frames")
+        if frames and str(frames).isdigit():
+            n = int(frames)
+        else:                                    # webm and friends omit nb_frames
+            num, den = (int(x) for x in st["r_frame_rate"].split("/"))
+            n = round(float(info["format"]["duration"]) * num / den)
+        return round(w * h * 1.5 * n)
+    except (OSError, ValueError, KeyError, ZeroDivisionError, subprocess.SubprocessError):
+        return None
+
+
 def bake_pingpong(src: Path, dst: Path) -> Optional[str]:
     """Write a forward-then-reversed copy of `src` to `dst`, for looping.
 
@@ -482,13 +509,15 @@ def bake_pingpong(src: Path, dst: Path) -> Optional[str]:
     source bytes and the recipe: a rebuild copies the same bytes (the build
     stays deterministic) and never re-encodes.
     """
-    if shutil.which("ffmpeg") is None:
+    if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
         return "ffmpeg is not installed"
-    from timing import probe_video_seconds     # local: timing imports nothing of ours
-    seconds = probe_video_seconds(src)
-    if seconds is not None and seconds > PINGPONG_MAX_SECONDS:
-        return (f"the clip is {seconds:.0f} s, over the {PINGPONG_MAX_SECONDS:.0f} s "
-                f"reverse limit")
+    frame_bytes = _frame_bytes(src)
+    if frame_bytes is None:
+        return "ffprobe could not read the clip's size and length"
+    if frame_bytes > PINGPONG_MAX_FRAME_BYTES:
+        return (f"the clip is {frame_bytes / 1e9:.1f} GB of decoded frames, over the "
+                f"{PINGPONG_MAX_FRAME_BYTES / 1e9:.0f} GB the reverse can hold in memory "
+                f"(shorten it, or bake the pingpong by hand)")
     h = hashlib.sha256()
     h.update("|".join(PINGPONG_RECIPE).encode())
     with open(src, "rb") as f:

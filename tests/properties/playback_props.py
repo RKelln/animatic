@@ -9,7 +9,8 @@ behaviour lives in real video files: the committed fixtures stay media-free.
   length (less the two dropped seam frames), and it still loops;
 - an unknown value and a playback on an image card each raise check 29 and
   change nothing in the build;
-- the pingpong cache makes a rebuild byte-identical (determinism).
+- the pingpong cache makes a rebuild byte-identical (determinism);
+- a clip over the frame budget falls back to looping the original, and says why.
 
 Needs ffmpeg + ffprobe; without them the module pins nothing, like
 timing_props' video unit.
@@ -29,6 +30,7 @@ from pathlib import Path
 
 import build as build_mod
 import check as check_mod
+import mediaresolve
 import timing
 
 from .common import err
@@ -193,6 +195,27 @@ def check(errors: list) -> None:
         if a != b:
             diff = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
             err(errors, f"playback: rebuild differs in {diff[:5]}")
+
+        # the fallback: a clip over the frame budget loops the original, and
+        # the build says why (a budget of one byte makes every clip too big)
+        saved = mediaresolve.PINGPONG_MAX_FRAME_BYTES
+        mediaresolve.PINGPONG_MAX_FRAME_BYTES = 1
+        try:
+            log_c = _build(deck / "talk.md", tmp / "out-c")
+        finally:
+            mediaresolve.PINGPONG_MAX_FRAME_BYTES = saved
+        present_c = (tmp / "out-c" / "present" / "index.html").read_text(encoding="utf-8")
+        fell_back = [t for t in VIDEO_TAG_RE.findall(present_c) if "_media/clip-pingpong.mp4" in t]
+        if not fell_back or not re.search(r"\sloop\b", fell_back[0]):
+            err(errors, f"playback: an unbakeable pingpong must loop the original: {fell_back}")
+        if (tmp / "out-c" / "_media" / "clip-pingpong-pingpong.mp4").exists():
+            err(errors, "playback: an unbakeable pingpong still published a baked file")
+        if "'clip-pingpong' asks for playback: pingpong but the clip is" not in log_c:
+            err(errors, "playback: the build log does not say why the pingpong fell back")
+        manifest_c = json.loads((tmp / "out-c" / "media-manifest.json").read_text(encoding="utf-8"))
+        pp = [r["media"] for r in manifest_c["referenced"] if r["slug"] == "clip-pingpong"]
+        if not pp or "playback" in pp[0]:
+            err(errors, f"playback: a fallen-back pingpong must record as loop: {pp}")
     except Exception as exc:  # noqa: BLE001 — suite must not die
         err(errors, f"playback: suite error: {type(exc).__name__}: {exc}")
     finally:

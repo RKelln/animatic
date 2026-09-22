@@ -624,9 +624,10 @@ looping. Browsers cannot reliably play video backwards (negative
 H.264 stutters from keyframe to keyframe), so the builder bakes it: the
 published file is `_media/<slug>-pingpong.mp4`, forward then reversed, with
 the first frame of each leg dropped so neither the turn nor the loop seam
-doubles a frame. The bake needs ffmpeg, is capped at 30 s of source (the
-reverse holds every frame in memory), and is cached by source hash so a
-rebuild stays byte-identical. When it cannot bake, the screen plays the
+doubles a frame. The bake needs ffmpeg, and it is capped at 1 GB of decoded
+frames, because the reverse holds every frame in memory at about 2.6 times
+that (roughly 13 s of 1080p, 30 s of 720p, 3 s of 4K). It is cached by
+source hash so a rebuild stays byte-identical. When it cannot bake, the screen plays the
 original as `loop` and check 29 says why. An unknown value, or `playback:`
 on a card that is not `type: video`, is also a check 29 warning; the build
 is unchanged. The manifest carries `playback` only when it is not `loop`, so
