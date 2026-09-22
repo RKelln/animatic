@@ -521,6 +521,7 @@ Property assertions (not goldens):
 ```
 no remote assets      no http(s):// in src/href/@import
 video attributes      autoplay muted loop playsinline, no controls
+                      (`playback: once` drops loop and carries data-playback="once")
 cue invariants        ids unique, ordinals 1..N, len(cues) == len(sections)
 determinism           build twice, compare hashes
 theme completeness    every required token defined in each theme CSS
@@ -547,7 +548,7 @@ screen boundaries).
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved.
+media unresolved · a card `playback:` that cannot apply as written.
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 
@@ -594,6 +595,7 @@ file: <path>            # then outputs[]
 outputs: []
 poster: <path>          # live only: the still the document view prints
 live_group: <name>      # live only: hosts sharing one capture session
+playback: loop | once | pingpong   # video only; default loop
 alt / credit / licence / brief / prompts.{image,video}
 
 # FREE — never read, never validated
@@ -610,6 +612,25 @@ prints, because a printed page cannot be live. A live screen takes no `kb` and
 no `dim`: drift and a scrim both fight a moving picture. Full contract, and the
 secure-context requirement that governs where a deck can be presented:
 `docs/live-capture.md`.
+
+**`playback:` (additive, 2026-09-22).** How a video plays while its screen
+is up, and a property of the asset rather than the shot, so it lives on the
+card. `loop` is the default and what every video did before the key existed.
+`once` plays through and holds its last frame, and starts again from the top
+on every arrival at the screen: for built animations, charts that draw
+themselves, anything with an ending. `pingpong` plays forward then backward,
+looping. Browsers cannot reliably play video backwards (negative
+`playbackRate` is not supported everywhere, and scrubbing backwards through
+H.264 stutters from keyframe to keyframe), so the builder bakes it: the
+published file is `_media/<slug>-pingpong.mp4`, forward then reversed, with
+the first frame of each leg dropped so neither the turn nor the loop seam
+doubles a frame. The bake needs ffmpeg, is capped at 30 s of source (the
+reverse holds every frame in memory), and is cached by source hash so a
+rebuild stays byte-identical. When it cannot bake, the screen plays the
+original as `loop` and check 29 says why. An unknown value, or `playback:`
+on a card that is not `type: video`, is also a check 29 warning; the build
+is unchanged. The manifest carries `playback` only when it is not `loop`, so
+existing goldens keep their shape.
 
 - **`status: file`** means a local media file is in hand — buildable now.
   **`status: url`** means a verified remote source is recorded but not yet

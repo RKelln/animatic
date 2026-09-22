@@ -29,6 +29,16 @@ about file formats; the resolver is the only place extensions exist.
 
 Media found outside this repo (the TPL instance) is REFERENCED by absolute
 path, never copied: reads stay read-only, per the ticket constraint.
+
+Playback (card `playback:`, video only; spec: Media pipeline contract):
+  loop      the default: the video loops while its screen is up
+  once      plays through once and holds its last frame; each arrival restarts it
+  pingpong  forward then backward, looping.  Browsers cannot play video
+            backwards reliably, so `publish()` bakes a forward+reverse copy with
+            ffmpeg into `_media/<slug>-pingpong.mp4`, cached by source hash so a
+            rebuild copies identical bytes.  With no ffmpeg, a clip too long to
+            reverse in memory, or a failed encode, it falls back to `loop` and
+            records why (check 29).
 """
 
 from __future__ import annotations
@@ -37,7 +47,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+import hashlib
+import os
 import shutil
+import subprocess
+import tempfile
 import warnings
 
 import re
@@ -50,6 +64,11 @@ MEDIA_EXTS = {
     ".gif": "image", ".svg": "image",
 }
 VIDEO_EXTS = {e for e, t in MEDIA_EXTS.items() if t == "video"}
+
+PLAYBACK_VALUES = ("loop", "once", "pingpong")
+PINGPONG_MAX_SECONDS = 30.0        # ffmpeg's reverse filter holds every frame in memory
+# Bump when the recipe changes, so cached pingpong files are re-baked.
+PINGPONG_RECIPE = ("pingpong-v1", "trim first frame of each leg", "libx264 crf 16 slow yuv420p")
 
 
 @dataclass
@@ -68,6 +87,7 @@ class MediaRef:
     live: bool = False                 # runtime window capture (card `type: live`)
     poster: Optional[str] = None       # live only: the still the handout prints
     group: Optional[str] = None        # live only: hosts sharing one capture session
+    playback: str = "loop"             # video only: loop | once | pingpong (card `playback:`)
 
 
 @dataclass
@@ -81,6 +101,11 @@ class MediaResolver:
     library_path: Optional[Path] = None
     published: dict = field(default_factory=dict)  # slug -> out-root-relative path
     declared_missing: list = field(default_factory=list)
+    # check-29 register: (slug, message) for a card `playback:` that cannot
+    # apply as written — an unknown value, a non-video card, or a pingpong
+    # the publish step could not bake (the screen falls back to `loop`).
+    playback_issues: list = field(default_factory=list)
+    playback_fallback: dict = field(default_factory=dict)   # slug -> "loop"
     # check-10 register: (slug, declared-path) pairs whose file does not exist.
     # Filled in __post_init__; kept for the future `animatic check` runner.
 
@@ -130,6 +155,21 @@ class MediaResolver:
                         f"'{slug}' declares path that does not resolve: {raw} "
                         f"(joined to deck dir {self.talk_dir})",
                         stacklevel=3)  # past __post_init__ + dataclass __init__
+
+        # check 29: a card's `playback:` must be one of the known values, and
+        # only a video card plays.  Like check 10 this runs over ALL cards.
+        for c in self.cards:
+            if not isinstance(c, dict) or not c.get("slug") or "playback" not in c:
+                continue
+            slug, value = str(c["slug"]), c.get("playback")
+            if value not in PLAYBACK_VALUES:
+                self.playback_issues.append((slug,
+                    f"card '{slug}' has playback: {value!r}; expected one of "
+                    f"{', '.join(PLAYBACK_VALUES)} (plays as loop)"))
+            elif c.get("type") != "video":
+                self.playback_issues.append((slug,
+                    f"card '{slug}' has playback: {value} but type: "
+                    f"{c.get('type')}; playback applies to video cards only"))
 
     # -- lookups -------------------------------------------------------------
 
@@ -345,6 +385,8 @@ class MediaResolver:
         ref = self._resolve(slug)
         if ref.found and slug in self.published:
             ref.file = self.published[slug]
+        if slug in self.playback_fallback:
+            ref.playback = self.playback_fallback[slug]
         if ref.live:
             published_poster = self.published.get(slug + "-poster")
             if published_poster:
@@ -375,6 +417,16 @@ class MediaResolver:
             if not (ref.found and ref.file):
                 continue
             ext = Path(ref.file).suffix.lower() or ".bin"
+            if ref.playback == "pingpong":
+                dst = media_dir / f"{slug}-pingpong.mp4"
+                why = bake_pingpong(Path(ref.file), dst)
+                if why is None:
+                    self.published[slug] = str(Path("_media") / dst.name)
+                    continue
+                self.playback_fallback[slug] = "loop"
+                self.playback_issues.append((slug,
+                    f"card '{slug}' asks for playback: pingpong but {why}; "
+                    f"it plays as loop"))
             dst = media_dir / f"{slug}{ext}"
             shutil.copyfile(ref.file, dst)
             self.published[slug] = str(Path("_media") / f"{slug}{ext}")
@@ -392,6 +444,10 @@ class MediaResolver:
             credit=card.get("credit", "") if card else "",
             licence=card.get("licence", "") if card else "",
         )
+        # playback only means something for a video file; an unknown value
+        # plays as the default (check 29 reports it)
+        if card and ext in VIDEO_EXTS and card.get("playback") in PLAYBACK_VALUES:
+            ref.playback = card["playback"]
         if card and card.get("brief"):
             brief = card["brief"]
             if isinstance(brief, str) and brief.strip():
@@ -404,3 +460,63 @@ class MediaResolver:
         """Card slugs never referenced by any shot (authoring info)."""
         return [str(c["slug"]) for c in self.cards
                 if isinstance(c, dict) and c.get("slug") not in referenced]
+
+
+# ---------------------------------------------------------------------------
+# pingpong baking
+# ---------------------------------------------------------------------------
+
+
+def _cache_dir() -> Path:
+    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(base) / "animatic" / "pingpong"
+
+
+def bake_pingpong(src: Path, dst: Path) -> Optional[str]:
+    """Write a forward-then-reversed copy of `src` to `dst`, for looping.
+
+    Returns None on success, else a short reason the caller reports (the
+    screen then plays the original as a loop).  The first frame of each leg is
+    dropped so the turn and the loop seam never show a doubled frame.  The
+    result is cached under ~/.cache/animatic/pingpong/ by a hash of the
+    source bytes and the recipe: a rebuild copies the same bytes (the build
+    stays deterministic) and never re-encodes.
+    """
+    if shutil.which("ffmpeg") is None:
+        return "ffmpeg is not installed"
+    from timing import probe_video_seconds     # local: timing imports nothing of ours
+    seconds = probe_video_seconds(src)
+    if seconds is not None and seconds > PINGPONG_MAX_SECONDS:
+        return (f"the clip is {seconds:.0f} s, over the {PINGPONG_MAX_SECONDS:.0f} s "
+                f"reverse limit")
+    h = hashlib.sha256()
+    h.update("|".join(PINGPONG_RECIPE).encode())
+    with open(src, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    cached = _cache_dir() / f"{h.hexdigest()}.mp4"
+    if not cached.is_file():
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        graph = ("[0:v]split[f][r];"
+                 "[f]trim=start_frame=1,setpts=PTS-STARTPTS[fw];"
+                 "[r]reverse,trim=start_frame=1,setpts=PTS-STARTPTS[bw];"
+                 "[fw][bw]concat=n=2:v=1:a=0,format=yuv420p[out]")
+        fd, tmp = tempfile.mkstemp(suffix=".mp4", dir=cached.parent)
+        os.close(fd)
+        try:
+            proc = subprocess.run(
+                ["ffmpeg", "-v", "error", "-y", "-i", str(src), "-filter_complex", graph,
+                 "-map", "[out]", "-an", "-c:v", "libx264", "-crf", "16", "-preset", "slow",
+                 "-movflags", "+faststart", tmp],
+                capture_output=True, text=True, timeout=600, check=False)
+            if proc.returncode != 0:
+                last = (proc.stderr.strip().splitlines() or ["unknown error"])[-1]
+                return f"ffmpeg failed ({last})"
+            os.replace(tmp, cached)
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"ffmpeg failed ({exc})"
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+    shutil.copyfile(cached, dst)
+    return None

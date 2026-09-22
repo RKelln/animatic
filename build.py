@@ -109,6 +109,8 @@ def main(argv=None) -> int:
 
     media_refs = referenced_media(talk, resolver)
     resolver.publish(out, [r.slug for r in media_refs])
+    for _slug, msg in resolver.playback_issues:
+        print(f"warn      : check 29: {msg}")
 
     present = render_present(talk, resolver, out / "present")
     presenter = render_presenter(talk, resolver, out / "present")

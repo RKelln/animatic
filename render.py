@@ -334,14 +334,19 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
         ext = Path(ref.file).suffix.lower()
         if ext in (".mp4", ".webm", ".mov", ".m4v"):
             src = html.escape(ref.file if Path(ref.file).is_absolute() else "../" + ref.file)
+            # playback (card `playback:`): `once` drops `loop`, so the video
+            # stops on its last frame; `pingpong` is a baked forward+reverse
+            # file (mediaresolve.publish) that loops like any other
+            loop = "" if ref.playback == "once" else " loop"
+            once = ' data-playback="once"' if ref.playback == "once" else ""
             if "slide-media" in css_class.split():
-                # cinematic: autoplay muted loop when the slide is active,
-                # no native controls bar (the big play button never belongs
+                # cinematic: autoplay muted when the slide is active, no
+                # native controls bar (the big play button never belongs
                 # on a shot; the pager plays/pauses via data-autoplay)
-                attrs = 'autoplay muted loop playsinline preload="auto" data-autoplay'
+                attrs = f'autoplay muted{loop} playsinline preload="auto" data-autoplay{once}'
             else:
                 # document figure: a reader clicks to play
-                attrs = 'controls preload="metadata" muted loop playsinline'
+                attrs = f'controls preload="metadata" muted{loop} playsinline{once}'
             parts.append(
                 f'<video class="{css_class} media-video" src="{src}" {attrs} '
                 f'aria-label="{html.escape(ref.alt or ref.slug)}"></video>'
@@ -450,6 +455,12 @@ PAGER_JS = """
       el.style.animation = "none";
       void el.offsetWidth;   // force reflow so the restart takes
       el.style.animation = "";
+    }
+    // a play-once video starts from the top on every arrival, then holds
+    // its last frame (it carries no `loop`)
+    var once = slide.querySelectorAll('video[data-playback="once"]');
+    for (var j = 0; j < once.length; j++) {
+      try { once[j].currentTime = 0; } catch (err) { /* not yet seekable */ }
     }
   }
 
@@ -2144,6 +2155,9 @@ def media_ref_dict(ref: MediaRef) -> dict:
     if ref.live:
         d["live"] = True
         d["poster"] = ref.poster
+    # likewise playback appears only when it is not the default loop
+    if ref.playback != "loop":
+        d["playback"] = ref.playback
     return d
 
 

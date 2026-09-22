@@ -101,9 +101,14 @@ def check(fx, errors: list) -> None:
                         continue
                     if "media-video" not in tag:
                         continue
-                    for attr in ("autoplay", "muted", "loop", "playsinline"):
+                    # a play-once video (card `playback: once`) is the one
+                    # that must NOT loop: it holds its last frame
+                    once = 'data-playback="once"' in tag
+                    for attr in ("autoplay", "muted", "playsinline") + (() if once else ("loop",)):
                         if attr not in tag:
                             err(errors, f"present video missing {attr}")
+                    if once and re.search(r"\sloop\b", tag):
+                        err(errors, "present play-once video must not loop")
                     if re.search(r"\scontrols\b", tag):
                         err(errors, "present video must not carry native controls")
             if 'src="http' in text:

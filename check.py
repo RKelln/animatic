@@ -133,6 +133,7 @@ REGISTER = [
     (26, "no warning text contains 'line 0'",                        WARNING, "enforced: talkparse.py (T07); guard in check.py"),
     (27, "multi-line shot fixture",                                  WARNING, "fixture: tests/fixtures/constructs/multiline-shot.talk.md (T07)"),
     (28, "`[^id]` footnote with no sources: registry entry",         WARNING, "implemented"),
+    (29, "card `playback:` value unknown, on a non-video, or unbakeable", WARNING, "implemented: check.py + mediaresolve.py"),
 ]
 
 DEFERRED = {
@@ -810,6 +811,24 @@ def check_19_timing(talk, resolver, report: Report) -> None:
                f"the estimate is crude by design (spec: Timing)")
 
 
+def check_29_playback(talk, resolver, report: Report) -> None:
+    """A card `playback:` that cannot apply as written plays as `loop`; say so.
+
+    The resolver records unknown values and non-video cards for every card.
+    Whether a pingpong can be baked is only known at publish time, so the
+    check can only predict the one environment failure: no ffmpeg at all."""
+    for slug, msg in resolver.playback_issues:
+        report.add(29, WARNING, f"{msg} (spec: Media pipeline contract)")
+    if shutil.which("ffmpeg") is None:
+        for c in resolver.cards:
+            if isinstance(c, dict) and c.get("playback") == "pingpong" \
+                    and c.get("type") == "video":
+                report.add(29, WARNING,
+                           f"card '{c.get('slug')}' asks for playback: pingpong but "
+                           f"ffmpeg is not installed; it will play as loop "
+                           f"(spec: Media pipeline contract)")
+
+
 def check_28_footnotes(talk, resolver, source_text: str, report: Report) -> None:
     meta = talk.meta
     sources = meta.get("sources")
@@ -892,6 +911,7 @@ def run_checks(talk, resolver, source_text: str,
     check_18_model_ids(talk, resolver, report)
     check_19_timing(talk, resolver, report)
     check_28_footnotes(talk, resolver, source_text, report)
+    check_29_playback(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:
@@ -1243,7 +1263,7 @@ def run_corpus(roots: dict, *, strict: bool = False,
           f"concepts={len(roots.get('concepts', []))} "
           f"banks={len(roots.get('banks', []))}")
     print(f"decks     : {len(decks)} found — per-deck check_file() (checks "
-          f"1-16, 18 model, 22-28); artifact asserts 17/18 live in the T10 "
+          f"1-16, 18 model, 22-29); artifact asserts 17/18 live in the T10 "
           f"golden suite where a real build exists")
 
     deck_results = []

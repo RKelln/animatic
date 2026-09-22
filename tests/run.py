@@ -14,6 +14,8 @@ Layers (spec: Verification):
   - properties/                     structural invariants (never goldened)
   - corpus_props                    the corpus harness (check 21) over a
     synthetic /tmp tree — real content roots are never committed
+  - playback_props                  card `playback:` (check 29) over a /tmp
+    deck built from generated clips
 
 Per fixture profile the runner: builds twice into temp dirs and requires the
 trees to be byte-identical (determinism, spec: Outputs — nav.json included);
@@ -45,7 +47,7 @@ sys.path.insert(0, str(TESTS))
 
 import build as build_mod  # noqa: E402
 from properties import (check_props, corpus_props, cue_props, html_props,  # noqa: E402
-                        manifest_props, nav_props, timing_props)
+                        manifest_props, nav_props, playback_props, timing_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
 GOLDEN_FILES = ("cues.json", "media-manifest.json")
@@ -215,6 +217,19 @@ def main(argv=None) -> int:
     else:
         passed.append("corpus-harness")
         print("ok    corpus-harness")
+
+    # video playback (check 29): a throwaway deck built from generated clips,
+    # because once/pingpong only mean something against real video files
+    playback_errors: list = []
+    playback_props.check(playback_errors)
+    if playback_errors:
+        failed.append("playback")
+        print("FAIL  playback")
+        for e in playback_errors[:12]:
+            print(f"      {e}")
+    else:
+        passed.append("playback")
+        print("ok    playback")
 
     print()
     print(f"profiles: {total_profiles}  passed: {len(passed)}  "
