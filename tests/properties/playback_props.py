@@ -10,7 +10,10 @@ behaviour lives in real video files: the committed fixtures stay media-free.
 - an unknown value and a playback on an image card each raise check 29 and
   change nothing in the build;
 - the pingpong cache makes a rebuild byte-identical (determinism);
-- a clip over the frame budget falls back to looping the original, and says why.
+- the frames come out in exactly the right order across chunk boundaries:
+  each source frame has its own brightness, so the baked file is read back
+  frame by frame (a chunk joined out of order, or a doubled seam frame, fails);
+- with no ffmpeg the screen falls back to looping the original, and says why.
 
 Needs ffmpeg + ffprobe; without them the module pins nothing, like
 timing_props' video unit.
@@ -31,7 +34,6 @@ from pathlib import Path
 import build as build_mod
 import check as check_mod
 import mediaresolve
-import timing
 
 from .common import err
 
@@ -101,6 +103,21 @@ CARDS = """\
   file: media/still.png
 """
 
+# each frame N of the test clip is a flat grey at LUMA0 + LUMA_STEP * N, so the
+# baked file can be read back and its frame order checked exactly
+CLIP_FRAMES, LUMA0, LUMA_STEP = 72, 20, 2
+
+
+def _frame_lumas(path: Path) -> list:
+    # extractplanes takes the luma plane as stored; converting to `gray`
+    # would rescale limited range to full and shift every value
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-vf", "extractplanes=y",
+                          "-f", "rawvideo", "-"], capture_output=True, check=True,
+                         timeout=120).stdout
+    size = 64 * 64
+    return [sum(raw[i:i + size]) / size for i in range(0, len(raw), size)]
+
+
 VIDEO_TAG_RE = re.compile(r'<video[^>]*class="[^"]*media-video[^"]*"[^>]*>')
 
 
@@ -127,7 +144,9 @@ def check(errors: list) -> None:
         (deck / "media").mkdir(parents=True)
         subprocess.run(
             ["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i",
-             "testsrc=s=64x64:r=24:d=1", "-pix_fmt", "yuv420p", str(deck / "media" / "clip.mp4")],
+             f"nullsrc=s=64x64:r=24:d={CLIP_FRAMES / 24},"
+             f"geq=lum='{LUMA0}+{LUMA_STEP}*N':cb=128:cr=128,format=yuv420p",
+             "-c:v", "libx264", "-crf", "0", str(deck / "media" / "clip.mp4")],
             check=True, timeout=120)
         subprocess.run(
             ["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=64x64",
@@ -163,13 +182,21 @@ def check(errors: list) -> None:
         if t and not re.search(r"\sloop\b", t):
             err(errors, f"playback: the baked pingpong must loop: {t}")
 
-        # the baked file: forward + reverse, less the two dropped seam frames
+        # the baked file, frame by frame: 1..n-1 forward, then n-2..0 back
+        # (the first frame of each leg is dropped, so no seam repeats a frame)
         baked = out_a / "_media" / "clip-pingpong-pingpong.mp4"
-        src_s = timing.probe_video_seconds(deck / "media" / "clip.mp4")
-        got_s = timing.probe_video_seconds(baked) if baked.is_file() else None
-        if got_s is None or src_s is None or not (2 * src_s - 0.2 <= got_s <= 2 * src_s + 0.05):
-            err(errors, f"playback: pingpong is {got_s!r}s from a {src_s!r}s source; "
-                        f"want about twice")
+        if not baked.is_file():
+            err(errors, "playback: no baked pingpong file was published")
+        else:
+            n = CLIP_FRAMES
+            want_order = list(range(1, n)) + list(range(n - 2, -1, -1))
+            got = [round((v - LUMA0) / LUMA_STEP) for v in _frame_lumas(baked)]
+            if got != want_order:
+                bad = next((i for i, (g, w) in enumerate(zip(got, want_order)) if g != w),
+                           min(len(got), len(want_order)))
+                err(errors, f"playback: pingpong frame order wrong: {len(got)} frames "
+                            f"(want {len(want_order)}), first mismatch at output frame "
+                            f"{bad}: got {got[bad:bad + 4]}, want {want_order[bad:bad + 4]}")
 
         manifest = json.loads((out_a / "media-manifest.json").read_text(encoding="utf-8"))
         by_slug = {r["slug"]: r["media"] for r in manifest["referenced"]}
@@ -196,21 +223,20 @@ def check(errors: list) -> None:
             diff = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
             err(errors, f"playback: rebuild differs in {diff[:5]}")
 
-        # the fallback: a clip over the frame budget loops the original, and
-        # the build says why (a budget of one byte makes every clip too big)
-        saved = mediaresolve.PINGPONG_MAX_FRAME_BYTES
-        mediaresolve.PINGPONG_MAX_FRAME_BYTES = 1
+        # the fallback: with no ffmpeg the original loops, and the build says why
+        real_which = mediaresolve.shutil.which
+        mediaresolve.shutil.which = lambda cmd, *a, **k: None if cmd == "ffmpeg" else real_which(cmd, *a, **k)
         try:
             log_c = _build(deck / "talk.md", tmp / "out-c")
         finally:
-            mediaresolve.PINGPONG_MAX_FRAME_BYTES = saved
+            mediaresolve.shutil.which = real_which
         present_c = (tmp / "out-c" / "present" / "index.html").read_text(encoding="utf-8")
         fell_back = [t for t in VIDEO_TAG_RE.findall(present_c) if "_media/clip-pingpong.mp4" in t]
         if not fell_back or not re.search(r"\sloop\b", fell_back[0]):
             err(errors, f"playback: an unbakeable pingpong must loop the original: {fell_back}")
         if (tmp / "out-c" / "_media" / "clip-pingpong-pingpong.mp4").exists():
             err(errors, "playback: an unbakeable pingpong still published a baked file")
-        if "'clip-pingpong' asks for playback: pingpong but the clip is" not in log_c:
+        if "'clip-pingpong' asks for playback: pingpong but ffmpeg is not installed" not in log_c:
             err(errors, "playback: the build log does not say why the pingpong fell back")
         manifest_c = json.loads((tmp / "out-c" / "media-manifest.json").read_text(encoding="utf-8"))
         pp = [r["media"] for r in manifest_c["referenced"] if r["slug"] == "clip-pingpong"]

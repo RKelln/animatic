@@ -36,9 +36,9 @@ Playback (card `playback:`, video only; spec: Media pipeline contract):
   pingpong  forward then backward, looping.  Browsers cannot play video
             backwards reliably, so `publish()` bakes a forward+reverse copy with
             ffmpeg into `_media/<slug>-pingpong.mp4`, cached by source hash so a
-            rebuild copies identical bytes.  With no ffmpeg, a clip too big to
-            reverse in memory (PINGPONG_MAX_FRAME_BYTES), or a failed encode, it
-            falls back to `loop` and records why (check 29).
+            rebuild copies identical bytes.  The reverse runs a chunk at a time,
+            so memory does not grow with the clip's length.  With no ffmpeg, or
+            a failed encode, it falls back to `loop` and records why (check 29).
 """
 
 from __future__ import annotations
@@ -48,7 +48,6 @@ from pathlib import Path
 from typing import Optional
 
 import hashlib
-import json
 import os
 import shutil
 import subprocess
@@ -67,13 +66,10 @@ MEDIA_EXTS = {
 VIDEO_EXTS = {e for e, t in MEDIA_EXTS.items() if t == "video"}
 
 PLAYBACK_VALUES = ("loop", "once", "pingpong")
-# ffmpeg's reverse filter holds every decoded frame in memory, so the limit is
-# on the frames, not the seconds: width x height x 1.5 (yuv420p) x frame count.
-# Measured 2026-09-22: a 10 s 1928x1076 24 fps clip (~0.75 GB of frames) peaked
-# at ~2 GB, so ~2.6x.  A 1 GB budget is ~13 s of 1080p, ~30 s of 720p, ~3 s of 4K.
-PINGPONG_MAX_FRAME_BYTES = 1_000_000_000
+PINGPONG_CHUNK_SECONDS = 1        # the reverse holds one chunk of frames, never the clip
 # Bump when the recipe changes, so cached pingpong files are re-baked.
-PINGPONG_RECIPE = ("pingpong-v1", "trim first frame of each leg", "libx264 crf 16 slow yuv420p")
+PINGPONG_RECIPE = ("pingpong-v2", "chunked reverse", "trim first frame of each leg",
+                   "libx264 crf 16 slow yuv420p")
 
 
 @dataclass
@@ -477,47 +473,43 @@ def _cache_dir() -> Path:
     return Path(base) / "animatic" / "pingpong"
 
 
-def _frame_bytes(src: Path) -> Optional[int]:
-    """Decoded size of every frame (yuv420p), what ffmpeg's reverse must hold."""
+def _ffmpeg(args: list, timeout: int = 600) -> Optional[str]:
+    """Run ffmpeg quietly; None on success, else its last error line."""
     try:
-        proc = subprocess.run(
-            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
-             "stream=width,height,nb_frames,r_frame_rate:format=duration",
-             "-of", "json", str(src)],
-            capture_output=True, text=True, timeout=15, check=False)
-        info = json.loads(proc.stdout or "{}")
-        st = (info.get("streams") or [{}])[0]
-        w, h = int(st["width"]), int(st["height"])
-        frames = st.get("nb_frames")
-        if frames and str(frames).isdigit():
-            n = int(frames)
-        else:                                    # webm and friends omit nb_frames
-            num, den = (int(x) for x in st["r_frame_rate"].split("/"))
-            n = round(float(info["format"]["duration"]) * num / den)
-        return round(w * h * 1.5 * n)
-    except (OSError, ValueError, KeyError, ZeroDivisionError, subprocess.SubprocessError):
-        return None
+        proc = subprocess.run(["ffmpeg", "-v", "error", "-y"] + args,
+                              capture_output=True, text=True, timeout=timeout, check=False)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return str(exc)
+    if proc.returncode != 0:
+        return (proc.stderr.strip().splitlines() or ["unknown error"])[-1]
+    return None
 
 
 def bake_pingpong(src: Path, dst: Path) -> Optional[str]:
     """Write a forward-then-reversed copy of `src` to `dst`, for looping.
 
     Returns None on success, else a short reason the caller reports (the
-    screen then plays the original as a loop).  The first frame of each leg is
-    dropped so the turn and the loop seam never show a doubled frame.  The
-    result is cached under ~/.cache/animatic/pingpong/ by a hash of the
+    screen then plays the original as a loop).
+
+    ffmpeg's `reverse` filter buffers every decoded frame, so memory would
+    grow with the clip (about 0.9 GB per 10 s of 1080p).  Instead the reverse
+    leg is built a chunk at a time, which only ever holds one chunk:
+      1. cut the clip into PINGPONG_CHUNK_SECONDS pieces, lossless, cut
+         exactly on forced keyframes;
+      2. reverse each piece on its own;
+      3. play the source forward, then the reversed pieces last-first, and
+         encode once.
+    Proven frame-identical to the single-pass reverse filter (2026-09-22).
+    The first frame of each leg is dropped so neither the turn nor the loop
+    seam shows a doubled frame.  What memory remains is the H.264 encoder's,
+    which scales with CPU threads, not clip length.
+
+    The result is cached under ~/.cache/animatic/pingpong/ by a hash of the
     source bytes and the recipe: a rebuild copies the same bytes (the build
     stays deterministic) and never re-encodes.
     """
-    if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
+    if shutil.which("ffmpeg") is None:
         return "ffmpeg is not installed"
-    frame_bytes = _frame_bytes(src)
-    if frame_bytes is None:
-        return "ffprobe could not read the clip's size and length"
-    if frame_bytes > PINGPONG_MAX_FRAME_BYTES:
-        return (f"the clip is {frame_bytes / 1e9:.1f} GB of decoded frames, over the "
-                f"{PINGPONG_MAX_FRAME_BYTES / 1e9:.0f} GB the reverse can hold in memory "
-                f"(shorten it, or bake the pingpong by hand)")
     h = hashlib.sha256()
     h.update("|".join(PINGPONG_RECIPE).encode())
     with open(src, "rb") as f:
@@ -526,26 +518,40 @@ def bake_pingpong(src: Path, dst: Path) -> Optional[str]:
     cached = _cache_dir() / f"{h.hexdigest()}.mp4"
     if not cached.is_file():
         cached.parent.mkdir(parents=True, exist_ok=True)
-        graph = ("[0:v]split[f][r];"
-                 "[f]trim=start_frame=1,setpts=PTS-STARTPTS[fw];"
-                 "[r]reverse,trim=start_frame=1,setpts=PTS-STARTPTS[bw];"
-                 "[fw][bw]concat=n=2:v=1:a=0,format=yuv420p[out]")
-        fd, tmp = tempfile.mkstemp(suffix=".mp4", dir=cached.parent)
-        os.close(fd)
-        try:
-            proc = subprocess.run(
-                ["ffmpeg", "-v", "error", "-y", "-i", str(src), "-filter_complex", graph,
-                 "-map", "[out]", "-an", "-c:v", "libx264", "-crf", "16", "-preset", "slow",
-                 "-movflags", "+faststart", tmp],
-                capture_output=True, text=True, timeout=600, check=False)
-            if proc.returncode != 0:
-                last = (proc.stderr.strip().splitlines() or ["unknown error"])[-1]
-                return f"ffmpeg failed ({last})"
-            os.replace(tmp, cached)
-        except (OSError, subprocess.SubprocessError) as exc:
-            return f"ffmpeg failed ({exc})"
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
+        lossless = ["-an", "-c:v", "libx264", "-qp", "0", "-preset", "ultrafast"]
+        with tempfile.TemporaryDirectory(prefix="pingpong-", dir=cached.parent) as work:
+            work = Path(work)
+            (work / "fwd").mkdir()
+            (work / "rev").mkdir()
+            why = _ffmpeg(["-i", str(src)] + lossless + [
+                "-force_key_frames", f"expr:gte(t,n_forced*{PINGPONG_CHUNK_SECONDS})",
+                "-f", "segment", "-segment_time", str(PINGPONG_CHUNK_SECONDS),
+                "-reset_timestamps", "1", str(work / "fwd" / "c%06d.mkv")])
+            if why:
+                return f"ffmpeg failed splitting the clip ({why})"
+            pieces = sorted((work / "fwd").glob("c*.mkv"))
+            if not pieces:
+                return "ffmpeg produced no frames from the clip"
+            for piece in pieces:
+                why = _ffmpeg(["-i", str(piece), "-vf", "reverse"] + lossless
+                              + [str(work / "rev" / piece.name)])
+                if why:
+                    return f"ffmpeg failed reversing a chunk ({why})"
+            listing = work / "reversed.txt"
+            listing.write_text("".join(
+                "file '" + str(work / "rev" / p.name).replace("'", "'\\''") + "'\n"
+                for p in reversed(pieces)), encoding="utf-8")
+            baked = work / "pingpong.mp4"
+            why = _ffmpeg([
+                "-i", str(src), "-f", "concat", "-safe", "0", "-i", str(listing),
+                "-filter_complex",
+                "[0:v]trim=start_frame=1,setpts=PTS-STARTPTS[fw];"
+                "[1:v]trim=start_frame=1,setpts=PTS-STARTPTS[bw];"
+                "[fw][bw]concat=n=2:v=1:a=0,format=yuv420p[out]",
+                "-map", "[out]", "-an", "-c:v", "libx264", "-crf", "16", "-preset", "slow",
+                "-movflags", "+faststart", str(baked)])
+            if why:
+                return f"ffmpeg failed joining the pingpong ({why})"
+            os.replace(baked, cached)
     shutil.copyfile(cached, dst)
     return None
