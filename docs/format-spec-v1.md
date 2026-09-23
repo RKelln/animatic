@@ -651,6 +651,22 @@ Unknown keys are never an error at any level of the card.
 edited. Minimum entry: `## <ISO date> · <slug> · a<N>` with `intent`, `delta`,
 `verdict`, `keep`, `surprise`. Attempt numbers are per-slug and monotonic.
 
+Checks 13/14 read every shape a log records attempts in, because an
+append-only log cannot be rewritten into one shape afterwards:
+
+- the per-take header above;
+- a batch take line, `- a<N> ← `<file>` (slug <slug>, …)`, as `ingest.py`
+  writes under its `## <date> · ingest · <n> file(s)` header;
+- a take line under a bulk subheading, `### <slug> — <n> take(s)`;
+- history, replayed in order: a rename `- <old>-a<N>.<ext> -> <new>-a<M>.<ext>`
+  moves an attempt's record to its new name, and a split
+  `- split: <old>-a<N> -> new slug `<new>`` moves it to the new slug's next
+  number. The number a moved attempt leaves behind was used, so it is not a
+  numbering gap.
+
+A promote line (`… promoted to …`) names an attempt that already exists; it is
+not a record of one.
+
 ---
 
 ## Timing

@@ -100,6 +100,19 @@ FOOTNOTE_REF_RE = talkparse.FOOTNOTE_REF_RE
 COMMENT_SPAN_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 GENLOG_HEADER_RE = re.compile(
     r"^##\s+(\S+)\s*·\s*([a-z0-9][a-z0-9-]*)\s*·\s*a(\d+)\s*$")
+# The batch shapes a gen-log also records attempts in (spec: Media pipeline
+# contract).  A take line names one attempt; its slug is given inline, as
+# ingest.py writes `(slug <slug>, ...)`, or by the `### <slug> — N take(s)`
+# subheading of a bulk block.  A promote line names an attempt that already
+# exists, so it is not a record of one.
+GENLOG_TAKE_RE = re.compile(r"^-\s+a(\d+)\s+←\s+`[^`]*`(.*)$")
+GENLOG_TAKE_SLUG_RE = re.compile(r"\(slug\s+([a-z0-9][a-z0-9-]*)")
+GENLOG_BULK_RE = re.compile(r"^###\s+([a-z0-9][a-z0-9-]*)\s+—\s+\d+\s+takes?")
+# History: an attempt that moved keeps its record under its new name.
+GENLOG_RENAME_RE = re.compile(
+    r"^-\s+([a-z0-9][a-z0-9-]*)-a(\d+)\.\S+\s+->\s+([a-z0-9][a-z0-9-]*)-a(\d+)\.\S+\s*$")
+GENLOG_SPLIT_RE = re.compile(
+    r"^-\s+split:\s+([a-z0-9][a-z0-9-]*)-a(\d+)\s+->\s+new slug\s+`([a-z0-9][a-z0-9-]*)`")
 
 # Canonical register (work-spec: Text coverage table + report Part 4/6 additions).
 # status: implemented (this file) | enforced (owner ticket) | fixture |
@@ -542,15 +555,28 @@ def check_12_visual_no_media(talk, resolver, report: Report) -> None:
 
 
 def _attempt_facts(media_dir: Path) -> tuple:
-    """(files, log) — attempt numbers per slug from disk and gen-log.md.
+    """(files, log, logged, moved) — attempt numbers per slug from disk and gen-log.md.
 
-    files: {slug: {n: relative-path}} for media/<slug>/attempts/<slug>-aN.ext
-           (media extensions only — *.expanded.txt sidecars are diagnostics
-           of the same attempt, not attempts).
-    log:   {slug: [(n, log_line_no)]} from `## <date> · <slug> · a<N>` headers.
+    files:  {slug: {n: relative-path}} for media/<slug>/attempts/<slug>-aN.ext
+            (media extensions only — *.expanded.txt sidecars are diagnostics
+            of the same attempt, not attempts).
+    log:    {slug: [(n, log_line_no)]} — the direct records, in log order:
+            `## <date> · <slug> · a<N>` headers, ingest's `- aN ← `file`
+            (slug <slug>, ...)` lines, and `- aN ← ...` lines under a bulk
+            `### <slug> — N take(s)` subheading.  Promote lines are not records.
+    logged: {slug: {n: log_line_no}} — where every recorded attempt lives now,
+            after replaying the log's renames (`- old-aN.<ext> -> new-aM.<ext>`)
+            and splits (`- split: old-aN -> new slug `X``, which lands as the
+            new slug's next attempt) in log order.  A moved attempt is recorded
+            under its new name and no longer under its old one.
+    moved:  {slug: {n}} — attempt numbers that were used and then moved away.
+            A split leaves a hole in the old slug's numbers, and that hole is
+            history, not a numbering gap (check 14).
     """
     files = {}
     log = {}
+    logged = {}
+    moved = {}
     if media_dir.is_dir():
         for slug_dir in sorted(p for p in media_dir.iterdir() if p.is_dir()):
             slug = slug_dir.name
@@ -569,35 +595,71 @@ def _attempt_facts(media_dir: Path) -> tuple:
                 lines = gl.read_text(encoding="utf-8").split("\n")
             except OSError:
                 lines = []
+
+            def record(slug, n, lineno):
+                log.setdefault(slug, []).append((n, lineno))
+                logged.setdefault(slug, {}).setdefault(n, lineno)
+
+            def move(old, n, new, m, lineno):
+                moved.setdefault(old, set()).add(n)
+                origin = logged.get(old, {}).pop(n, lineno)
+                logged.setdefault(new, {}).setdefault(m, origin)
+
+            bulk = None                   # the current `### <slug> — N take(s)` block
             for lineno, raw in enumerate(lines, start=1):
-                m = GENLOG_HEADER_RE.match(raw.strip())
+                line = raw.strip()
+                if line.startswith("## "):
+                    bulk = None
+                    m = GENLOG_HEADER_RE.match(line)
+                    if m:
+                        record(m.group(2), int(m.group(3)), lineno)
+                    continue
+                m = GENLOG_BULK_RE.match(line)
                 if m:
-                    log.setdefault(m.group(2), []).append((int(m.group(3)),
-                                                           lineno))
-    return files, log
+                    bulk = m.group(1)
+                    continue
+                m = GENLOG_TAKE_RE.match(line)
+                if m:
+                    rest = m.group(2)
+                    if "promoted to" in rest:
+                        continue
+                    inline = GENLOG_TAKE_SLUG_RE.search(rest)
+                    slug = inline.group(1) if inline else bulk
+                    if slug:
+                        record(slug, int(m.group(1)), lineno)
+                    continue
+                m = GENLOG_RENAME_RE.match(line)
+                if m:
+                    move(m.group(1), int(m.group(2)), m.group(3), int(m.group(4)), lineno)
+                    continue
+                m = GENLOG_SPLIT_RE.match(line)
+                if m:
+                    new = m.group(3)
+                    nxt = max(logged.get(new, {}) or [0]) + 1
+                    move(m.group(1), int(m.group(2)), new, nxt, lineno)
+    return files, log, logged, moved
 
 
 def check_13_14_attempts(talk, resolver, report: Report) -> None:
     media_dir = resolver.media_dir
-    files, log = _attempt_facts(media_dir)
+    files, log, logged, moved = _attempt_facts(media_dir)
     log_present = (media_dir / "gen-log.md").is_file()
-    for slug in sorted(set(files) | set(log)):
+    for slug in sorted(set(files) | set(logged)):
         fset = set(files.get(slug, {}))
-        lset = {n for n, _ in log.get(slug, [])}
+        lset = set(logged.get(slug, {}))
         for n in sorted(fset - lset):
             report.add(13, REPORT,
                        f"attempt file with no gen-log entry: "
                        f"{files[slug][n]} — archaeology drift (media/"
                        f"gen-log.md; spec: Media pipeline contract append-only)")
         for n in sorted(lset - fset):
-            entry_lines = [ln for m, ln in log[slug] if m == n]
             report.add(13, REPORT,
                        f"gen-log entry with no attempt file on disk: "
                        f"{slug} a{n} (media/gen-log.md line "
-                       f"{','.join(str(x) for x in entry_lines)}) — "
-                       f"archaeology drift")
-        # numbering: union must be contiguous 1..max
-        union = sorted(fset | lset)
+                       f"{logged[slug][n]}) — archaeology drift")
+        # numbering: union must be contiguous 1..max (a number that moved to
+        # another slug was used, so it is not a gap)
+        union = sorted(fset | lset | moved.get(slug, set()))
         if union:
             missing = [n for n in range(1, union[-1] + 1) if n not in union]
             if missing:
