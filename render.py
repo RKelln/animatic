@@ -1743,6 +1743,26 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
     return path
 
 
+def list_html(b) -> str:
+    """A list block: `<ol>` for numbered items, `<ul>` otherwise."""
+    tag = "ol" if b.ordered else "ul"
+    items = "".join(f"<li>{inline_md(i)}</li>" for i in b.items)
+    return f"<{tag}>{items}</{tag}>"
+
+
+def table_html(b) -> str:
+    """A table block; rows[0] is a header row when the source marked one."""
+    rows = list(b.rows)
+    head = ""
+    if b.header and rows:
+        cells = "".join(f"<th>{inline_md(c)}</th>" for c in rows.pop(0))
+        head = f"<thead><tr>{cells}</tr></thead>"
+    body = "".join(
+        "<tr>" + "".join(f"<td>{inline_md(c)}</td>" for c in row) + "</tr>"
+        for row in rows)
+    return f'<table class="md-table">{head}<tbody>{body}</tbody></table>'
+
+
 def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                      first: str = "") -> str:
     mshot = screen.media_shot
@@ -1754,7 +1774,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     credits_screen = is_credits_screen(screen)
     # slide-level flags come from the screen's first shot (`fit` hero cards)
     sflags = screen.shots[0].flags if screen.shots else {}
-    has_body = any(b.kind in ("heading", "stat", "quote", "list")
+    has_body = any(b.kind in ("heading", "stat", "quote", "list", "table")
                    for b in screen.blocks)
 
     inner = []
@@ -1812,8 +1832,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                     f"{src}</div>"
                 )
             elif b.kind == "list":
-                items = "".join(f"<li>{inline_md(i)}</li>" for i in b.items)
-                body.append(f"<ul>{items}</ul>")
+                body.append(list_html(b))
+            elif b.kind == "table":
+                body.append(table_html(b))
             elif b.kind == "stat":
                 body.append(f'<div class="stat">{inline_md(b.text)}</div>')
             elif b.kind == "paraphrase":
@@ -2000,8 +2021,9 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         elif b.kind == "quote-source":
             out.append(f'<p class="doc-quote-source">{inline_md(b.text)}</p>')
         elif b.kind == "list":
-            items = "".join(f"<li>{inline_md(i)}</li>" for i in b.items)
-            out.append(f"<ul>{items}</ul>")
+            out.append(list_html(b))
+        elif b.kind == "table":
+            out.append(table_html(b))
         elif b.kind == "stat":
             if b.text.strip():
                 out.append(f'<div class="stat-callout"><p>{inline_md(b.text)}</p></div>')
@@ -2061,7 +2083,13 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             elif b.kind == "quote-source":
                 text.append({"kind": "source", "text": b.text})
             elif b.kind == "list":
-                text.append({"kind": "list", "items": list(b.items)})
+                entry = {"kind": "list", "items": list(b.items)}
+                if b.ordered:
+                    entry["ordered"] = True
+                text.append(entry)
+            elif b.kind == "table":
+                text.append({"kind": "table", "header": b.header,
+                             "rows": [list(r) for r in b.rows]})
             elif b.kind in ("stat", "lower", "credits", "paraphrase"):
                 if b.text.strip():
                     text.append({"kind": b.kind, "text": b.text})

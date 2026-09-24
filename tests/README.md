@@ -17,6 +17,9 @@ One command, one exit code:
   committed before this suite and included unchanged except status quoting.
   `cue-id-space.talk.md` is generated (103 one-card screens) and pins the
   three-digit cue-id space past the 99 cliff (register check 18).
+  `lists-and-tables.talk.md` pins numbered lists (`1.` and `1)`, a `-` run
+  after them as a separate list) and pipe tables (with and without a header
+  delimiter, a ragged row), and that prose with a mid-line pipe stays spoken.
   `soft-wrap.talk.md` pins merged line spans — a soft-wrapped paragraph, a
   two-line quote, a two-line list — the spans `nav.json` ranges are built
   from (a range that stops at a block's first line leaves body lines

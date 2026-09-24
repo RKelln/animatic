@@ -52,7 +52,7 @@
     width: 2.2em; height: 2px; margin: 0.4em auto 0;
     background: var(--stage-accent);
   }
-  .animatic-slide ul { color: var(--stage-ink); text-shadow: none; }
+  .animatic-slide :is(ul, ol, table) { color: var(--stage-ink); text-shadow: none; }
 
   /* over full-bleed media, ink text still needs glyph pop: a pale paper
      halo lifts dark glyphs off bright AND dark patches (the plate handles
@@ -60,7 +60,7 @@
   .animatic-slide.over-media .slide-title,
   .animatic-slide.over-media blockquote,
   .animatic-slide.over-media .stat,
-  .animatic-slide.over-media ul {
+  .animatic-slide.over-media :is(ul, ol, table) {
     text-shadow:
       0 0 9px rgba(247, 242, 232, 0.9),
       0 0 2px rgba(247, 242, 232, 0.75);
@@ -105,7 +105,7 @@
   .animatic-slide.text-light .slide-title,
   .animatic-slide.text-light blockquote,
   .animatic-slide.text-light .stat,
-  .animatic-slide.text-light ul {
+  .animatic-slide.text-light :is(ul, ol, table) {
     color: #f7f2e8;
     text-shadow:
       0 2px 22px rgba(0, 0, 0, 0.65),
@@ -115,7 +115,7 @@
   .animatic-slide.text-dark .slide-title,
   .animatic-slide.text-dark blockquote,
   .animatic-slide.text-dark .stat,
-  .animatic-slide.text-dark ul {
+  .animatic-slide.text-dark :is(ul, ol, table) {
     color: var(--stage-ink);
     text-shadow: none;
   }

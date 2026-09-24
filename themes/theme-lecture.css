@@ -43,7 +43,7 @@
   .animatic-slide.over-media .slide-title,
   .animatic-slide.over-media blockquote,
   .animatic-slide.over-media .stat,
-  .animatic-slide.over-media ul {
+  .animatic-slide.over-media :is(ul, ol, table) {
     text-shadow: var(--stage-text-glow);
   }
 
@@ -53,7 +53,7 @@
   .animatic-slide.text-dark .slide-title,
   .animatic-slide.text-dark blockquote,
   .animatic-slide.text-dark .stat,
-  .animatic-slide.text-dark ul {
+  .animatic-slide.text-dark :is(ul, ol, table) {
     color: #241f18;
     text-shadow:
       0 0 9px rgba(247, 242, 232, 0.9),
@@ -63,7 +63,7 @@
   .animatic-slide.text-light .slide-title,
   .animatic-slide.text-light blockquote,
   .animatic-slide.text-light .stat,
-  .animatic-slide.text-light ul {
+  .animatic-slide.text-light :is(ul, ol, table) {
     color: var(--stage-ink);
     text-shadow: var(--stage-text-glow);
   }

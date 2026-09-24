@@ -50,7 +50,12 @@ its **position**.
 1. **Shape decides the default.** A paragraph is spoken. A heading, quote, or
    list is screen text — on screen, never spoken. A parenthetical is a stage
    note. This is the whole rule for headings, quotes, and lists: they are
-   always screen text, with or without a role.
+   always screen text, with or without a role. A list is `-` (or `*`, `+`)
+   items, or numbered `1.` / `1)` items, which render as a numbered list; a
+   switch between the two starts a new list. A pipe table (rows starting
+   `|`, with an optional `|---|` delimiter row marking the row above it as
+   the header) is screen text too. A pipe in the middle of a paragraph
+   stays prose.
 2. **Position overrides a paragraph's default.** A paragraph directly after a
    `role=` shot becomes that role's payload (on screen; `stat` is also spoken,
    `lower` and `credits` are not). A paragraph on a credits screen becomes a

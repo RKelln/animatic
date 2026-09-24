@@ -33,6 +33,10 @@ Encoded parse-model decisions (rationale in docs/engine-decision.md):
   Parens do not nest: a nested `(` is a warning (register check 23, spec: Text)
   — the strip recognizes one level only, and nesting would corrupt the
   spoken text.
+- Numbered lists (`1.` or `1)`) are lists with `ordered` set, and pipe tables
+  (rows starting `|`, an optional `|---|` delimiter row marking the header)
+  are `table` blocks. Both are screen objects like `-` lists: on the slide
+  and in the handout, never spoken.
 - Footnote references `[^id]` are inert like parentheticals: stripped from
   every text block — never spoken, never on screen, never verbatim in the
   handout — and each referenced id is collected on Talk.footnote_ids in
@@ -86,6 +90,12 @@ HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 QUOTE_RE = re.compile(r"^>\s?(.*)$")
 LIST_ITEM_RE = re.compile(r"^[-*+]\s+(.*)$")
 HR_RE = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
+ORDERED_ITEM_RE = re.compile(r"^\d+[.)]\s+(.*)$")
+# a pipe table row: starts with `|` (GFM's leading pipe is required here, so a
+# prose line with a stray pipe never becomes a table); the delimiter row
+# (`|---|:--:|`) marks the row above it as the header
+TABLE_ROW_RE = re.compile(r"^\|(.*)$")
+TABLE_DELIM_RE = re.compile(r"^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$")
 PAREN_SPLIT_RE = re.compile(r"\(([^()]*)\)|([^()]+)")
 FOOTNOTE_REF_RE = re.compile(r"\[\^([a-z0-9][a-z0-9-]*)\](?!:)")
 FLAG_RE = re.compile(r"([A-Za-z][A-Za-z0-9_\-]*)(?:=([^\s]+))?")
@@ -264,10 +274,13 @@ class Shot:
 class Block:
     """One content block on a screen, in document order."""
 
-    kind: str                     # vo|heading|quote|quote-source|list|stat|lower|credits|paraphrase
+    kind: str                     # vo|heading|quote|quote-source|list|table|stat|lower|credits|paraphrase
     text: str = ""                # for vo/heading/quote/stat/lower/credits/paraphrase
     level: Optional[int] = None   # heading depth (1..6)
     items: list = field(default_factory=list)   # list items
+    ordered: bool = False         # numbered list (`1.` items)
+    rows: list = field(default_factory=list)    # table: list of rows of cell strings
+    header: bool = False          # table: rows[0] is the header row
     stage: list = field(default_factory=list)   # extracted parentheticals
     spoken: bool = False          # role payload is spoken VO (from roles.yaml)
     line: int = 0                 # first source line of the block
@@ -605,18 +618,46 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None) ->
             continue
 
         # --- list items -------------------------------------------------------
+        # `-` and `1.` items make separate lists: a switch starts a new block.
         lm = LIST_ITEM_RE.match(line)
-        if lm:
-            if cont and cont[0] == "list" and lineno == cont[2] + 1:
-                cont[1]["items"].append(lm.group(1).strip())
+        om = None if lm else ORDERED_ITEM_RE.match(line)
+        if lm or om:
+            ckind = "olist" if om else "list"
+            item = (lm or om).group(1).strip()
+            if cont and cont[0] == ckind and lineno == cont[2] + 1:
+                cont[1]["items"].append(item)
                 cont[1]["line_end"] = lineno
                 cont[2] = lineno
             else:
                 flush_para()
-                block = {"kind": "list", "items": [lm.group(1).strip()],
+                block = {"kind": "list", "items": [item], "ordered": bool(om),
                          "line": lineno, "line_end": lineno}
                 blocks.append(block)
-                cont = ["list", block, lineno]
+                cont = [ckind, block, lineno]
+            continue
+
+        # --- table rows -------------------------------------------------------
+        tm = TABLE_ROW_RE.match(line.strip())
+        if tm:
+            if cont and cont[0] == "table" and lineno == cont[2] + 1:
+                block = cont[1]
+            else:
+                flush_para()
+                block = {"kind": "table", "rows": [], "header": False,
+                         "line": lineno, "line_end": lineno}
+                blocks.append(block)
+                cont = ["table", block, lineno]
+            if TABLE_DELIM_RE.match(line.strip()):
+                # the delimiter row marks the rows above it as the header
+                if len(block["rows"]) == 1:
+                    block["header"] = True
+            else:
+                cells = line.strip()[1:]
+                if cells.rstrip().endswith("|"):
+                    cells = cells.rstrip()[:-1]
+                block["rows"].append([c.strip() for c in cells.split("|")])
+            block["line_end"] = lineno
+            cont[2] = lineno
             continue
 
         # --- thematic break (ignored; movement H2s carry structure) ----------
@@ -932,7 +973,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         # On a credits SCREEN (credits_open), paragraphs, list items, and
         # headings are screen content, consumed until the next shot.
         if (pending_role is not None and not credits_open
-                and kind not in ("para", "vo", "quote", "list")):
+                and kind not in ("para", "vo", "quote", "list", "table")):
             # role shot expects a payload paragraph; a non-paragraph arrived
             talk.warnings.append(
                 f"line {role_line}: '{pending_role}' shot not followed by a "
@@ -1000,6 +1041,18 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                 Block(kind="list",
                       items=[strip_footnote_refs(i, talk.footnote_ids)
                              for i in rb["items"]],
+                      ordered=rb.get("ordered", False),
+                      line=rb.get("line", 0),
+                      line_end=rb.get("line_end", 0) or rb.get("line", 0))
+            )
+            continue
+
+        if kind == "table":
+            cur.blocks.append(
+                Block(kind="table",
+                      rows=[[strip_footnote_refs(c, talk.footnote_ids)
+                             for c in row] for row in rb["rows"]],
+                      header=rb.get("header", False),
                       line=rb.get("line", 0),
                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
             )
