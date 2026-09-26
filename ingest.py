@@ -18,6 +18,12 @@ own description), fills an empty prompt on an existing card, and appends the
 generation record to `media/gen-log.md`. Highest attempt number wins in the
 resolver, so the last file dropped is what the deck shows.
 
+Files that carry their own record are read too: a PNG with a `Prompt` text
+chunk (ChatGPT-image provenance exports add Title, Prompt and a
+GenerationMetadata JSON as iTXt) gets that prompt on the card's `image:` line
+and a one-line summary (tool, model, seed, references) in the brief and log.
+Fields the file does not have are logged as "not recorded", never guessed.
+
 Usage:
     python3 ingest.py <talk.md>                 # drain <deck>/media/_incoming/
     python3 ingest.py <talk.md> --from DIR
@@ -162,23 +168,107 @@ def _load_cards(talk: Path) -> tuple[list[str], dict[str, str], dict]:
     return slugs, aliases, cards
 
 
-def _card_block(slug: str, kind: str, prompt: str, alt: str, meta: dict,
+PNG_SIG = b"\x89PNG\r\n\x1a\n"
+
+
+def _png_text(path: Path) -> dict[str, str]:
+    """A PNG's text chunks (tEXt, zTXt, iTXt), keyed as written."""
+    import zlib
+    data = path.read_bytes()
+    if not data.startswith(PNG_SIG):
+        return {}
+    out: dict[str, str] = {}
+    i = len(PNG_SIG)
+    while i + 8 <= len(data):
+        n = int.from_bytes(data[i:i + 4], "big")
+        kind, body = data[i + 4:i + 8], data[i + 8:i + 8 + n]
+        i += 12 + n
+        if kind == b"IEND":
+            break
+        try:
+            if kind == b"tEXt":
+                k, v = body.split(b"\0", 1)
+                out[k.decode("latin-1")] = v.decode("latin-1")
+            elif kind == b"zTXt":
+                k, v = body.split(b"\0", 1)
+                out[k.decode("latin-1")] = zlib.decompress(v[1:]).decode("latin-1")
+            elif kind == b"iTXt":
+                k, rest = body.split(b"\0", 1)
+                compressed, rest = rest[0], rest[2:]
+                _lang, _translated, v = rest.split(b"\0", 2)
+                out[k.decode("latin-1")] = (zlib.decompress(v) if compressed else v).decode("utf-8")
+        except (ValueError, IndexError, zlib.error, UnicodeDecodeError):
+            continue
+    return out
+
+
+def _embedded_record(path: Path) -> dict | None:
+    """The generation record a file carries itself: PNG text chunks with a
+    `Prompt` key (as written by ChatGPT-image provenance exports). Shaped like a
+    fal record where it matters, so falrec.prompt_of() reads it. None if absent."""
+    if path.suffix.lower() != ".png":
+        return None
+    text = {k.lower(): v for k, v in _png_text(path).items()}
+    prompt = (text.get("prompt") or "").strip()
+    if not prompt:
+        return None
+    try:
+        gen = json.loads(text.get("generationmetadata") or "{}")
+    except ValueError:
+        gen = {}
+    return {"source": "embedded", "json_input": {"prompt": prompt},
+            "title": text.get("title", ""), "generation": gen if isinstance(gen, dict) else {}}
+
+
+def _is_embedded(rec: dict | None) -> bool:
+    return bool(rec) and rec.get("source") == "embedded"
+
+
+def _embedded_summary(rec: dict) -> str:
+    """One line of what the file says about its own making; 'not recorded' when absent."""
+    g = rec.get("generation") or {}
+    refs = [r.get("original_filename") or r.get("archive_filename") or "?"
+            for r in g.get("references") or [] if isinstance(r, dict)]
+    return " · ".join([
+        f"'{rec.get('title') or 'untitled'}'",
+        f"tool {g.get('tool') or 'not recorded'}",
+        f"model {g.get('model') or 'not recorded'}",
+        f"seed {g.get('seed') if g.get('seed') is not None else 'not recorded'}",
+        f"made {g.get('conversation_generation_date_local') or 'not recorded'}",
+        f"file {g.get('original_filename') or 'not recorded'}",
+        "refs " + (", ".join(refs) if refs else "none"),
+    ])
+
+
+def _record_lines(rec: dict | None) -> list[str]:
+    """How the take was made, for a card brief and the gen-log."""
+    if not rec:
+        return []
+    if _is_embedded(rec):
+        return [f"embedded: {_embedded_summary(rec)}"]
+    meta = falrec.summary(rec)
+    return [f"fal: {meta.get('endpoint')} · {meta.get('duration')}s · "
+            f"{meta.get('resolution')} · expansion {meta.get('expansion')}",
+            f"request {meta.get('request_id')} · queued {meta.get('queued_at')}"]
+
+
+def _card_block(slug: str, kind: str, prompt: str, alt: str, rec: dict | None,
                 brief_extra: list[str]) -> str:
     def q(s: str) -> str:
         return s.replace("\\", "\\\\").replace('"', '\\"')
+    image, video = (prompt, "") if kind == "image" else ("", prompt)
     lines = [f"\n- slug: {slug}", f"  type: {kind}", "  status: candidate", "  brief: |"]
-    lines += [f"    {b}" for b in brief_extra]
-    lines += [f"    fal: {meta.get('endpoint')} · {meta.get('duration')}s · "
-              f"{meta.get('resolution')} · expansion {meta.get('expansion')}",
-              f"    request {meta.get('request_id')} · queued {meta.get('queued_at')}"]
-    lines += ["  prompts:", '    image: ""', f'    video: "{q(prompt)}"',
+    lines += [f"    {b}" for b in brief_extra + _record_lines(rec)]
+    lines += ["  prompts:", f'    image: "{q(image)}"', f'    video: "{q(video)}"',
               "  outputs: []", "  credit: Ryan Kelln (generated)", "  licence: CC BY-SA",
               f'  alt: "{q(alt)}"']
     return "\n".join(lines) + "\n"
 
 
-def _fill_card(cards_path: Path, slug: str, prompt: str, alt: str) -> list[str]:
-    """Fill an EMPTY prompt/alt on an existing card. Never overwrites."""
+def _fill_card(cards_path: Path, slug: str, prompt: str, alt: str,
+               kind: str = "video") -> list[str]:
+    """Fill an EMPTY prompt/alt on an existing card. Never overwrites.
+    An image take fills `image:`, anything else `video:`."""
     body = cards_path.read_text()
     pat = re.compile(rf"(?ms)^- slug: {re.escape(slug)}\n(.*?)(?=^- slug: |\Z)")
     m = pat.search(body)
@@ -186,16 +276,17 @@ def _fill_card(cards_path: Path, slug: str, prompt: str, alt: str) -> list[str]:
         return []
     block, notes = m.group(0), []
     new_block = block
-    if prompt and re.search(r'(?m)^    video: ""\s*$', new_block):
-        new_block = re.sub(r'(?m)^    video: ""\s*$',
-                           '    video: "' + prompt.replace("\\", "\\\\").replace('"', '\\"') + '"',
+    field = "image" if kind == "image" else "video"
+    if prompt and re.search(rf'(?m)^    {field}: ""\s*$', new_block):
+        new_block = re.sub(rf'(?m)^    {field}: ""\s*$',
+                           f'    {field}: "' + prompt.replace("\\", "\\\\").replace('"', '\\"') + '"',
                            new_block, count=1)
-        notes.append("prompt filled from fal")
+        notes.append("prompt filled from the take's record")
     elif prompt:
-        have = re.search(r'(?m)^    video: "(.*)"\s*$', new_block)
+        have = re.search(rf'(?m)^    {field}: "(.*)"\s*$', new_block)
         if have and falrec.prompt_of({"json_input": {"prompt": have.group(1)}}) and \
            _jac(have.group(1), prompt) < 0.9:
-            notes.append("prompt on card differs from what fal ran (left alone)")
+            notes.append("prompt on card differs from what was run (left alone)")
     if alt and re.search(r'(?m)^  alt: ""\s*$', new_block):
         new_block = re.sub(r'(?m)^  alt: ""\s*$',
                            '  alt: "' + alt.replace("\\", "\\\\").replace('"', '\\"') + '"',
@@ -302,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--from", dest="src", type=Path, default=None)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-recover", action="store_true",
-                    help="skip the fal record read (name matching only)")
+                    help="skip the fal record read (a record embedded in the file is still read)")
     ap.add_argument("--no-new-cards", action="store_true")
     ap.add_argument("--match-threshold", type=float, default=MATCH_THRESHOLD)
     ap.add_argument("--promote", metavar="SLUG",
@@ -338,16 +429,18 @@ def main(argv: list[str] | None = None) -> int:
     # ---- pass 1: read each clip's record while it is still in the inbox
     found: dict[Path, dict | None] = {}
     for f in files:
-        if args.no_recover:
-            found[f] = None
-            continue
-        try:
-            found[f] = falrec.recover(f, key)
-        except falrec.NoRecord:
-            found[f] = None
-        except Exception as e:                                       # noqa: BLE001
-            print(f"  {f.name}: fal lookup failed ({type(e).__name__}: {e})")
-            found[f] = None
+        found[f] = None
+        if not args.no_recover:
+            try:
+                found[f] = falrec.recover(f, key)
+            except falrec.NoRecord:
+                pass
+            except Exception as e:                                   # noqa: BLE001
+                print(f"  {f.name}: fal lookup failed ({type(e).__name__}: {e})")
+        # A record the file carries itself costs nothing to read, so it is read
+        # even under --no-recover.
+        if found[f] is None:
+            found[f] = _embedded_record(f)
 
     # ---- pass 2: decide the slug, strongest evidence first
     planned, counters, notes = [], {}, []
@@ -412,17 +505,20 @@ def main(argv: list[str] | None = None) -> int:
     created, filled = [], []
     for p in planned:
         slug, rec = p["slug"], p["rec"]
-        alt = falrec.alt_from_expanded(rec) if rec else ""
+        alt = falrec.alt_from_expanded(rec) if rec and not _is_embedded(rec) else ""
         if p["how"] == "new" and not (cards_path.read_text().count(f"- slug: {slug}\n")):
             brief = [f"filed by ingest.py {dt.date.today().isoformat()}; name derived from "
                      f"'{p['src'].name}'" + (" and needs review" if p["how"] == "new" else "")]
-            if rec:
+            if _is_embedded(rec):
+                brief.append("prompt read from the file's embedded metadata; "
+                             "rename the slug to say what the shot is")
+            elif rec:
                 brief.append("prompt recovered from fal; rename the slug to say what the shot is")
             cards_path.open("a").write(_card_block(slug, p["kind"], p["prompt"], alt,
-                                                   falrec.summary(rec), brief))
+                                                   rec, brief))
             created.append(slug)
         else:
-            got = _fill_card(cards_path, slug, p["prompt"], alt)
+            got = _fill_card(cards_path, slug, p["prompt"], alt, p["kind"])
             if got:
                 filled.append((slug, ", ".join(got)))
 
@@ -431,15 +527,17 @@ def main(argv: list[str] | None = None) -> int:
         fh.write(f"\n## {today} · ingest · {len(planned)} file(s)\n")
         if src != media_dir / "_incoming":
             fh.write(f"- source: `{src}`\n")
-        fh.write("- intent: file hand-dropped media and author the card from fal's record\n")
+        fh.write("- intent: file hand-dropped media and author the card from the take's own record\n")
         fh.write("- delta: ingest, no new generation\n")
         fh.write("- verdict: not-yet-reviewed — candidates only, no take approved\n")
         for p in planned:
-            m = falrec.summary(p["rec"])
             fh.write(f"- a{p['n']} ← `{p['src'].name}` (slug {p['slug']}, matched by {p['how']})\n")
             if p["prompt"]:
                 fh.write(f"  - prompt: {' '.join(p['prompt'].split())}\n")
-            if p["rec"]:
+            if _is_embedded(p["rec"]):
+                fh.write(f"  - embedded: {_embedded_summary(p['rec'])}\n")
+            elif p["rec"]:
+                m = falrec.summary(p["rec"])
                 fh.write(f"  - fal: {m['endpoint']} · {m['duration']}s · {m['resolution']} · "
                          f"expansion {m['expansion']} · request {m['request_id']}\n")
 
