@@ -490,7 +490,13 @@ PAGER_JS = """
   }
 
   function go(i, updateHash) {
-    cur = Math.max(0, Math.min(slides.length - 1, i));
+    // An index that is not a finite number (a cue id, undefined, NaN) is not a
+    // destination.  Ignore it instead of letting cur become NaN: the pager
+    // would strip `active` from every slide before restartMotion threw, so the
+    // deck went blank and every later next()/prev() stayed NaN until a reload.
+    var n = Number(i);
+    if (!isFinite(n)) return;
+    cur = Math.max(0, Math.min(slides.length - 1, Math.floor(n)));
     render();
     if (updateHash !== false) history.replaceState(null, "", "#" + (cur + 1));
   }
