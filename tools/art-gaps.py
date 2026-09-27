@@ -98,6 +98,10 @@ def collect(talk_path: Path) -> dict:
     refs = {s: resolver.resolve(s) for s in order}
 
     # one pass over the media tree: what art actually exists, per slug
+    # Files a linked slug already resolves to are in use, whatever folder they
+    # sit in (the Engels charts are two used + three unused in one folder), so
+    # they are excluded here rather than reported as unused art.
+    used_paths = {str(Path(r.file)) for r in refs.values() if r.found and r.file}
     disk: dict[str, dict] = {}
     counted: set[str] = set()
     other_files: Counter = Counter()
@@ -113,11 +117,16 @@ def collect(talk_path: Path) -> dict:
                 other_files[p.suffix.lower() or "(none)"] += 1
                 other_bytes += p.stat().st_size
                 continue
+            if str(p) in used_paths:
+                continue
             s = slug_for_file(media_dir, p)
-            e = disk.setdefault(s, {"files": 0, "bytes": 0, "type": kind_of(p), "path": ""})
+            e = disk.setdefault(s, {"files": 0, "bytes": 0, "type": kind_of(p), "path": "",
+                                    "items": []})
             e["files"] += 1
             e["bytes"] += p.stat().st_size
             counted.add(str(p))
+            if len(e["items"]) < 5:
+                e["items"].append(p.stem)
             if not e["path"]:
                 cand = media_dir / s
                 if not cand.is_dir():
@@ -152,7 +161,7 @@ def collect(talk_path: Path) -> dict:
         r = resolver.resolve(s)
         e = agg.setdefault(s, {"slug": s, "files": 0, "bytes": 0, "type": r.type or "image",
                                "path": str(media_dir / s), "status": "", "how": "orphan",
-                               "card_file": ""})
+                               "card_file": "", "items": []})
         e["status"] = r.status or ""
         if r.type and r.type != "unknown":
             e["type"] = r.type
@@ -164,10 +173,15 @@ def collect(talk_path: Path) -> dict:
                 counted.add(str(p))
                 e["files"] += 1
                 e["bytes"] += p.stat().st_size if p.exists() else 0
+                if len(e["items"]) < 5:
+                    e["items"].append(p.stem)
                 if not e["path"]:
                     e["path"] = str(p.parent)
 
-    unused = sorted(agg.values(), key=lambda e: -e["bytes"])
+    # An unreferenced card with no art on disk is a brief: there is nothing to
+    # cut, so it does not belong in a cut-or-place list.
+    carded_with_art = {s for s, e in agg.items() if e["files"] > 0 and e["how"] == "carded"}
+    unused = sorted((e for e in agg.values() if e["files"] > 0), key=lambda e: -e["bytes"])
     return {
         "talk": str(talk_path),
         "deck": slug,
@@ -178,7 +192,7 @@ def collect(talk_path: Path) -> dict:
         "b_unused": unused,
         "b_other": dict(other_files),
         "b_other_bytes": other_bytes,
-        "unreferenced_cards": len(unused_cards),
+        "b_brief_cards": len(unused_cards) - len(carded_with_art),
     }
 
 
@@ -212,13 +226,15 @@ def report(d: dict, top: int, width: int) -> None:
     un = d["b_unused"]
     print(f"B. PREPPED ART WITH NO SHOT — {len(un)} slugs, "
           f"{human_bytes(sum(e['bytes'] for e in un))}")
-    print(f"   ({d['unreferenced_cards']} cards are unreferenced; the ones without art on disk "
-          f"are briefs, so nothing can be cut from them)")
+    print(f"   plus {d['b_brief_cards']} unreferenced cards with no art on disk: briefs, "
+          f"so nothing can be cut from those")
     if un:
         print(f"\n   {'how':<8}{'slug':<32}{'status':<11}{'type':<7}{'files':>6}{'size':>11}  path")
         for e in un[:top]:
             print(f"   {e['how']:<8}{e['slug'][:31]:<32}{e['status'] or '-':<11}{e['type']:<7}"
                   f"{e['files']:>6}{human_bytes(e['bytes']):>11}  {e['path']}")
+            if 1 < e["files"] <= 4 and e.get("items"):
+                print(f"   {'':<8}  {', '.join(e['items'])}")
         if len(un) > top:
             rest = un[top:]
             print(f"   ... {len(rest)} more, {human_bytes(sum(e['bytes'] for e in rest))} "
