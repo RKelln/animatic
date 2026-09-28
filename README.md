@@ -50,6 +50,7 @@ The same file renders as:
 ### Build
 
     python3 build.py <talkfile> [--out OUTDIR]
+    python3 build.py <talkfile> [--out OUTDIR] --watch   # rebuild on every save; open pages reload
 
 ### Check
 

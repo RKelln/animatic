@@ -12,6 +12,7 @@ One talkfile in, three views out:
 
 Usage:
     python3 build.py TALKFILE [--out OUTDIR]
+    python3 build.py TALKFILE --watch    # rebuild on every save
     python3 build.py --corpus [ROOT]     # corpus check (register 21, T11)
 
 Example (specimen):
@@ -60,6 +61,10 @@ def main(argv=None) -> int:
                     help="slug -> file stand-in map for unproduced media "
                          "(see remaps/l01-standins.yaml); real art always "
                          "beats a stand-in")
+    ap.add_argument("--watch", action="store_true",
+                    help="stay running and rebuild whenever the talkfile, a "
+                         "file beside it, its media/ dir or the remap changes; "
+                         "open pages reload themselves after each build")
     args = ap.parse_args(argv)
 
     if args.corpus is not None:
@@ -75,7 +80,12 @@ def main(argv=None) -> int:
     if not talk_path.is_file():
         print(f"error: talkfile not found: {talk_path}", file=sys.stderr)
         return 2
+    if args.watch:
+        return watch(talk_path, args)
+    return build(talk_path, args)
 
+
+def build(talk_path: Path, args) -> int:
     talk = talkparse.build_talk(talk_path)
     if args.theme:
         talk.meta["theme"] = args.theme
@@ -155,6 +165,117 @@ def main(argv=None) -> int:
     print(f"           : {nav}")
     print(f"           : {manifest}")
     return 0
+
+
+def watched_files(talk_path: Path, args) -> dict:
+    """mtime/size snapshot of every input a rebuild would read: the talkfile
+    and its siblings (cards.yaml, timing.yaml, style.md ...), everything under
+    media/, and the remap file.  Polled, not inotify: stdlib only, and a stat
+    of ~1k files every half second is cheap."""
+    paths = [p for p in talk_path.parent.iterdir() if p.is_file()]
+    media = talk_path.parent / "media"
+    if media.is_dir():
+        paths += [p for p in media.rglob("*") if p.is_file()]
+    if args.media_remap:
+        paths.append(Path(args.media_remap).expanduser().resolve())
+    snap = {}
+    for p in paths:
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        snap[p] = (st.st_mtime_ns, st.st_size)
+    return snap
+
+
+# Injected only under --watch, so plain builds keep their exact bytes.  The
+# page re-adds a <script> for ../_watch.js every second (a script tag, not
+# fetch, so it works from file:// as well as a localhost server) and reloads
+# when the stamp in it changes.  The hash (#N) survives the reload, so the deck
+# stays on its slide; the presenter re-syncs through its ready handshake.
+RELOAD_SNIPPET = """<script>/* animatic --watch: auto-reload */
+(function () {
+  var seen = null;
+  window.__animaticWatch = function (stamp) {
+    if (seen === null) seen = stamp;
+    else if (stamp !== seen) location.reload();
+  };
+  function poll() {
+    var s = document.createElement("script");
+    s.src = "../_watch.js?" + Date.now();
+    s.onload = s.onerror = function () { s.remove(); };
+    document.head.appendChild(s);
+  }
+  poll();
+  setInterval(poll, 1000);
+})();
+</script>
+"""
+
+
+def inject_reload(out: Path, stamp: str) -> None:
+    """Add RELOAD_SNIPPET to every page in OUTDIR, then write the stamp.  The
+    stamp goes last, so an open page only reloads once the build is whole."""
+    for page in sorted(out.glob("*/*.html")):
+        html = page.read_text(encoding="utf-8")
+        i = html.rfind("</body>")
+        if i < 0:
+            continue
+        page.write_text(html[:i] + RELOAD_SNIPPET + html[i:], encoding="utf-8")
+    (out / "_watch.js").write_text(
+        f"window.__animaticWatch && window.__animaticWatch({stamp!r});\n",
+        encoding="utf-8")
+
+
+def watch(talk_path: Path, args, interval: float = 0.5) -> int:
+    """Rebuild on every change until Ctrl-C.  A failed build prints its
+    traceback and waits for the next save; it never ends the watch."""
+    import time
+    import traceback
+
+    def run(changed):
+        stamp = time.strftime("%H:%M:%S")
+        if changed:
+            names = ", ".join(sorted(p.name for p in changed)[:5])
+            more = f" (+{len(changed) - 5})" if len(changed) > 5 else ""
+            print(f"\n[{stamp}] changed: {names}{more}")
+        t0 = time.monotonic()
+        try:
+            rc = build(talk_path, args)
+            if rc == 0:
+                inject_reload(Path(args.out).expanduser().resolve(),
+                              f"{time.time_ns()}")
+        except Exception:
+            traceback.print_exc()
+            rc = 1
+        status = "ok" if rc == 0 else f"FAILED (exit {rc})"
+        print(f"[{time.strftime('%H:%M:%S')}] build {status} in "
+              f"{time.monotonic() - t0:.1f}s; watching {talk_path.parent} "
+              f"(Ctrl-C to stop)", flush=True)
+
+    snap = watched_files(talk_path, args)
+    run(None)
+    try:
+        while True:
+            time.sleep(interval)
+            now = watched_files(talk_path, args)
+            if now == snap:
+                continue
+            # editors save in several writes (temp file, rename); wait until
+            # the tree holds still for one interval before building
+            while True:
+                time.sleep(interval)
+                later = watched_files(talk_path, args)
+                if later == now:
+                    break
+                now = later
+            changed = {p for p in now.keys() | snap.keys()
+                       if now.get(p) != snap.get(p)}
+            snap = now
+            run(changed)
+    except KeyboardInterrupt:
+        print("\nwatch stopped")
+        return 0
 
 
 def referenced_media(talk: talkparse.Talk, resolver: MediaResolver):
