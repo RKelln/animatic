@@ -72,6 +72,10 @@ SHOT_RE = re.compile(r"^\s*<!--\s*shot(?::\s*(.*?))?\s*-->\s*$")
 # tokenizer recognizes as `role=<name>` (replaces the old +overlay syntax).
 ROLES = ("stat", "lower", "credits")
 BLACK_ROLE = "black"
+# `<!-- shot: continue ... -->` (alias `cont`): the screen takes the previous
+# screen's media and flags, and a video keeps playing across the step instead
+# of starting over.  Reserved like `black`: a first token, never a slug.
+CONTINUE_WORDS = ("continue", "cont")
 # Config-driven vocabulary loaded from roles.yaml + per-deck override.
 # Fallback when no yaml present: the built-in roles above.
 # Layout vocabulary (Tier B, config-driven via layouts.yaml).
@@ -258,6 +262,12 @@ class Shot:
     # addressability).
     line_begin: int = 0
     warnings: list = field(default_factory=list)
+    # `continue` shot: True from the tokenizer; the assembler then fills
+    # `slug`/`flags` from the previous screen's media shot.
+    cont: bool = False
+    # Chain id shared by a media shot and every `continue` screen after it
+    # (the head's line number as a string); None when the shot is in no chain.
+    chain: Optional[str] = None
 
     @property
     def is_role(self) -> bool:
@@ -770,7 +780,10 @@ def _parse_shot(raw: str, line: Optional[int] = None,
     vocab = tuple(role_vocab) if role_vocab is not None else ROLES_DYNAMIC
 
     # --- first token: slug | role=<name> flag | layout=<name> | black | known flag ----------
-    if first in vocab or first == BLACK_ROLE:
+    if first in CONTINUE_WORDS:
+        # continue the previous screen's media (resolved in assemble)
+        shot.cont = True
+    elif first in vocab or first == BLACK_ROLE:
         # Bare role shot (e.g. `<!-- shot: stat -->`) — opens its own screen.
         # The `role=` syntax is preferred; bare role preserved for backward compat.
         shot.role = first
@@ -832,6 +845,36 @@ def _parse_shot(raw: str, line: Optional[int] = None,
 # ---------------------------------------------------------------------------
 
 
+def _resolve_continue(shot: Shot, screens: list, talk) -> None:
+    """Point a `continue` shot at the previous screen's media.
+
+    The previous screen must carry media; the shot takes its slug and flags,
+    with any flag written on the continue shot winning.  Head and continuation
+    share a chain id, which the present view uses to hand the playing video
+    from one slide to the next.  Without a media screen before it, the shot
+    warns and stays a media-less screen.
+    """
+    prev = screens[-1].media_shot if screens else None
+    if prev is None:
+        talk.warnings.append(
+            f"line {shot.line}: 'continue' shot has no media screen before it "
+            f"to continue; the screen opens without media"
+        )
+        return
+    if "advance" in shot.flags and "advance" not in prev.flags:
+        # the playing video is the chain head's element, carried along, so
+        # its playback is the head's: a looping head never ends
+        talk.warnings.append(
+            f"line {shot.line}: 'advance' on a continue shot has no effect; "
+            f"write it on the first shot of the chain (line {prev.chain or prev.line})"
+        )
+    if prev.chain is None:
+        prev.chain = str(prev.line)
+    shot.chain = prev.chain
+    shot.slug = prev.slug
+    shot.flags = {**prev.flags, **shot.flags}
+
+
 def build_talk(path, source: Optional[str] = None) -> Talk:
     """Parse a talkfile path into a Talk model.
 
@@ -887,6 +930,8 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             shot.line = rb.get("line", 0) or 0
             for w in shot.warnings:          # tokenizer notes (check 25)
                 talk.warnings.append(f"line {shot.line}: {w}")
+            if shot.cont:
+                _resolve_continue(shot, screens, talk)
             role = shot.role
             is_role = role in vocab          # any vocab role; payload becomes a role block
 

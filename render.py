@@ -308,8 +308,11 @@ def live_host_html(ref: MediaRef, css_class: str = "slide-media") -> str:
     )
 
 
-def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "figure-media") -> str:
-    """One resolved media element (image / video / live capture / placeholder)."""
+def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "figure-media",
+               chain: str | None = None) -> str:
+    """One resolved media element (image / video / live capture / placeholder).
+    `chain` (a `continue` chain id) marks a slide video the pager hands on,
+    still playing, to the next slide of the same chain."""
     flags = shot_flags or {}
     parts = []
     if ref.live:
@@ -360,6 +363,8 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
                 # request held one of the browser's six connections to the
                 # host, and the images queued behind them never loaded.
                 attrs = f'{muted}{loop} playsinline preload="none" data-autoplay{once}{sound}{adv}'
+                if chain:
+                    attrs += f' data-chain="{html.escape(chain)}"'
             else:
                 # document figure: a reader clicks to play
                 attrs = f'controls preload="metadata" {muted}{loop} playsinline{once}{sound}'
@@ -408,7 +413,7 @@ def media_fit(flags: dict) -> str:
     return "cover" if flags.get("kb") in ("in", "out") else "contain"
 
 
-def media_zone_html(ref: MediaRef, flags: dict) -> str:
+def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None) -> str:
     """Full-bleed media zone: media element + kb class + fit/dim + role/layout handling."""
     # Layout flags come from `layout=` (replaces flat piece/duo); read from flags.
     layout_name = flags.get("layout")
@@ -437,7 +442,7 @@ def media_zone_html(ref: MediaRef, flags: dict) -> str:
     else:
         media_flags = {k: v for k, v in flags.items() if k != "dim" and k not in ("layout",)} if piece else flags
         kbcls = f" kb-{flags['kb']}" if flags.get("kb") in ("in", "out") else ""
-    media = media_html(ref, media_flags, css_class=f"slide-media{kbcls}")
+    media = media_html(ref, media_flags, css_class=f"slide-media{kbcls}", chain=chain)
     if kbcls and not piece:
         # camera drift: the lens moves over an oversized, already-rasterized
         # picture — the IMAGE is the animated layer (its texture is the
@@ -499,7 +504,11 @@ PAGER_JS = """
       if (i === cur) { slides[i].classList.add("active"); }
       else { slides[i].classList.remove("active"); }
     }
-    if (cur !== lastCur) { lastCur = cur; restartMotion(slides[cur]); }
+    if (cur !== lastCur) {
+      var carried = carryChain(slides[lastCur], slides[cur]);
+      lastCur = cur;
+      if (!carried) restartMotion(slides[cur]);
+    }
     if (fill) fill.style.width = ((cur + 1) / slides.length * 100) + "%";
     if (curEl) curEl.textContent = String(cur + 1);
     if (panel && panel.classList.contains("open")) panel.innerHTML = notesFor(cur);
@@ -519,6 +528,25 @@ PAGER_JS = """
         else { v.pause(); }
       }
     }
+  }
+
+  // `continue` shots: slides whose videos share a data-chain show one clip.
+  // Moving between two of them swaps the <video> elements, so the one that is
+  // playing lands in the new slide and carries on (a move in one step does
+  // not pause it); the idle one takes its place in the old slide. Each slide
+  // keeps its own classes (fit / kb). Returns true when a video was carried.
+  function carryChain(from, to) {
+    if (!from || !to || from === to) return false;
+    var a = from.querySelector("video[data-chain]");
+    var b = to.querySelector("video[data-chain]");
+    if (!a || !b || a.getAttribute("data-chain") !== b.getAttribute("data-chain")) return false;
+    var ca = a.className, cb = b.className;
+    var mark = document.createComment("");
+    b.parentNode.replaceChild(mark, b);
+    a.parentNode.replaceChild(b, a);
+    mark.parentNode.replaceChild(a, mark);
+    a.className = cb; b.className = ca;
+    return true;
   }
 
   // `advance` (shot flag): a slide video that plays to its end moves the
@@ -2060,7 +2088,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     if ref is not None:
         # fit=contain / fit=cover always reach the media; fit=hero is read
         # at slide level (text-fit below) and leaves the media at its default
-        inner.append(media_zone_html(ref, dict(flags)))
+        inner.append(media_zone_html(ref, dict(flags), chain=mshot.chain))
 
     if credits_screen:
         # full end-roll: optional title + entries in balanced columns

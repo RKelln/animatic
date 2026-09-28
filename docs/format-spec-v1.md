@@ -190,12 +190,22 @@ screen opens; the remaining tokens are flags.
 | `<!-- shot: <slug> role=<role> -->` | a media screen carrying that text role |
 | `<!-- shot: role=<role> -->` | a screen with only that text role |
 | `<!-- shot: black -->` | a black beat — deliberate silence, no media, no payload |
+| `<!-- shot: continue [flags] -->` | a new screen on the previous screen's media (alias `cont`) |
 | `<!-- shot: <flag> -->` | a card-only screen — no media, no role; the flags speak for it |
 
 An unknown first token is a slug (it names media); a slug that resolves to
 nothing surfaces honestly as a placeholder.
 
 A shot directive may span multiple lines; interior whitespace is insignificant.
+
+**`continue`** (alias `cont`) opens a new screen that carries on the previous
+screen's media: it takes that screen's slug and flags, and any flag or role
+written on the continue shot applies on top (`<!-- shot: continue role=stat
+dim=0.4 -->`). Text never carries: each screen has its own heading, roles and
+VO. A video keeps playing across the step instead of starting over, in both
+directions and along a chain of continue screens; its playback (`loop`,
+`once`, `advance`, `sound`) is the same on every screen of the chain. A
+continue shot with no media screen before it warns and opens without media.
 
 ### Flags and layout
 
@@ -470,7 +480,7 @@ The indirection exists for two reasons:
 ### Slug scope and uniqueness
 
 - Charset `[a-z0-9-]`, 3–40 chars, no leading/trailing `-`.
-- Must not equal a role name or `black`. A leading `_` is reserved.
+- Must not equal a role name, `black`, `continue` or `cont`. A leading `_` is reserved.
 - Unique within a deck. A deck-local card shadows a library entry of the same
   slug (recorded, informational).
 - Cross-deck reuse is fine: the library is a lookup by slug.

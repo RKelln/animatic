@@ -1,0 +1,29 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "shot-continue",
+  "referenced": [
+    {
+      "slug": "sample-art",
+      "first_cue": "shot-continue-001",
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      }
+    }
+  ],
+  "unreferenced_cards": [
+    "second-art",
+    "cons-a",
+    "cons-b",
+    "junk-host"
+  ]
+}

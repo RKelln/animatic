@@ -93,7 +93,8 @@ REPORT = "report"
 _SEV_ORDER = {FATAL: 0, WARNING: 1, INFO: 2, REPORT: 3}
 
 # Spec anchors used by several checks.
-ROLE_WORDS = set(talkparse.ROLES_DYNAMIC) | {talkparse.BLACK_ROLE}   # vocab roles + black
+ROLE_WORDS = (set(talkparse.ROLES_DYNAMIC) | {talkparse.BLACK_ROLE}
+              | set(talkparse.CONTINUE_WORDS))   # vocab roles + black + continue/cont
 SLUG_RE = re.compile(r"^[a-z0-9-]{3,40}$")                    # Media: charset + length
 PERSONAL_PATH_RE = re.compile(r"^/(?:[^/]+/)+[^/]+$")         # absolute, no scheme
 FOOTNOTE_REF_RE = talkparse.FOOTNOTE_REF_RE
@@ -369,8 +370,8 @@ def check_3_slug_role(talk, resolver, report: Report) -> None:
                 continue
             if str(slug) in ROLE_WORDS:
                 report.add(3, FATAL,
-                           f"{surface} slug {slug!r} equals a role name or "
-                           f"'black' — a shot token can never reference it "
+                           f"{surface} slug {slug!r} equals a role name, "
+                           f"'black' or 'continue'/'cont' — a shot token can never reference it "
                            f"(the tokenizer reads it as a role), so the "
                            f"visual is unreachable (spec: Media/Error and warning taxonomy) ({where})")
 

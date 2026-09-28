@@ -27,6 +27,9 @@ One command, one exit code:
   `timing-drift.talk.md` declares `dur: 45 min` on a two-screen deck: the
   clock (check 19) must report the divergence and the deck must still build
   (spec: Timing; T15).
+  `shot-continue.talk.md` pins `continue` / `cont` shots: each opens its own
+  screen on the previous screen's media slug and flags, a flag written on
+  the continue shot wins (spec: The shot directive).
   `paraphrase-pair.talk.md` pins the `paraphrase` role (spec §4 Roles): one
   screen carries a leading quote and its `~` attribution (source's words,
   screen-only) AND an entry of kind `paraphrase` whose text is also the
