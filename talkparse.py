@@ -77,7 +77,7 @@ BLACK_ROLE = "black"
 # Layout vocabulary (Tier B, config-driven via layouts.yaml).
 LAYOUTS = ("piece", "duo")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
-KNOWN_FLAGS = ("kb", "dim", "fit", "text")
+KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance")
 FIT_VALUES = ("cover", "contain", "hero")
 # Movement recognition is case-insensitive (the frozen rule is the *shape*,
 # `Movement <integer> [separator] [title]`, not the typography — report Media).

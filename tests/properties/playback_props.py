@@ -13,7 +13,11 @@ behaviour lives in real video files: the committed fixtures stay media-free.
 - the frames come out in exactly the right order across chunk boundaries:
   each source frame has its own brightness, so the baked file is read back
   frame by frame (a chunk joined out of order, or a doubled seam frame, fails);
-- with no ffmpeg the screen falls back to looping the original, and says why.
+- with no ffmpeg the screen falls back to looping the original, and says why;
+- `sound: true` drops `muted` and marks data-sound (only there), the manifest
+  says so, and a non-boolean or a sound on an image card raises check 29;
+- the `advance` shot flag drops `loop`, plays once and carries data-advance
+  (only there), and on an image it raises check 31.
 
 Needs ffmpeg + ffprobe; without them the module pins nothing, like
 timing_props' video unit.
@@ -69,6 +73,26 @@ A clip whose playback value is misspelled.
 <!-- shot: still-once -->
 
 A still that asks to play once.
+
+<!-- shot: clip-sound -->
+
+A clip that plays once, with its audio.
+
+<!-- shot: clip-sound-typo -->
+
+A clip whose sound value is not a boolean.
+
+<!-- shot: still-sound -->
+
+A still that asks for sound.
+
+<!-- shot: clip-advance advance -->
+
+A looping clip that moves the deck on when it ends.
+
+<!-- shot: still-advance advance -->
+
+A still that asks to advance.
 """
 
 CARDS = """\
@@ -100,6 +124,30 @@ CARDS = """\
   type: image
   status: file
   playback: once
+  file: media/still.png
+- slug: clip-sound
+  type: video
+  status: file
+  playback: once
+  sound: true
+  file: media/clip.mp4
+- slug: clip-sound-typo
+  type: video
+  status: file
+  sound: "yes"
+  file: media/clip.mp4
+- slug: still-sound
+  type: image
+  status: file
+  sound: true
+  file: media/still.png
+- slug: clip-advance
+  type: video
+  status: file
+  file: media/clip.mp4
+- slug: still-advance
+  type: image
+  status: file
   file: media/still.png
 """
 
@@ -200,6 +248,24 @@ def check(errors: list) -> None:
         t = tag_for("clip-once.mp4")
         if t and (re.search(r"\sloop\b", t) or 'data-playback="once"' not in t):
             err(errors, f"playback: once must drop loop and mark itself: {t}")
+        # sound: only clip-sound is unmuted, and it still plays once
+        for name, t in sorted(tags.items()):
+            loud = name == "clip-sound.mp4"
+            if loud != ("data-sound" in t) or loud == bool(re.search(r"\smuted\b", t)):
+                err(errors, f"playback: {name} sound={loud} but tag is {t}")
+        t = tag_for("clip-sound.mp4")
+        if t and (re.search(r"\sloop\b", t) or 'data-playback="once"' not in t):
+            err(errors, f"playback: sound must not change once: {t}")
+        for name, t in sorted(tags.items()):
+            if (name == "clip-advance.mp4") != ("data-advance" in t):
+                err(errors, f"playback: data-advance belongs on clip-advance only: {t}")
+        t = tag_for("clip-advance.mp4")
+        if t and (re.search(r"\sloop\b", t) or 'data-playback="once"' not in t):
+            err(errors, f"playback: advance must play once, not loop: {t}")
+        if "video[data-advance]" not in present:
+            err(errors, "playback: pager lacks the advance-on-ended handler")
+        if "NotAllowedError" not in present:
+            err(errors, "playback: pager lacks the muted fallback for a refused sound play")
         t = tag_for("clip-pingpong-pingpong.mp4")
         if t and not re.search(r"\sloop\b", t):
             err(errors, f"playback: the baked pingpong must loop: {t}")
@@ -222,21 +288,28 @@ def check(errors: list) -> None:
 
         manifest = json.loads((out_a / "media-manifest.json").read_text(encoding="utf-8"))
         by_slug = {r["slug"]: r["media"] for r in manifest["referenced"]}
-        want = {"clip-once": "once", "clip-pingpong": "pingpong"}
+        want = {"clip-once": "once", "clip-pingpong": "pingpong", "clip-sound": "once"}
         for slug, media in by_slug.items():
             if media.get("playback") != want.get(slug):
                 err(errors, f"playback: manifest {slug} playback="
                             f"{media.get('playback')!r}, want {want.get(slug)!r}")
+            if media.get("sound") != (True if slug == "clip-sound" else None):
+                err(errors, f"playback: manifest {slug} sound={media.get('sound')!r}")
 
-        # check 29: exactly the typo and the image card, at build and at check
-        for needle in ("'clip-typo' has playback: 'ponce'", "'still-once' has playback: once but type: image"):
+        # check 29: exactly the two typos and the two image cards, at build and at check
+        for needle in ("'clip-typo' has playback: 'ponce'", "'still-once' has playback: once but type: image",
+                       "'clip-sound-typo' has sound: 'yes'", "'still-sound' has sound: true but type: image"):
             if needle not in log:
                 err(errors, f"playback: build log lacks check 29 for {needle!r}")
         report = check_mod.check_file(str(deck / "talk.md"))
         c29 = [f for f in report.findings if f.check == 29]
-        if len(c29) != 2:
-            err(errors, f"playback: check 29 found {len(c29)} issues, want 2: "
+        if len(c29) != 4:
+            err(errors, f"playback: check 29 found {len(c29)} issues, want 4: "
                         f"{[f.message for f in c29]}")
+        c31 = [f for f in report.findings if f.check == 31]
+        if len(c31) != 1 or "still-advance" not in c31[0].message:
+            err(errors, f"playback: check 31 should flag still-advance only: "
+                        f"{[f.message for f in c31]}")
 
         # determinism: the cached pingpong makes a rebuild byte-identical
         _build(deck / "talk.md", out_b)

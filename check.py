@@ -146,8 +146,9 @@ REGISTER = [
     (26, "no warning text contains 'line 0'",                        WARNING, "enforced: talkparse.py (T07); guard in check.py"),
     (27, "multi-line shot fixture",                                  WARNING, "fixture: tests/fixtures/constructs/multiline-shot.talk.md (T07)"),
     (28, "`[^id]` footnote with no sources: registry entry",         WARNING, "implemented"),
-    (29, "card `playback:` value unknown, on a non-video, or unbakeable", WARNING, "implemented: check.py + mediaresolve.py"),
+    (29, "card `playback:`/`sound:` value unknown, on a non-video, or unbakeable", WARNING, "implemented: check.py + mediaresolve.py"),
     (30, "`dim` on a media screen with no on-screen text",              WARNING, "implemented"),
+    (31, "`advance` on a screen whose media is not a video",            WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -875,7 +876,8 @@ def check_19_timing(talk, resolver, report: Report) -> None:
 
 
 def check_29_playback(talk, resolver, report: Report) -> None:
-    """A card `playback:` that cannot apply as written plays as `loop`; say so.
+    """A card `playback:` that cannot apply as written plays as `loop`, and a
+    `sound:` that cannot apply plays muted; say so.
 
     The resolver records unknown values and non-video cards for every card.
     Whether a pingpong can be baked is only known at publish time, so the
@@ -910,6 +912,25 @@ def check_30_dim_without_text(talk, resolver, report: Report) -> None:
                    f"has no on-screen text: dim only darkens the picture. Drop it, "
                    f"or fix a too-bright image in the file itself",
                    line=mshot.line, screen=s.idx)
+
+
+def check_31_advance_not_video(talk, resolver, report: Report) -> None:
+    """`advance` moves the deck on when a slide video ends. On an image, a
+    placeholder or a live capture nothing ever ends, so the screen waits for
+    the presenter as usual; say so rather than let a rehearsal find out."""
+    for s in talk.screens:
+        mshot = s.media_shot
+        if mshot is None or "advance" not in mshot.flags:
+            continue
+        ref = resolver.resolve(mshot.slug)
+        ext = Path(ref.file).suffix.lower() if ref.found and ref.file else ""
+        if ref.live or MEDIA_EXTS.get(ext) != "video":
+            what = ("a live capture" if ref.live else
+                    "a placeholder" if not ref.found else f"a {ext} file")
+            report.add(31, WARNING,
+                       f"advance on '{mshot.slug}' but it resolves to {what}: "
+                       f"only a slide video that ends can move the deck on",
+                       line=mshot.line, screen=s.idx)
 
 
 def check_28_footnotes(talk, resolver, source_text: str, report: Report) -> None:
@@ -996,6 +1017,7 @@ def run_checks(talk, resolver, source_text: str,
     check_28_footnotes(talk, resolver, source_text, report)
     check_29_playback(talk, resolver, report)
     check_30_dim_without_text(talk, resolver, report)
+    check_31_advance_not_video(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

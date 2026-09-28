@@ -207,6 +207,7 @@ Flags are the per-shot knobs. The top-level namespace is fixed:
 | `kb` | `in` / `out` | slow drift of the media layer inside a static lens |
 | `dim` | `0`–`1` | a dark scrim at that opacity, to keep on-screen text readable; on a screen with no on-screen text it is check 30's warning (fix a too-bright image in the file instead) |
 | `text` | `light` / `dark` | per-screen text treatment, overriding the theme default |
+| `advance` | (none) | when the screen's video ends, move to the next screen; the video plays once instead of looping. On media that is not a video it is check 31's warning |
 | `role` | a `roles.yaml` name | the screen's text role (see "Roles") |
 | `layout` | a `layouts.yaml` name | the screen's config-driven layout |
 
@@ -533,7 +534,8 @@ no remote assets      no http(s):// in src/href/@import
 video attributes      data-autoplay muted loop playsinline preload="none", no controls,
                       no bare autoplay (the pager plays the active slide's video and
                       warms the next 3; `m` lists all media and loads them)
-                      (`playback: once` drops loop and carries data-playback="once")
+                      (`playback: once` drops loop and carries data-playback="once";
+                      `sound: true` drops muted and carries data-sound)
 cue invariants        ids unique, ordinals 1..N, len(cues) == len(sections)
 determinism           build twice, compare hashes
 theme completeness    every required token defined in each theme CSS
@@ -560,7 +562,7 @@ screen boundaries).
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` that cannot apply as written.
+media unresolved · a card `playback:` or `sound:` that cannot apply as written.
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 
@@ -608,6 +610,7 @@ outputs: []
 poster: <path>          # live only: the still the document view prints
 live_group: <name>      # live only: hosts sharing one capture session
 playback: loop | once | pingpong   # video only; default loop
+sound: true | false     # video only; default false (muted)
 alt / credit / licence / brief / prompts.{image,video}
 
 # FREE — never read, never validated
@@ -644,6 +647,17 @@ original as `loop` and check 29 says why. An unknown value, or `playback:`
 on a card that is not `type: video`, is also a check 29 warning; the build
 is unchanged. The manifest carries `playback` only when it is not `loop`, so
 existing goldens keep their shape.
+
+**`sound:` (additive, 2026-09-28).** Slide videos play muted. `sound: true`
+on a video card plays its audio track while the screen is up, and it
+combines with any `playback:` (`once` + `sound` is a clip with an ending and
+a soundtrack). Browsers only start audio after a user gesture; the pager's
+`play()` runs inside the keypress that changed slide, which counts, so in
+practice the one refusal is a deck opened directly on that screen. Then the
+video plays muted rather than not at all. Presenter-view previews stay
+muted stills. A non-boolean value, or `sound: true` on a card that is not
+`type: video`, is a check 29 warning and the screen plays muted. The
+manifest carries `sound` only when it is true.
 
 - **`status: file`** means a local media file is in hand — buildable now.
   **`status: url`** means a verified remote source is recorded but not yet

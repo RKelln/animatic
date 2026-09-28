@@ -39,6 +39,9 @@ Playback (card `playback:`, video only; spec: Media pipeline contract):
             rebuild copies identical bytes.  The reverse runs a chunk at a time,
             so memory does not grow with the clip's length.  With no ffmpeg, or
             a failed encode, it falls back to `loop` and records why (check 29).
+
+Sound (card `sound: true`, video only): the screen plays the file's audio.
+Slide videos are muted by default; anything else plays muted (check 29).
 """
 
 from __future__ import annotations
@@ -89,6 +92,7 @@ class MediaRef:
     poster: Optional[str] = None       # live only: the still the handout prints
     group: Optional[str] = None        # live only: hosts sharing one capture session
     playback: str = "loop"             # video only: loop | once | pingpong (card `playback:`)
+    sound: bool = False                # video only: play the audio track (card `sound: true`)
 
 
 @dataclass
@@ -171,6 +175,19 @@ class MediaResolver:
                 self.playback_issues.append((slug,
                     f"card '{slug}' has playback: {value} but type: "
                     f"{c.get('type')}; playback applies to video cards only"))
+        # ...and so must `sound:`, which is a plain boolean
+        for c in self.cards:
+            if not isinstance(c, dict) or not c.get("slug") or "sound" not in c:
+                continue
+            slug, value = str(c["slug"]), c.get("sound")
+            if not isinstance(value, bool):
+                self.playback_issues.append((slug,
+                    f"card '{slug}' has sound: {value!r}; expected true or "
+                    f"false (plays muted)"))
+            elif value and c.get("type") != "video":
+                self.playback_issues.append((slug,
+                    f"card '{slug}' has sound: true but type: "
+                    f"{c.get('type')}; sound applies to video cards only"))
 
     # -- lookups -------------------------------------------------------------
 
@@ -449,6 +466,8 @@ class MediaResolver:
         # plays as the default (check 29 reports it)
         if card and ext in VIDEO_EXTS and card.get("playback") in PLAYBACK_VALUES:
             ref.playback = card["playback"]
+        if card and ext in VIDEO_EXTS and card.get("sound") is True:
+            ref.sound = True
         if card and card.get("brief"):
             brief = card["brief"]
             if isinstance(brief, str) and brief.strip():

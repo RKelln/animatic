@@ -337,8 +337,19 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
             # playback (card `playback:`): `once` drops `loop`, so the video
             # stops on its last frame; `pingpong` is a baked forward+reverse
             # file (mediaresolve.publish) that loops like any other
-            loop = "" if ref.playback == "once" else " loop"
-            once = ' data-playback="once"' if ref.playback == "once" else ""
+            # `advance` (shot flag): when the video ends, the pager moves to
+            # the next screen. A video that loops never ends, so advance
+            # implies once.
+            advance = "advance" in flags
+            loop = "" if ref.playback == "once" or advance else " loop"
+            once = ' data-playback="once"' if ref.playback == "once" or advance else ""
+            adv = " data-advance" if advance else ""
+            # sound (card `sound: true`): drop `muted`. The pager's play()
+            # runs inside the keypress that changed slide, which is the user
+            # activation browsers want before they play audio; if one still
+            # refuses, the pager falls back to muted (PAGER_JS).
+            muted = "" if ref.sound else "muted"
+            sound = " data-sound" if ref.sound else ""
             if "slide-media" in css_class.split():
                 # cinematic: plays muted when the slide is active, no native
                 # controls bar (the big play button never belongs on a shot).
@@ -348,10 +359,10 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
                 # for every video at load (L01: 29 files, 754 MB), each range
                 # request held one of the browser's six connections to the
                 # host, and the images queued behind them never loaded.
-                attrs = f'muted{loop} playsinline preload="none" data-autoplay{once}'
+                attrs = f'{muted}{loop} playsinline preload="none" data-autoplay{once}{sound}{adv}'
             else:
                 # document figure: a reader clicks to play
-                attrs = f'controls preload="metadata" muted{loop} playsinline{once}'
+                attrs = f'controls preload="metadata" {muted}{loop} playsinline{once}{sound}'
             parts.append(
                 f'<video class="{css_class} media-video" src="{src}" {attrs} '
                 f'aria-label="{html.escape(ref.alt or ref.slug)}"></video>'
@@ -504,10 +515,36 @@ PAGER_JS = """
     for (var i = 0; i < slides.length; i++) {
       var v = slides[i].querySelector("video[data-autoplay]");
       if (v) {
-        if (i === cur) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+        if (i === cur) { playVideo(v); }
         else { v.pause(); }
       }
     }
+  }
+
+  // `advance` (shot flag): a slide video that plays to its end moves the
+  // deck on. Only while its slide is still current: a presenter who has
+  // already moved (or gone back) is never overridden.
+  (function () {
+    var advs = document.querySelectorAll("video[data-advance]");
+    for (var a = 0; a < advs.length; a++) {
+      advs[a].addEventListener("ended", function (e) {
+        if (slides[cur] && slides[cur].contains(e.target) && cur < slides.length - 1) next();
+      });
+    }
+  })();
+
+  // A `sound` video that the browser will not start with audio (autoplay
+  // policy: no user activation yet, e.g. the deck opened on that slide)
+  // plays muted rather than not at all.
+  function playVideo(v) {
+    var p = v.play();
+    if (!p || !p.catch) return;
+    p.catch(function (err) {
+      if (err && err.name === "NotAllowedError" && !v.muted) {
+        v.muted = true;
+        var q = v.play(); if (q && q.catch) q.catch(function () {});
+      }
+    });
   }
 
   // Slide videos are built preload="none" (media_html): nothing loads until
@@ -1019,6 +1056,7 @@ PRESENTER_JS = r"""
       vids[j].removeAttribute("autoplay");
       vids[j].setAttribute("preload", "auto");
       vids[j].setAttribute("data-preview-still", "");
+      vids[j].setAttribute("muted", "");   // a still never speaks
     }
     var focusable = clone.querySelectorAll("button, [tabindex]");
     for (var k = 0; k < focusable.length; k++) {
@@ -2427,6 +2465,8 @@ def media_ref_dict(ref: MediaRef) -> dict:
     # likewise playback appears only when it is not the default loop
     if ref.playback != "loop":
         d["playback"] = ref.playback
+    if ref.sound:
+        d["sound"] = True
     return d
 
 
