@@ -153,11 +153,13 @@ passes.
   not observable in the current assembler: a trailing shot screen is kept as
   a beat (it has shots), and shotless screens cannot exist. Consecutive-shot
   warnings are pinned by the consecutive-shots fixture instead.
-- Every source line number is body-relative — 1-based in the talkfile *after*
-  the frontmatter is stripped (`talkparse._lex_frontmatter`), which is how
-  every warning and every `nav.json` range reads. Adding frontmatter shifts
-  no number; the fixtures pin the numbering both ways (a warning's line and a
-  range's line are the same number for the same line).
+- Every source line number is the talkfile's own, 1-based with the
+  frontmatter counted, which is how every warning and every `nav.json` range
+  reads, so a number matches what an editor shows (2026-09-28; before that
+  they were body-relative, which put L01's warnings 64 lines off). Editing the
+  frontmatter therefore shifts the numbers after it. The fixtures pin the
+  numbering both ways (a warning's line and a range's line are the same
+  number for the same line); frontmatter lines belong to no range.
 - Consecutive non-blank prose lines merge into one paragraph, and consecutive
   quote markers / list items merge into one block. The block's span is its
   first line through its last, and `nav.json` ranges are the envelope of

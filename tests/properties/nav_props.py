@@ -24,7 +24,7 @@ keeps the map honest:
 
 from __future__ import annotations
 
-from .common import ABS_PATH_RE, body_lines, err, walk_strings
+from .common import ABS_PATH_RE, body_lines, err, frontmatter_lines, walk_strings
 
 ENTRY_KEYS = {"ordinal", "movement", "kind", "lines", "document"}
 DOCUMENT_OMISSION_REASON = "black-beat"
@@ -115,7 +115,10 @@ def check(fx, errors: list) -> None:
                     f"({list(screens)[:3]}... vs {ids[:3]}...)")
 
     src = body_lines(fx.source_text)
-    inert = _inert_lines(src)
+    fm = frontmatter_lines(fx.source_text)
+    # the frontmatter is dropped whole; scan the rest for inert lines with
+    # the frontmatter blanked so its `---` is not read as a rule
+    inert = _inert_lines(["" if k + 1 in fm else l for k, l in enumerate(src)]) | fm
     ranges = []
 
     for cue in cues["cues"]:
@@ -163,7 +166,7 @@ def check(fx, errors: list) -> None:
             continue
         if start < 1:
             err(errors, f"nav.json {cue['id']}: range starts at line {start}; "
-                        f"body lines are 1-based")
+                        f"talkfile lines are 1-based")
         if end < start:
             err(errors, f"nav.json {cue['id']}: range {start}-{end} ends "
                         f"before it starts")

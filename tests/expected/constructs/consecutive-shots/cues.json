@@ -78,6 +78,6 @@
     }
   ],
   "warnings": [
-    "line 2: consecutive shot directives with no content between; the second opens a new screen and the first stays an empty beat"
+    "line 12: consecutive shot directives with no content between; the second opens a new screen and the first stays an empty beat"
   ]
 }

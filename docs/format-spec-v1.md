@@ -205,15 +205,20 @@ Flags are the per-shot knobs. The top-level namespace is fixed:
 |---|---|---|
 | `fit` | `cover` / `contain` / `hero` | how media fits the frame |
 | `kb` | `in` / `out` | slow drift of the media layer inside a static lens |
-| `dim` | `0`–`1` | a dark scrim at that opacity |
+| `dim` | `0`–`1` | a dark scrim at that opacity, to keep on-screen text readable; on a screen with no on-screen text it is check 30's warning (fix a too-bright image in the file instead) |
 | `text` | `light` / `dark` | per-screen text treatment, overriding the theme default |
 | `role` | a `roles.yaml` name | the screen's text role (see "Roles") |
 | `layout` | a `layouts.yaml` name | the screen's config-driven layout |
 
-**`fit` — explicit values only.** `fit=cover` fills the frame and crops
-overflow (default for media). `fit=contain` shows the whole image, letterboxed
-on the stage colour (default for charts and composites). `fit=hero` scales
-on-screen text as large as the slide allows. A shot must not carry two `fit=`
+**`fit` — explicit values only.** `fit=contain` shows the whole image,
+letterboxed on the stage colour; it is the default for all slide media. `fit=cover`
+fills the frame and crops overflow; it is the default only under `kb` drift,
+whose lens needs the picture to overfill the frame. `fit=hero` scales on-screen
+text as large as the slide allows and says nothing about the media, which keeps
+its default. Each value means only that: a `fit=contain` screen that also
+carries a heading keeps its media contained and its text at normal size.
+(Changed 2026-09-28: `cover` was the default, and any `fit` on a screen with a
+heading turned on hero text and dropped the contain.) A shot must not carry two `fit=`
 values; a valueless `fit` is a warning with a did-you-mean hint.
 
 **`layout=`** names an entry in `layouts.yaml`:
@@ -525,7 +530,9 @@ Property assertions (not goldens):
 
 ```
 no remote assets      no http(s):// in src/href/@import
-video attributes      autoplay muted loop playsinline, no controls
+video attributes      data-autoplay muted loop playsinline preload="none", no controls,
+                      no bare autoplay (the pager plays the active slide's video and
+                      warms the next 3; `m` lists all media and loads them)
                       (`playback: once` drops loop and carries data-playback="once")
 cue invariants        ids unique, ordinals 1..N, len(cues) == len(sections)
 determinism           build twice, compare hashes

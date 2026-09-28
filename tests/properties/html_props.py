@@ -85,7 +85,8 @@ def check(fx, errors: list) -> None:
         if "<video" in text:
             if name == "present":
                 # file-backed media videos carry the cinematic attribute set
-                # (autoplay muted loop playsinline, no native controls). A live
+                # (data-autoplay muted loop playsinline preload=none, no native
+                # controls; the pager plays and warms them). A live
                 # capture surface is the exception and is checked below: a live
                 # stream has nothing to autoplay until the presenter starts it,
                 # and no end to loop.
@@ -104,9 +105,16 @@ def check(fx, errors: list) -> None:
                     # a play-once video (card `playback: once`) is the one
                     # that must NOT loop: it holds its last frame
                     once = 'data-playback="once"' in tag
-                    for attr in ("autoplay", "muted", "playsinline") + (() if once else ("loop",)):
-                        if attr not in tag:
+                    for attr in ("data-autoplay", "muted", "playsinline") + (() if once else ("loop",)):
+                        if not re.search(r"\s" + re.escape(attr) + r"\b", tag):
                             err(errors, f"present video missing {attr}")
+                    # the pager plays and warms slide videos; a bare autoplay
+                    # or an eager preload makes a served deck fetch every video
+                    # at load and starve the images (2026-09-28)
+                    if re.search(r"\sautoplay\b", tag):
+                        err(errors, "present video must not carry autoplay (the pager plays it)")
+                    if 'preload="none"' not in tag:
+                        err(errors, "present video must be preload=\"none\" (the pager warms it)")
                     if once and re.search(r"\sloop\b", tag):
                         err(errors, "present play-once video must not loop")
                     if re.search(r"\scontrols\b", tag):

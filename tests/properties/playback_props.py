@@ -133,7 +133,20 @@ def _tree_bytes(root: Path) -> dict:
             for p in sorted(root.rglob("*")) if p.is_file()}
 
 
+def _check_fit(errors: list) -> None:
+    """`fit` values mean what they say; contain is the default (2026-09-28)."""
+    from render import media_fit
+    cases = [({}, "contain"), ({"fit": "contain"}, "contain"),
+             ({"fit": "cover"}, "cover"), ({"fit": "hero"}, "contain"),
+             ({"kb": "in"}, "cover"), ({"kb": "out", "fit": "contain"}, "contain")]
+    for flags, want in cases:
+        got = media_fit(flags)
+        if got != want:
+            err(errors, f"fit: media_fit({flags}) = {got!r}, want {want!r}")
+
+
 def check(errors: list) -> None:
+    _check_fit(errors)
     if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
         return                                  # no ffmpeg here: nothing to pin
     tmp = Path(tempfile.mkdtemp(prefix="animatic-playback-"))
@@ -170,6 +183,15 @@ def check(errors: list) -> None:
                 err(errors, f"playback: no present video for {name} (have {sorted(tags)})")
                 return ""
             return t
+
+        # every slide video: the pager plays and warms it, so no bare autoplay
+        # and no eager preload (a served deck fetched every video at load and
+        # starved its images; 2026-09-28)
+        for name, t in sorted(tags.items()):
+            if re.search(r"\sautoplay\b", t) or "data-autoplay" not in t:
+                err(errors, f"playback: {name} must carry data-autoplay, not autoplay: {t}")
+            if 'preload="none"' not in t:
+                err(errors, f"playback: {name} must be preload=\"none\": {t}")
 
         for name in ("clip-loop.mp4", "clip-default.mp4", "clip-typo.mp4"):
             t = tag_for(name)

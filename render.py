@@ -340,10 +340,15 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
             loop = "" if ref.playback == "once" else " loop"
             once = ' data-playback="once"' if ref.playback == "once" else ""
             if "slide-media" in css_class.split():
-                # cinematic: autoplay muted when the slide is active, no
-                # native controls bar (the big play button never belongs
-                # on a shot; the pager plays/pauses via data-autoplay)
-                attrs = f'autoplay muted{loop} playsinline preload="auto" data-autoplay{once}'
+                # cinematic: plays muted when the slide is active, no native
+                # controls bar (the big play button never belongs on a shot).
+                # No `autoplay` and preload="none": the pager plays the active
+                # slide's video and warms the next few (PAGER_JS warm()). With
+                # autoplay + preload="auto" on every slide, a served deck asked
+                # for every video at load (L01: 29 files, 754 MB), each range
+                # request held one of the browser's six connections to the
+                # host, and the images queued behind them never loaded.
+                attrs = f'muted{loop} playsinline preload="none" data-autoplay{once}'
             else:
                 # document figure: a reader clicks to play
                 attrs = f'controls preload="metadata" muted{loop} playsinline{once}'
@@ -379,9 +384,21 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
     return "".join(parts)
 
 
+def media_fit(flags: dict) -> str:
+    """How slide media fits the frame: "contain" (letterbox, never crop) or
+    "cover" (fill, crop overflow). An explicit fit=contain / fit=cover wins.
+    Otherwise contain is the default (Ryan, 2026-09-28: charts, documents and
+    4:3 film were being cropped), except under `kb` drift, whose lens needs the
+    picture to overfill the frame so an edge never shows. `fit=hero` is about
+    text, not media, so it leaves the media at its default."""
+    v = flags.get("fit")
+    if v in ("contain", "cover"):
+        return v
+    return "cover" if flags.get("kb") in ("in", "out") else "contain"
+
+
 def media_zone_html(ref: MediaRef, flags: dict) -> str:
     """Full-bleed media zone: media element + kb class + fit/dim + role/layout handling."""
-    fit = " fit" if "fit" in flags else ""
     # Layout flags come from `layout=` (replaces flat piece/duo); read from flags.
     layout_name = flags.get("layout")
     piece = " piece" if layout_name == "piece" else ""
@@ -416,6 +433,8 @@ def media_zone_html(ref: MediaRef, flags: dict) -> str:
         # full overscan), the lens only clips. No per-frame sampling, and
         # an edge can never surface because the texture exceeds the clip.
         media = f'<div class="kb-lens">{media}</div>'
+    # a piece is always contained by its own CSS, so it takes no fit class
+    fit = " fit" if media_fit(flags) == "contain" and not piece else ""
     return f'<div class="media-zone{fit}{piece}{duo_cls}">{media}</div>'
 
 
@@ -479,12 +498,35 @@ PAGER_JS = """
     for (var li = 0; li < listeners.length; li++) {
       try { listeners[li](cur); } catch (err) { /* never break nav */ }
     }
+    // warm before play: a load() after play() would abort that play
+    for (var w = cur; w <= cur + WARM_AHEAD && w < slides.length; w++) warm(w);
     // autoplay the active slide's video; pause everything else
     for (var i = 0; i < slides.length; i++) {
       var v = slides[i].querySelector("video[data-autoplay]");
       if (v) {
         if (i === cur) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
         else { v.pause(); }
+      }
+    }
+  }
+
+  // Slide videos are built preload="none" (media_html): nothing loads until
+  // the slide is near. warm(i) switches slide i's videos to preload="auto"
+  // and starts the load once; the media panel (`m`) calls it for every slide.
+  var WARM_AHEAD = 3;
+  function warm(i) {
+    var s = slides[i];
+    if (!s) return;
+    var vids = s.querySelectorAll("video[data-autoplay]");
+    for (var j = 0; j < vids.length; j++) {
+      var v = vids[j];
+      if (v.hasAttribute("data-warmed")) continue;
+      v.setAttribute("data-warmed", "");
+      v.preload = "auto";
+      // a video that has not fetched anything yet needs load() to pick up
+      // the new preload; one already playing or buffering is left alone
+      if (v.readyState === 0 && v.networkState !== 2) {
+        try { v.load(); } catch (err) { /* never break nav */ }
       }
     }
   }
@@ -529,7 +571,7 @@ PAGER_JS = """
   // cannot break navigation. `onChange` stays single-slot (the live module
   // owns it); `addOnChange` is the fan-out for everyone else.
   window.animatic = {
-    go: go, next: next, prev: prev,
+    go: go, next: next, prev: prev, warm: warm,
     count: function () { return slides.length; },
     current: function () { return cur; },
     onChange: null,
@@ -1583,6 +1625,191 @@ DEBUG_JS = r"""
 """
 
 
+MEDIA_JS = r"""
+(function () {
+  "use strict";
+  // Media panel on `m`: every image and video in the deck, in slide order,
+  // with what the browser has actually got (read from the elements, not
+  // guessed), and a Load all button. Built for presenting from a served
+  // folder, where a slow link used to leave slides blank with no error:
+  //   ready    image decoded / video can play through without stalling
+  //   loading  partly there (videos show how much is buffered)
+  //   waiting  not asked for yet (videos stay preload="none" until near)
+  //   failed   the request failed: a missing file shows up here
+  // Load all warms videos two at a time, so images and the slide on screen
+  // keep getting connections while it runs.
+  var box = document.getElementById("media-panel");
+  var list = document.getElementById("media-list");
+  var sumEl = document.getElementById("media-summary");
+  var btn = document.getElementById("media-load-all");
+  if (!box || !list) return;
+  var slides = Array.prototype.slice.call(
+    document.querySelectorAll(".animatic-slide"));
+  var CONCURRENT = 2, TIMEOUT_MS = 120000;
+  var timer = null, running = false;
+
+  // one row per file; a file shown on several slides is one row
+  function inventory() {
+    var rows = [], bySrc = {};
+    for (var i = 0; i < slides.length; i++) {
+      var els = slides[i].querySelectorAll("img.media-image, video.media-video");
+      for (var j = 0; j < els.length; j++) {
+        var el = els[j];
+        // the attribute, not currentSrc: currentSrc stays "" on a video
+        // until it loads, which would split one file into two rows
+        var src = el.getAttribute("src") || "";
+        if (!src) continue;
+        var row = bySrc[src];
+        if (!row) {
+          row = { src: src, kind: el.tagName === "VIDEO" ? "video" : "image",
+                  slides: [], els: [] };
+          bySrc[src] = row; rows.push(row);
+        }
+        if (row.slides.indexOf(i) < 0) row.slides.push(i);
+        row.els.push(el);
+      }
+    }
+    return rows;
+  }
+
+  function bufferedPct(v) {
+    var d = v.duration;
+    if (!isFinite(d) || d <= 0) return 0;
+    var got = 0;
+    for (var k = 0; k < v.buffered.length; k++) got += v.buffered.end(k) - v.buffered.start(k);
+    return Math.min(100, Math.round(got / d * 100));
+  }
+
+  function stateOf(row) {
+    var best = { s: "waiting", pct: 0 };
+    for (var k = 0; k < row.els.length; k++) {
+      var el = row.els[k], st;
+      if (row.kind === "image") {
+        if (el.complete && el.naturalWidth > 0) st = { s: "ready", pct: 100 };
+        else if (el.complete) st = { s: "failed", pct: 0 };
+        else st = { s: "loading", pct: 0 };
+      } else {
+        var pct = bufferedPct(el);
+        if (el.error || el.networkState === 3) st = { s: "failed", pct: 0 };
+        else if (el.readyState >= 4) st = { s: "ready", pct: pct };
+        else if (el.readyState > 0 || el.networkState === 2) st = { s: "loading", pct: pct };
+        else st = { s: "waiting", pct: 0 };
+      }
+      if (rank(st.s) > rank(best.s)) best = st;
+    }
+    return best;
+  }
+  function rank(s) { return { failed: 4, ready: 3, loading: 2, waiting: 1 }[s] || 0; }
+
+  function name(src) {
+    var q = src.split("?")[0];
+    return decodeURIComponent(q.substring(q.lastIndexOf("/") + 1));
+  }
+
+  function paint() {
+    var rows = inventory(), counts = { image: {}, video: {} }, html = [];
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r], st = stateOf(row);
+      counts[row.kind][st.s] = (counts[row.kind][st.s] || 0) + 1;
+      counts[row.kind].all = (counts[row.kind].all || 0) + 1;
+      var label = st.s;
+      if (row.kind === "video" && st.s !== "failed" && st.s !== "waiting") label += " " + st.pct + "%";
+      var nums = row.slides.map(function (n) { return n + 1; }).join(", ");
+      html.push('<li class="media-row media-' + st.s + '" data-slide="' + row.slides[0] + '">' +
+        '<span class="media-state">' + label + '</span>' +
+        '<span class="media-kind">' + row.kind + '</span>' +
+        '<span class="media-name">' + esc(name(row.src)) + '</span>' +
+        '<span class="media-where">' + nums + '</span></li>');
+    }
+    list.innerHTML = html.join("");
+    function line(kind) {
+      var c = counts[kind];
+      if (!c.all) return "";
+      return kind + "s " + (c.ready || 0) + "/" + c.all + " ready" +
+        (c.failed ? " · " + c.failed + " failed" : "");
+    }
+    var parts = [line("image"), line("video")].filter(Boolean);
+    sumEl.textContent = parts.join(" · ") + (running ? " · loading all…" : "");
+    btn.disabled = running;
+  }
+
+  function esc(t) {
+    return String(t).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function loadAll() {
+    if (running) return;
+    running = true;
+    var queue = [];
+    for (var i = 0; i < slides.length; i++) {
+      var vids = slides[i].querySelectorAll("video[data-autoplay]");
+      for (var j = 0; j < vids.length; j++) {
+        if (vids[j].readyState < 4 && !vids[j].error) queue.push({ v: vids[j], i: i });
+      }
+    }
+    var active = 0;
+    function pump() {
+      while (active < CONCURRENT && queue.length) start(queue.shift());
+      if (!active && !queue.length) { running = false; paint(); }
+    }
+    function start(job) {
+      active++;
+      var v = job.v, done = false, t;
+      function finish() {
+        if (done) return;
+        done = true; clearTimeout(t);
+        v.removeEventListener("canplaythrough", finish);
+        v.removeEventListener("error", finish);
+        active--; pump();
+      }
+      v.addEventListener("canplaythrough", finish);
+      v.addEventListener("error", finish);
+      t = setTimeout(finish, TIMEOUT_MS);
+      if (window.animatic && window.animatic.warm) window.animatic.warm(job.i);
+      if (v.readyState >= 4) finish();
+    }
+    pump();
+    paint();
+  }
+
+  function open() {
+    box.classList.add("open");
+    paint();
+    if (!timer) timer = setInterval(paint, 500);
+  }
+  function close() {
+    box.classList.remove("open");
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+  function toggle() { if (box.classList.contains("open")) close(); else open(); }
+
+  btn.addEventListener("click", function (e) { e.preventDefault(); loadAll(); });
+  list.addEventListener("click", function (e) {
+    var li = e.target.closest ? e.target.closest("li[data-slide]") : null;
+    if (li && window.animatic) window.animatic.go(Number(li.getAttribute("data-slide")));
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "m" || e.key === "M") { e.preventDefault(); toggle(); }
+    else if (e.key === "Escape" && box.classList.contains("open")) close();
+  });
+
+  if (window.animatic) {
+    window.animatic.media = function () {
+      return inventory().map(function (row) {
+        var st = stateOf(row);
+        return { file: name(row.src), kind: row.kind, state: st.s,
+                 buffered: st.pct, slides: row.slides.map(function (n) { return n + 1; }) };
+      });
+    };
+    window.animatic.loadAllMedia = loadAll;
+  }
+})();
+"""
+
+
 def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     theme = resolve_theme(talk)
@@ -1634,6 +1861,11 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <div class="debug-head">diagnostics &middot; <code>i</code> to refresh &middot; <code>Esc</code> to close</div>
 <pre id="debug-output" tabindex="0"></pre>
 </aside>
+<aside class="media-panel" id="media-panel" aria-label="media">
+<div class="debug-head">media &middot; <code>m</code> or <code>Esc</code> to close &middot; click a row to go to its slide</div>
+<div class="media-bar"><span id="media-summary"></span><button type="button" id="media-load-all" class="hookup-button">Load all</button></div>
+<ol class="media-list" id="media-list"></ol>
+</aside>
 <p class="deck-status" id="deck-status" role="status" aria-live="polite"></p>
 {hookup}<script>
 {PAGER_JS}
@@ -1643,6 +1875,9 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 </script>
 <script>
 {DEBUG_JS}
+</script>
+<script>
+{MEDIA_JS}
 </script>
 {live_script}</body>
 </html>
@@ -1785,10 +2020,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
 
     inner = []
     if ref is not None:
-        mflags = dict(flags)
-        if "fit" in mflags and has_body:
-            mflags.pop("fit", None)  # on a text slide fit means hero TEXT
-        inner.append(media_zone_html(ref, mflags))
+        # fit=contain / fit=cover always reach the media; fit=hero is read
+        # at slide level (text-fit below) and leaves the media at its default
+        inner.append(media_zone_html(ref, dict(flags)))
 
     if credits_screen:
         # full end-roll: optional title + entries in balanced columns
@@ -1879,11 +2113,12 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     notes_html = "".join(notes)
 
     cls = "animatic-slide" + first
-    if "fit" in sflags and not credits_screen and (
+    if sflags.get("fit") == "hero" and not credits_screen and (
             screen.media_shot is None or has_body):
-        # `fit` = hero text as big as the slide allows — including OVER
-        # full-bleed media when the screen carries text (a media-only `fit`
-        # keeps its other meaning: letterbox-contain the image)
+        # fit=hero = hero text as big as the slide allows, including over
+        # full-bleed media. fit=contain / fit=cover only say how media fits:
+        # before 2026-09-28 any fit on a screen with a heading also turned on
+        # hero text and dropped the contain (bots-traffic, mania-vs-ai)
         cls += " text-fit"
     layout_name = sflags.get("layout")
     if layout_name == "duo" and screen.media_shot is not None:

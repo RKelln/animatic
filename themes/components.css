@@ -505,6 +505,42 @@
     overflow: auto;
   }
   .debug-panel.open { display: block; }
+
+  /* the media panel: `m` lists every file with what the browser actually has,
+     and Load all. Same glass register as the diagnostics panel. */
+  .media-panel {
+    position: fixed; inset: 6vh 6vw auto 6vw;
+    display: none; z-index: 46;
+    max-height: 80vh;
+    padding: 1.6vh 1.6vw;
+    border-radius: 1.1em;
+    background: var(--stage-overlay-bg);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: var(--quote-panel-shadow);
+    color: var(--stage-ink);
+    overflow: auto;
+  }
+  .media-panel.open { display: block; }
+  .media-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1em; margin-bottom: 0.8em;
+    font-family: var(--font-ui); font-size: 0.8em;
+  }
+  .media-list {
+    list-style: none; margin: 0; padding: 0;
+    font-family: var(--font-mono, monospace); font-size: 0.66em; line-height: 1.5;
+  }
+  .media-row {
+    display: grid; grid-template-columns: 9em 4em 1fr auto;
+    gap: 1em; padding: 0.15em 0.4em; border-radius: 0.3em; cursor: pointer;
+  }
+  .media-row:hover { background: rgba(127, 127, 127, 0.18); }
+  .media-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .media-kind, .media-where { color: var(--stage-muted); }
+  .media-waiting .media-state { color: var(--stage-muted); }
+  .media-loading .media-state { color: #d9a441; }
+  .media-ready .media-state { color: #6fbf73; }
+  .media-failed, .media-failed .media-state { color: #e0605a; font-weight: 600; }
   .debug-head {
     font-family: var(--font-ui); font-size: 0.75em;
     letter-spacing: 0.08em; text-transform: uppercase;

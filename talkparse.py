@@ -525,7 +525,8 @@ def _lex_frontmatter(body: str, source: str) -> tuple[dict, list]:
     return meta, rest
 
 
-def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None) -> list:
+def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
+                line_offset: int = 0) -> list:
     """Tokenize source lines into primitive blocks (list of dicts).
 
     Blank lines separate paragraphs; consecutive non-blank prose lines merge
@@ -554,7 +555,9 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None) ->
         para_end = 0
         cont = None
 
-    for lineno, raw in enumerate(lines, start=1):
+    # line numbers are the talkfile's own (an editor's), so the frontmatter
+    # lines stripped before this point are counted back in via line_offset
+    for lineno, raw in enumerate(lines, start=1 + line_offset):
         line = raw.rstrip("\n")
 
         # --- multi-line comment accumulation --------------------------------
@@ -845,7 +848,11 @@ def build_talk(path, source: Optional[str] = None) -> Talk:
     role_vocab, layout_vocab = load_vocab(deck_dir)
     role_bundles = load_role_bundles(deck_dir)
     meta, lines = _lex_frontmatter(body, source)
-    raw_blocks = _lex_blocks(lines, source, role_vocab, layout_vocab)
+    # every line number is the talkfile's own, frontmatter included
+    # (2026-09-28; was body-relative, which put L01's warnings 64 lines off)
+    offset = body.count("\n") + 1 - len(lines)
+    raw_blocks = _lex_blocks(lines, source, role_vocab, layout_vocab,
+                             line_offset=offset)
     return assemble(meta, raw_blocks, source, role_vocab=role_vocab,
                     layout_vocab=layout_vocab, role_bundles=role_bundles)
 

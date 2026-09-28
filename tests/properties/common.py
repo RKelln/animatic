@@ -81,17 +81,23 @@ def load_meta_source(talkfile: Path) -> tuple[dict, str]:
 
 
 def body_lines(source_text: str) -> list:
-    """The body lines exactly as the parser numbers them.
+    """The talkfile's lines, numbered as the parser numbers them.
 
-    nav.json ranges are 1-based source lines *of the body* (frontmatter
-    stripped) — the same numbering every warning uses.  White-box on purpose:
-    the property must read the source through the parser's own split, not a
-    lookalike, or a frontmatter change would silently skew every assertion.
-    Line k of a range is body_lines(text)[k - 1].
+    nav.json ranges and every warning use the talkfile's own 1-based line
+    numbers, frontmatter included (2026-09-28; they were body-relative), so
+    line k of a range is body_lines(text)[k - 1]. Use frontmatter_lines() for
+    the lines no screen can own.
     """
+    return source_text.split("\n")
+
+
+def frontmatter_lines(source_text: str) -> set:
+    """1-based line numbers of the frontmatter block, both `---` included,
+    read through the parser's own split rather than a lookalike."""
     from talkparse import _lex_frontmatter
-    _, lines = _lex_frontmatter(source_text, "<fixture>")
-    return lines
+    _, rest = _lex_frontmatter(source_text, "<fixture>")
+    n = source_text.count("\n") + 1 - len(rest)
+    return set(range(1, n + 1))
 
 
 def derive_sources(meta: dict, source_text: str) -> list:

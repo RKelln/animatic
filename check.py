@@ -38,7 +38,7 @@ Severity taxonomy (spec: Error and warning taxonomy as the register defines it):
               defective.
 
 Register canonicalization (engine-decision Verification/Error and warning taxonomy: "register canonicalization
-is T08").  The 1-28 register table with owner + status lives in REGISTER below
+is T08").  The 1-30 register table with owner + status lives in REGISTER below
 and prints with --register.  Rows implemented here: 1-9, 11-16, 18 (model
 assert + artifact assert), 19 (the timing clock; the estimate itself ships
 from render.py/timing.py), 21 (corpus harness), 28.  Rows enforced by the
@@ -147,6 +147,7 @@ REGISTER = [
     (27, "multi-line shot fixture",                                  WARNING, "fixture: tests/fixtures/constructs/multiline-shot.talk.md (T07)"),
     (28, "`[^id]` footnote with no sources: registry entry",         WARNING, "implemented"),
     (29, "card `playback:` value unknown, on a non-video, or unbakeable", WARNING, "implemented: check.py + mediaresolve.py"),
+    (30, "`dim` on a media screen with no on-screen text",              WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -891,6 +892,26 @@ def check_29_playback(talk, resolver, report: Report) -> None:
                            f"(spec: Media pipeline contract)")
 
 
+def check_30_dim_without_text(talk, resolver, report: Report) -> None:
+    """`dim` exists to keep on-screen text readable over a picture. On a screen
+    with no text it only darkens the picture: a chart or photo that is too
+    bright should be fixed in the file, not dimmed (Ryan, 2026-09-28).
+    Framed layouts ignore dim already (check 8 says so)."""
+    for s in talk.screens:
+        mshot = s.media_shot
+        if mshot is None or not mshot.flags.get("dim"):
+            continue
+        if mshot.flags.get("layout") in ("piece", "duo"):
+            continue
+        if render.onscreen_blocks(s):
+            continue
+        report.add(30, WARNING,
+                   f"dim={mshot.flags.get('dim')} on '{mshot.slug}' but the screen "
+                   f"has no on-screen text: dim only darkens the picture. Drop it, "
+                   f"or fix a too-bright image in the file itself",
+                   line=mshot.line, screen=s.idx)
+
+
 def check_28_footnotes(talk, resolver, source_text: str, report: Report) -> None:
     meta = talk.meta
     sources = meta.get("sources")
@@ -974,6 +995,7 @@ def run_checks(talk, resolver, source_text: str,
     check_19_timing(talk, resolver, report)
     check_28_footnotes(talk, resolver, source_text, report)
     check_29_playback(talk, resolver, report)
+    check_30_dim_without_text(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:
