@@ -386,6 +386,24 @@
     box-shadow: var(--piece-shadow, 0 24px 70px rgba(0, 0, 0, 0.45));
   }
 
+  /* titled slides (`layout=titled`): the heading and the framed media are one
+     centred group, whatever the picture's shape: the slide becomes a centred
+     column, heading first, then the media at its natural size. */
+  .animatic-slide.titled {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3.5vh;
+  }
+  .animatic-slide.titled .screen-body {
+    order: 1; flex: none; height: auto;
+    padding: 0 7vw;
+  }
+  .media-zone.piece.titled {
+    order: 2; position: relative; inset: auto; flex: none;
+    width: 84vw; container-type: normal;  /* piece sets size containment, which would collapse the height */
+  }
+  .media-zone.piece.titled .slide-media { max-height: 64vh; }
+
   /* live capture screens (card `type: live`): a window share the presenter
      starts with one click. Idle shows the poster (when the card declares one)
      plus a start control; live shows the stream alone. No Ken Burns and no dim

@@ -449,6 +449,8 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None) -> str
     if layout_name == "duo":
         duo = True  # treat as presence
     duo_cls = ""
+    if layout_name == "titled":
+        piece = " piece"
     if layout_name == "duo" or (layout_name == "piece" and not piece):
         # duo implies piece (same layering rule as before)
         if not piece:
@@ -477,7 +479,8 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None) -> str
         media = f'<div class="kb-lens">{media}</div>'
     # a piece is always contained by its own CSS, so it takes no fit class
     fit = " fit" if media_fit(flags) == "contain" and not piece else ""
-    return f'<div class="media-zone{fit}{piece}{duo_cls}">{media}</div>'
+    titled_cls = " titled" if layout_name == "titled" else ""
+    return f'<div class="media-zone{fit}{piece}{duo_cls}{titled_cls}">{media}</div>'
 
 
 # ---------------------------------------------------------------------------
@@ -2264,6 +2267,8 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     layout_name = sflags.get("layout")
     if layout_name == "duo" and screen.media_shot is not None:
         cls += " duo"
+    if layout_name == "titled" and screen.media_shot is not None:
+        cls += " titled"
     # per-slide text mode (shot flag `text=light|dark`): the author picks the
     # text colour for the ground — light glyphs for dark imagery, ink for
     # bright. Defaults to the room's identity colour (theme handles it).

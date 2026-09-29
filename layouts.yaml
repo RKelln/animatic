@@ -2,3 +2,4 @@
 layouts:
   piece: {description: "media floats as framed object (border + shadow on image)"}
   duo: {description: "object + text layout; implies piece"}
+  titled: {description: "heading centred at the top, framed media centred below; implies piece"}

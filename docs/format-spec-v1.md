@@ -263,6 +263,7 @@ values; a valueless `fit` is a warning with a did-you-mean hint.
 layouts:
   piece: {description: "media floats as a framed object"}
   duo: {description: "object + text layout; implies piece"}
+  titled: {description: "heading centred at the top, framed media centred below; implies piece"}
 ```
 
 Layouts are config, not grammar: the vocabulary grows by adding entries to

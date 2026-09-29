@@ -460,7 +460,7 @@ def check_8_flag_combos(talk, resolver, report: Report) -> None:
             continue
         flags = mshot.flags
         layout_name = flags.get("layout")
-        framed = layout_name in ("piece", "duo")
+        framed = layout_name in ("piece", "duo", "titled")
         if not framed:
             continue
         framed_desc = f"layout={layout_name}"
@@ -904,7 +904,7 @@ def check_30_dim_without_text(talk, resolver, report: Report) -> None:
         mshot = s.media_shot
         if mshot is None or not mshot.flags.get("dim"):
             continue
-        if mshot.flags.get("layout") in ("piece", "duo"):
+        if mshot.flags.get("layout") in ("piece", "duo", "titled"):
             continue
         if render.onscreen_blocks(s):
             continue
