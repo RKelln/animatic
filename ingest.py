@@ -7,7 +7,9 @@ a C2PA manifest, so the tool reads the generation record back (see `falrec.py`)
 and uses the ORIGINAL prompt to decide where the clip belongs.
 
 Matching, strongest evidence first:
-  1. slug / alias / prefix   — the card declares `aliases:` for freehand names
+  1. slug / alias / prefix   — the card declares `aliases:` for freehand names;
+                               then a slug a shot in talk.md names that has no
+                               card yet (the card is written for it)
   2. prompt family           — the recovered prompt matches an existing card's
                                prompt (Jaccard >= --match-threshold, and clearly
                                ahead of the runner-up)
@@ -40,7 +42,9 @@ attempt it was. It copies rather than moves, so the attempts stay on disk.
 Your own finished media goes the same way: ingest it, then promote it.
 
 Naming, when you do name things: `slug.mp4`, `slug-anything.mp4`,
-`slug/anything.mp4`, or a raw fal download name (which normalises).
+`slug_anything.mp4`, `slug/anything.mp4`, or a raw fal download name (which
+normalises). The slug can be a card's or one a shot in talk.md names: write
+the shot first and the card is made for it on the first drop.
 """
 from __future__ import annotations
 
@@ -99,6 +103,29 @@ def _match_slug(candidate: str, slugs: list[str],
     if pref:
         return max(pref, key=len), "prefix"
     return None, "unmatched"
+
+
+def _shot_slugs(talk: Path) -> list[str]:
+    """Every media slug a `<!-- shot: ... -->` in talk.md names.
+
+    A shot is written before its media exists, and often before its card, so
+    these count as known names too (after the cards, which stay the stronger
+    evidence). If the talk does not parse, name matching just falls back to
+    the cards.
+    """
+    try:
+        import talkparse
+        parsed = talkparse.build_talk(talk)
+    except Exception as e:                                           # noqa: BLE001
+        print(f"warning: could not read shot slugs from {talk.name} "
+              f"({type(e).__name__}: {e}); matching on cards only", file=sys.stderr)
+        return []
+    out: list[str] = []
+    for screen in parsed.screens:
+        for shot in screen.shots:
+            if shot.is_media and shot.slug and shot.slug not in out:
+                out.append(shot.slug)
+    return out
 
 
 def _next_attempt(media_dir: Path, slug: str) -> int:
@@ -419,6 +446,7 @@ def main(argv: list[str] | None = None) -> int:
 
     slugs, aliases, cards = _load_cards(talk)
     fam = _prompt_family(media_dir, cards)
+    shot_only = [x for x in _shot_slugs(talk) if x not in slugs]
     key = None
     if not args.no_recover:
         try:
@@ -450,6 +478,11 @@ def main(argv: list[str] | None = None) -> int:
         base = f.parent.name if f.parent != src else f.stem
         slug, how = _match_slug(_normalise(base), slugs, aliases)
         why = ""
+        if slug is None and shot_only:
+            slug, how = _match_slug(_normalise(base), shot_only)
+            if slug:
+                how, why = "shot", ("a shot in talk.md names it" if how == "exact"
+                                    else "a shot in talk.md names its prefix")
         if slug is None and prompt and fam:
             slug, score, runner, rscore, verdict = _match_prompt(prompt, fam, args.match_threshold)
             if slug:
@@ -506,14 +539,16 @@ def main(argv: list[str] | None = None) -> int:
     for p in planned:
         slug, rec = p["slug"], p["rec"]
         alt = falrec.alt_from_expanded(rec) if rec and not _is_embedded(rec) else ""
-        if p["how"] == "new" and not (cards_path.read_text().count(f"- slug: {slug}\n")):
-            brief = [f"filed by ingest.py {dt.date.today().isoformat()}; name derived from "
+        if p["how"] in ("new", "shot") and not (cards_path.read_text().count(f"- slug: {slug}\n")):
+            origin = ("matched to its shot in talk.md" if p["how"] == "shot"
+                      else "name derived")
+            brief = [f"filed by ingest.py {dt.date.today().isoformat()}; {origin} from "
                      f"'{p['src'].name}'" + (" and needs review" if p["how"] == "new" else "")]
+            rename = "; rename the slug to say what the shot is" if p["how"] == "new" else ""
             if _is_embedded(rec):
-                brief.append("prompt read from the file's embedded metadata; "
-                             "rename the slug to say what the shot is")
+                brief.append("prompt read from the file's embedded metadata" + rename)
             elif rec:
-                brief.append("prompt recovered from fal; rename the slug to say what the shot is")
+                brief.append("prompt recovered from fal" + rename)
             cards_path.open("a").write(_card_block(slug, p["kind"], p["prompt"], alt,
                                                    rec, brief))
             created.append(slug)

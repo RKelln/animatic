@@ -16,6 +16,7 @@ Layers (spec: Verification):
     synthetic /tmp tree — real content roots are never committed
   - playback_props                  card `playback:` (check 29) over a /tmp
     deck built from generated clips
+  - ingest_props                    ingest.py name matching over a /tmp deck
 
 Per fixture profile the runner: builds twice into temp dirs and requires the
 trees to be byte-identical (determinism, spec: Outputs — nav.json included);
@@ -47,7 +48,8 @@ sys.path.insert(0, str(TESTS))
 
 import build as build_mod  # noqa: E402
 from properties import (check_props, corpus_props, cue_props, html_props,  # noqa: E402
-                        manifest_props, nav_props, playback_props, timing_props)
+                        ingest_props, manifest_props, nav_props, playback_props,
+                        timing_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
 GOLDEN_FILES = ("cues.json", "media-manifest.json")
@@ -230,6 +232,18 @@ def main(argv=None) -> int:
     else:
         passed.append("playback")
         print("ok    playback")
+
+    # ingest name matching: a throwaway deck and inbox, --no-recover only
+    ingest_errors: list = []
+    ingest_props.check(ingest_errors)
+    if ingest_errors:
+        failed.append("ingest")
+        print("FAIL  ingest")
+        for e in ingest_errors[:12]:
+            print(f"      {e}")
+    else:
+        passed.append("ingest")
+        print("ok    ingest")
 
     print()
     print(f"profiles: {total_profiles}  passed: {len(passed)}  "
