@@ -216,7 +216,7 @@ Flags are the per-shot knobs. The top-level namespace is fixed:
 | Flag | Values | Meaning |
 |---|---|---|
 | `fit` | `cover` / `contain` / `hero` | how media fits the frame |
-| `kb` | `in` / `out` | slow drift of the media layer inside a static lens |
+| `kb` | `in` / `out` / `zoom-top` | slow drift of the media layer inside a static lens; `zoom-top` is one slow push-in (about 30 s) anchored at the top edge that then holds, for a picture with lettering near its top |
 | `dim` | `0`–`1` | a dark scrim at that opacity, to keep on-screen text readable; on a screen with no on-screen text it is check 30's warning (fix a too-bright image in the file instead) |
 | `text` | `light` / `dark` | per-screen text treatment, overriding the theme default |
 | `advance` | (none) | when the screen's video ends, move to the next screen; the video plays once instead of looping. On media that is not a video it is check 31's warning |

@@ -418,6 +418,12 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
     return "".join(parts)
 
 
+# `kb` values: `in` / `out` are slow sideways drifts over an oversized image;
+# `zoom-top` is one slow push-in anchored at the top edge, then a hold (a title
+# lettered near the top of the picture stays in frame).
+KB_VALUES = ("in", "out", "zoom-top")
+
+
 def media_fit(flags: dict) -> str:
     """How slide media fits the frame: "contain" (letterbox, never crop) or
     "cover" (fill, crop overflow). An explicit fit=contain / fit=cover wins.
@@ -428,7 +434,7 @@ def media_fit(flags: dict) -> str:
     v = flags.get("fit")
     if v in ("contain", "cover"):
         return v
-    return "cover" if flags.get("kb") in ("in", "out") else "contain"
+    return "cover" if flags.get("kb") in KB_VALUES else "contain"
 
 
 def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None) -> str:
@@ -459,7 +465,7 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None) -> str
         kbcls = ""
     else:
         media_flags = {k: v for k, v in flags.items() if k != "dim" and k not in ("layout",)} if piece else flags
-        kbcls = f" kb-{flags['kb']}" if flags.get("kb") in ("in", "out") else ""
+        kbcls = f" kb-{flags['kb']}" if flags.get("kb") in KB_VALUES else ""
     media = media_html(ref, media_flags, css_class=f"slide-media{kbcls}", chain=chain)
     if kbcls and not piece:
         # camera drift: the lens moves over an oversized, already-rasterized
@@ -502,7 +508,7 @@ PAGER_JS = """
     // Ken Burns drift is a CSS animation on the kb image (compositor
     // thread, translate only). Restart it fresh on every arrival so each
     // visit begins in phase.
-    var els = slide.querySelectorAll(".kb-lens .kb-in, .kb-lens .kb-out");
+    var els = slide.querySelectorAll(".kb-lens .kb-in, .kb-lens .kb-out, .kb-lens .kb-zoom-top");
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
       el.style.animation = "none";

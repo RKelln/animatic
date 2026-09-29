@@ -70,11 +70,25 @@
      y ±2.5% (fast enough to clear the pixel grid). */
   .kb-lens .slide-media.kb-in  { animation: kb-pan-a 22s ease-in-out infinite alternate; }
   .kb-lens .slide-media.kb-out { animation: kb-pan-b 22s ease-in-out infinite alternate; }
+  /* kb=zoom-top: the whole picture at frame size, anchored top-centre, one
+     slow push-in that then holds; the top edge never moves. */
+  .kb-lens .slide-media.kb-zoom-top {
+    width: 100%; height: 100%;
+    left: 0; top: 0;
+    transform: none;
+    transform-origin: 50% 0;
+    animation: kb-zoom-top 30s ease-out forwards;
+  }
   .animatic-slide:not(.active) .kb-lens .slide-media.kb-in,
-  .animatic-slide:not(.active) .kb-lens .slide-media.kb-out { animation-play-state: paused; }
+  .animatic-slide:not(.active) .kb-lens .slide-media.kb-out,
+  .animatic-slide:not(.active) .kb-lens .slide-media.kb-zoom-top { animation-play-state: paused; }
   @keyframes kb-pan-a {
     from { transform: translate(-57%, -52.5%); }
     to   { transform: translate(-43%, -47.5%); }
+  }
+  @keyframes kb-zoom-top {
+    from { transform: scale(1); }
+    to   { transform: scale(1.12); }
   }
   @keyframes kb-pan-b {
     from { transform: translate(-43%, -47.5%); }
@@ -82,7 +96,8 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .kb-lens .slide-media.kb-in,
-    .kb-lens .slide-media.kb-out { animation: none; }
+    .kb-lens .slide-media.kb-out,
+    .kb-lens .slide-media.kb-zoom-top { animation: none; }
   }
 
   /* dim: scrim over media for text legibility (dim=N opacity). Solid
