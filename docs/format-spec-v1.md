@@ -386,6 +386,13 @@ never spoken, and travels with the quote. Same-line attribution (`> q ~ Name`)
 is unsupported — the whole line renders as the quote. An attribution-shaped
 paragraph anywhere else is spoken, with a warning.
 
+A blank `>` line inside a quote is a paragraph break, shown as separate
+paragraphs on the slide and in the document view. The slide sizes a quote by
+its length: a short one (60 visible characters or fewer) gets a column wide
+enough to stay on one line, a long one (320 or more, or three paragraphs or
+more) a wide column at reading size, and any quote that still overflows its
+slide shrinks until it fits.
+
 ### Showing the source, saying our line (paraphrase)
 
 A source's sentence and our plain-language version of it are two different

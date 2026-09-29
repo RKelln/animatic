@@ -530,6 +530,33 @@ PAGER_JS = """
     }
   }
 
+  // Quotes that overflow their slide shrink until they fit (a long quote's
+  // size class is only an estimate from its length). Hidden slides are still
+  // laid out, so every slide is measured up front, and again on resize and
+  // once web fonts have loaded. The size is set in em, so it scales with the
+  // stage.
+  function fitQuotes() {
+    for (var i = 0; i < slides.length; i++) {
+      var body = slides[i].querySelector(".screen-body");
+      var q = body && body.querySelector(".quote-block blockquote");
+      if (!q) continue;
+      q.style.fontSize = "";
+      var base = parseFloat(getComputedStyle(q).fontSize);
+      var parent = parseFloat(getComputedStyle(q.parentNode).fontSize) || 1;
+      var scale = 1;
+      while (body.scrollHeight > body.clientHeight + 1 && scale > 0.4) {
+        scale -= 0.05;
+        q.style.fontSize = (base * scale / parent).toFixed(3) + "em";
+      }
+      // still overflowing at the floor: something else on the slide is too
+      // tall, so the quote goes back to its own size
+      if (body.scrollHeight > body.clientHeight + 1) q.style.fontSize = "";
+    }
+  }
+  fitQuotes();
+  window.addEventListener("resize", fitQuotes);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitQuotes);
+
   // `continue` shots: slides whose videos share a data-chain show one clip.
   // Moving between two of them swaps the <video> elements, so the one that is
   // playing lands in the new slide and carries on (a move in one step does
@@ -2050,6 +2077,28 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
     return path
 
 
+def quote_paras_html(text: str) -> str:
+    """A quote's paragraphs (blank `>` lines, kept as "\n\n") as <p>s."""
+    return "".join(f"<p>{inline_md(p.strip())}</p>"
+                   for p in text.split("\n\n") if p.strip())
+
+
+# Quote length tiers on the slide (visible characters). A short quote gets a
+# column wide enough to stay on one line; a long one a wide column at reading
+# size. The pager's fitQuotes() still shrinks any quote that overflows.
+QUOTE_SHORT_MAX = 60
+QUOTE_LONG_MIN = 320
+
+
+def quote_size_class(text: str) -> str:
+    n = len(re.sub(r"[*`]", "", text).replace("\n\n", " "))
+    if n <= QUOTE_SHORT_MAX:
+        return " quote-short"
+    if n >= QUOTE_LONG_MIN or text.count("\n\n") >= 2:
+        return " quote-long"
+    return ""
+
+
 def list_html(b) -> str:
     """A list block: `<ol>` for numbered items, `<ul>` otherwise."""
     tag = "ol" if b.ordered else "ul"
@@ -2132,9 +2181,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 else:
                     src = ""
                 body.append(
-                    f'<div class="quote-block">'
+                    f'<div class="quote-block{quote_size_class(b.text)}">'
                     f'<div class="quote-plate" aria-hidden="true"></div>'
-                    f"<blockquote><p>{inline_md(b.text)}</p></blockquote>"
+                    f"<blockquote>{quote_paras_html(b.text)}</blockquote>"
                     f"{src}</div>"
                 )
             elif b.kind == "list":
@@ -2324,7 +2373,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
             out.append(f"<h{lvl} class='screen-heading'>{inline_md(b.text)}</h{lvl}>")
         elif b.kind == "quote":
-            out.append(f"<blockquote><p>{inline_md(b.text)}</p></blockquote>")
+            out.append(f"<blockquote>{quote_paras_html(b.text)}</blockquote>")
         elif b.kind == "quote-source":
             out.append(f'<p class="doc-quote-source">{inline_md(b.text)}</p>')
         elif b.kind == "list":

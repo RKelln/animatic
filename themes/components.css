@@ -132,7 +132,7 @@
      block; the credit hugs the block's right edge, not the slide's */
   .quote-block {
     width: 100%;
-    max-width: 24em;
+    max-width: 28em;
   }
   .quote-block blockquote {
     width: 100%;
@@ -147,7 +147,8 @@
     color: var(--stage-ink);
     text-shadow: var(--stage-text-glow);
   }
-  .animatic-slide blockquote p { margin: 0; }
+  .animatic-slide blockquote p { margin: 0; text-wrap: pretty; }
+  .animatic-slide blockquote p + p { margin-top: 0.7em; }
   /* quote attribution (grammar: a "Source: ..." line under a quote) */
   .quote-source {
     margin-top: 1.1em;
@@ -216,6 +217,20 @@
   /* quotes over imagery scale up so they hold the room at a distance */
   .animatic-slide.over-media blockquote {
     font-size: 1.5em;
+  }
+
+  /* quote length tiers (render.quote_size_class). Short: a column wide
+     enough that the line never wraps on a normal stage. Long: a wide column
+     at reading size; the pager's fitQuotes() shrinks one that still
+     overflows. The blockquote's own 22em cap is lifted so the block decides. */
+  .animatic-slide .quote-block.quote-short { max-width: 40em; width: fit-content; }
+  .animatic-slide .quote-block.quote-short blockquote { text-wrap: balance; }
+  .animatic-slide .quote-block.quote-long { max-width: 46em; }
+  .animatic-slide .quote-block.quote-short blockquote,
+  .animatic-slide .quote-block.quote-long blockquote { max-width: 100%; }
+  .animatic-slide .quote-block.quote-long blockquote {
+    font-size: 1.05em;
+    line-height: 1.42;
   }
 
   /* stat cards — the number is the whole slide */

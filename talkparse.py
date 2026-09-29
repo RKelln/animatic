@@ -619,7 +619,15 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
         qm = QUOTE_RE.match(line)
         if qm:
             if cont and cont[0] == "quote" and lineno == cont[2] + 1:
-                cont[1]["text"] += " " + qm.group(1).strip()
+                # a blank `>` line is a paragraph break inside the quote,
+                # kept as "\n\n" in the text (the views split on it)
+                piece = qm.group(1).strip()
+                if not piece:
+                    cont[1]["para_break"] = True
+                elif cont[1].pop("para_break", False) and cont[1]["text"]:
+                    cont[1]["text"] += "\n\n" + piece
+                else:
+                    cont[1]["text"] += " " + piece
                 cont[1]["line_end"] = lineno
                 cont[2] = lineno
             else:
