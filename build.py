@@ -61,6 +61,10 @@ def main(argv=None) -> int:
                     help="slug -> file stand-in map for unproduced media "
                          "(see remaps/l01-standins.yaml); real art always "
                          "beats a stand-in")
+    ap.add_argument("--link-media", action="store_true",
+                    help="symlink media into OUT/_media instead of copying it: "
+                         "for throwaway and test builds (no disk cost), not "
+                         "for a folder you will move or share")
     ap.add_argument("--watch", action="store_true",
                     help="stay running and rebuild whenever the talkfile, a "
                          "file beside it, its media/ dir or the remap changes; "
@@ -90,6 +94,7 @@ def build(talk_path: Path, args) -> int:
     if args.theme:
         talk.meta["theme"] = args.theme
     resolver = MediaResolver(talk_dir=talk_path.parent, meta=talk.meta)
+    resolver.link_media = bool(getattr(args, "link_media", False))
     if args.media_remap:
         remap_path = Path(args.media_remap).expanduser().resolve()
         if not remap_path.is_file():

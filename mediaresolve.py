@@ -95,6 +95,18 @@ class MediaRef:
     sound: bool = False                # video only: play the audio track (card `sound: true`)
 
 
+
+def _place(src, dst: Path, link: bool = False) -> None:
+    """Publish one media file into the output: a copy, or with `link` an
+    absolute symlink to the source (throwaway builds, no disk cost)."""
+    dst = Path(dst)
+    if link:
+        if dst.is_symlink() or dst.exists():
+            dst.unlink()
+        dst.symlink_to(Path(src).resolve())
+    else:
+        shutil.copyfile(src, dst)
+
 @dataclass
 class MediaResolver:
     talk_dir: Path
@@ -111,6 +123,9 @@ class MediaResolver:
     # the publish step could not bake (the screen falls back to `loop`).
     playback_issues: list = field(default_factory=list)
     playback_fallback: dict = field(default_factory=dict)   # slug -> "loop"
+    # --link-media: symlink published files instead of copying them. For
+    # throwaway and test builds only: the output folder is no longer portable.
+    link_media: bool = False
     # check-10 register: (slug, declared-path) pairs whose file does not exist.
     # Filled in __post_init__; kept for the future `animatic check` runner.
 
@@ -428,7 +443,7 @@ class MediaResolver:
                     continue
                 ext = Path(ref.poster).suffix.lower() or ".bin"
                 dst = media_dir / f"{slug}-poster{ext}"
-                shutil.copyfile(ref.poster, dst)
+                _place(ref.poster, dst, self.link_media)
                 self.published[slug + "-poster"] = str(
                     Path("_media") / f"{slug}-poster{ext}")
                 continue
@@ -437,7 +452,7 @@ class MediaResolver:
             ext = Path(ref.file).suffix.lower() or ".bin"
             if ref.playback == "pingpong":
                 dst = media_dir / f"{slug}-pingpong.mp4"
-                why = bake_pingpong(Path(ref.file), dst)
+                why = bake_pingpong(Path(ref.file), dst, link=self.link_media)
                 if why is None:
                     self.published[slug] = str(Path("_media") / dst.name)
                     continue
@@ -446,7 +461,7 @@ class MediaResolver:
                     f"card '{slug}' asks for playback: pingpong but {why}; "
                     f"it plays as loop"))
             dst = media_dir / f"{slug}{ext}"
-            shutil.copyfile(ref.file, dst)
+            _place(ref.file, dst, self.link_media)
             self.published[slug] = str(Path("_media") / f"{slug}{ext}")
 
     def _make(self, slug: str, card: Optional[dict], path: Path, source: str) -> MediaRef:
@@ -504,7 +519,7 @@ def _ffmpeg(args: list, timeout: int = 600) -> Optional[str]:
     return None
 
 
-def bake_pingpong(src: Path, dst: Path) -> Optional[str]:
+def bake_pingpong(src: Path, dst: Path, link: bool = False) -> Optional[str]:
     """Write a forward-then-reversed copy of `src` to `dst`, for looping.
 
     Returns None on success, else a short reason the caller reports (the
@@ -572,5 +587,5 @@ def bake_pingpong(src: Path, dst: Path) -> Optional[str]:
             if why:
                 return f"ffmpeg failed joining the pingpong ({why})"
             os.replace(baked, cached)
-    shutil.copyfile(cached, dst)
+    _place(cached, dst, link)
     return None
