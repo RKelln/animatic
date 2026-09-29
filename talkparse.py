@@ -290,7 +290,7 @@ class Shot:
 class Block:
     """One content block on a screen, in document order."""
 
-    kind: str                     # vo|heading|quote|quote-source|list|table|stat|lower|credits|paraphrase
+    kind: str                     # vo|heading|handout-heading|quote|quote-source|list|table|stat|lower|credits|paraphrase
     text: str = ""                # for vo/heading/quote/stat/lower/credits/paraphrase
     level: Optional[int] = None   # heading depth (1..6)
     items: list = field(default_factory=list)   # list items
@@ -973,7 +973,18 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         screens.append(cur)
         return cur
 
-    for rb in raw_blocks:
+    # Handout headings: a heading written directly before a shot (and not
+    # directly after one) titles the NEXT screen in the handout and nav only;
+    # it is never drawn on a slide. Held here until that shot opens its screen.
+    pending_handout: list[Block] = []
+
+    def take_handout() -> None:
+        nonlocal pending_handout
+        if pending_handout and cur is not None:
+            cur.blocks[0:0] = pending_handout
+            pending_handout = []
+
+    for i_rb, rb in enumerate(raw_blocks):
         kind = rb["kind"]
 
         if kind == "shot":
@@ -1011,6 +1022,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                         f"role={role} -->'); this shot opens its own screen"
                     )
                 new_screen(shot.line).shots.append(shot)
+                take_handout()
                 credits_open = shot.slug is None and _canonical_role_kind(role or "", bundles) == "credits"  # bare end-roll screen
                 pending_role = role
                 role_line = shot.line
@@ -1026,6 +1038,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                     f"first stays an empty beat"
                 )
             new_screen(shot.line).shots.append(shot)
+            take_handout()
             credits_open = False
             if is_role:                # canonical overlay: payload para follows
                 pending_role = role
@@ -1083,6 +1096,19 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                 f"paragraph payload (next block: {kind})"
             )
             pending_role = None
+
+        if (kind == "heading" and not credits_open
+                and i_rb + 1 < len(raw_blocks)
+                and raw_blocks[i_rb + 1]["kind"] == "shot"
+                and not (i_rb > 0 and raw_blocks[i_rb - 1]["kind"] == "shot")):
+            pending_handout.append(
+                Block(kind="handout-heading",
+                      text=strip_footnote_refs(rb["text"], talk.footnote_ids),
+                      level=rb["level"],
+                      line=rb.get("line", 0),
+                      line_end=rb.get("line_end", 0) or rb.get("line", 0))
+            )
+            continue
 
         if cur is None:
             new_screen(rb.get("line", 0))

@@ -42,6 +42,7 @@ Every piece of text in a talkfile is exactly one of three kinds:
 |---|---|---|---|
 | **Voice-over** — a plain paragraph | yes | no | yes, as prose |
 | **Screen text** — a role payload, heading, quote, or list after a shot | role-dependent | yes | yes, at its level |
+| **Handout heading** — a heading directly before a shot | no | no | yes, leading the next screen |
 | **Stage note** — a parenthetical `(…)` | no | no | no (speaker notes only) |
 
 A line's fate is decided by two things, in order: its **markdown shape**, then
@@ -60,6 +61,25 @@ its **position**.
    `role=` shot becomes that role's payload (on screen; `stat` is also spoken,
    `lower` and `credits` are not). A paragraph on a credits screen becomes a
    credits entry. A `~ ` paragraph directly under a quote becomes attribution.
+3. **Position also decides a heading's screen.** A heading directly after a
+   shot is that screen's on-screen title. A heading directly before a shot,
+   and not directly after one, is a **handout heading**: it leads the next
+   screen in the handout and names it in `nav.json` and `cues.json`
+   (`title`), but it is never drawn on a slide, so a picture that carries its
+   own words needs no overlay. Blank lines and non-shot comments between the
+   heading and the shot do not count; any other block does. A heading
+   directly after one shot and before the next stays on screen (a title
+   card). Movement headings are structure and are unaffected, and a credits
+   screen still consumes its headings as entries. (Added 2026-09-29: such a
+   heading used to be drawn at the end of the previous screen.)
+
+   ```
+   # AI Everywhere, All At Once
+   <!-- shot: garden-title -->        handout heading: the picture carries the title
+
+   <!-- shot: garden-title -->
+   # AI Everywhere, All At Once       on-screen title over the picture
+   ```
 
 So a role changes only the one paragraph that follows it. With no role,
 paragraphs stay spoken and headings, quotes, and lists stay on screen. Four

@@ -130,6 +130,8 @@ def screen_kind(screen: Screen) -> str:
 
 def screen_title(screen: Screen) -> str:
     h = screen.first_heading
+    if h is None:   # a handout-only heading still names the screen in nav
+        h = next((b for b in screen.blocks if b.kind == "handout-heading"), None)
     return h.text if h else ""
 
 
@@ -2374,6 +2376,15 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
     ref = resolver.resolve(media_shot.slug) if (media_shot and media_shot.slug) else None
     credits_entries_ = credits_entries(screen)
     is_credits = is_credits_screen(screen)
+    # a handout heading (written just before the screen's shot) leads the
+    # screen in the handout, ahead of its figure; it never reaches a slide
+    for b in screen.blocks:
+        if b.kind != "handout-heading":
+            continue
+        if b.text.strip() == skip_deck_h1 and screen.movement == 0:
+            continue  # deck title already in the header
+        lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
+        out.append(f"<h{lvl} class='screen-heading'>{inline_md(b.text)}</h{lvl}>")
     # figure first (media shot leads the screen), then flow blocks
     consumed = set()
     if ref is not None:

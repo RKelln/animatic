@@ -30,6 +30,21 @@ ENTRY_KEYS = {"ordinal", "movement", "kind", "lines", "document"}
 DOCUMENT_OMISSION_REASON = "black-beat"
 
 
+def _handout_heading_at(src: list, start: int) -> bool:
+    """A handout heading (spec: Text, rule 3) opens its screen's range: a
+    heading line whose next non-blank, non-comment line is a shot directive."""
+    if not src[start - 1].lstrip().startswith("#"):
+        return False
+    j = start
+    while j < len(src):
+        ln = src[j].strip()
+        if ln and not (ln.startswith("<!--") and not ln.startswith("<!-- shot")
+                       and not ln.startswith("<!--shot")):
+            return _shot_comment_at(src, j + 1) is not None
+        j += 1
+    return False
+
+
 def _shot_comment_at(lines: list, start: int):
     """The joined comment text beginning at body line `start`, or None.
 
@@ -180,7 +195,8 @@ def check(fx, errors: list) -> None:
             err(errors, f"nav.json {cue['id']}: range starts at line {start}, "
                         f"which the grammar drops (comment / rule / movement "
                         f"heading) — not a screen boundary")
-        elif cue["shots"] and _shot_comment_at(src, start) is None:
+        elif (cue["shots"] and _shot_comment_at(src, start) is None
+              and not _handout_heading_at(src, start)):
             err(errors, f"nav.json {cue['id']}: screen opens with a shot "
                         f"directive but the range starts at line {start}, "
                         f"which is not one")
