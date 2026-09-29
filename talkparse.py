@@ -81,8 +81,14 @@ CONTINUE_WORDS = ("continue", "cont")
 # Layout vocabulary (Tier B, config-driven via layouts.yaml).
 LAYOUTS = ("piece", "duo")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
-KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance")
+KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent")
 FIT_VALUES = ("cover", "contain", "hero")
+# `playback=` on a shot overrides the card's `playback:` for that screen.
+# `advance` is stored as the `advance` flag; `pingpong` is card-only (a baked
+# forward+reverse file, so one screen cannot switch to it).
+SHOT_PLAYBACK_VALUES = ("once", "loop", "advance")
+SOUND_VALUES = ("true", "false")
+# `silent` is `sound=false`: mutes a card's `sound: true` on this screen
 # Movement recognition is case-insensitive (the frozen rule is the *shape*,
 # `Movement <integer> [separator] [title]`, not the typography — report Media).
 MOVEMENT_RE = re.compile(
@@ -753,6 +759,34 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
             f"fit={', fit='.join(FIT_VALUES)}"
         )
         return
+    if name == "playback":
+        if value not in SHOT_PLAYBACK_VALUES:
+            why = (" (pingpong is card-only: it is a baked file)"
+                   if value == "pingpong" else "")
+            shot.warnings.append(
+                f"check 25: {token!r}: a shot's playback is "
+                f"playback={', playback='.join(SHOT_PLAYBACK_VALUES)}{why} "
+                f"— token ignored"
+            )
+            return
+        if value == "advance":
+            # alias: the same flag as a bare `advance`
+            shot.flags["advance"] = ""
+            return
+    if name == "silent":
+        if value:
+            shot.warnings.append(
+                f"check 25: {token!r}: silent takes no value — token ignored")
+            return
+        name, value = "sound", "false"
+    if name == "sound":
+        value = value or "true"
+        if value not in SOUND_VALUES:
+            shot.warnings.append(
+                f"check 25: {token!r}: write sound, sound=true or sound=false "
+                f"— token ignored"
+            )
+            return
     shot.flags[name] = value
 
 
@@ -876,6 +910,15 @@ def _resolve_continue(shot: Shot, screens: list, talk) -> None:
             f"line {shot.line}: 'advance' on a continue shot has no effect; "
             f"write it on the first shot of the chain (line {prev.chain or prev.line})"
         )
+    for name in ("playback", "sound"):
+        if name in shot.flags and shot.flags[name] != prev.flags.get(name):
+            talk.warnings.append(
+                f"line {shot.line}: '{name}={shot.flags[name]}' on a continue shot "
+                f"has no effect; write it on the first shot of the chain "
+                f"(line {prev.chain or prev.line})"
+            )
+        # the chain plays as its head says, even on a slide reached directly
+        shot.flags.pop(name, None)
     if prev.chain is None:
         prev.chain = str(prev.line)
     shot.chain = prev.chain

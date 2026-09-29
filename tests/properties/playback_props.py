@@ -17,7 +17,12 @@ behaviour lives in real video files: the committed fixtures stay media-free.
 - `sound: true` drops `muted` and marks data-sound (only there), the manifest
   says so, and a non-boolean or a sound on an image card raises check 29;
 - the `advance` shot flag drops `loop`, plays once and carries data-advance
-  (only there), and on an image it raises check 31.
+  (only there), and on an image it raises check 31;
+- shot flags override the card for their screen (2026-09-28): `playback=once`
+  and `playback=loop` beat the card's playback, `playback=advance` is the same
+  as `advance`, `sound` / `sound=false` / `silent` beat the card's sound (in the
+  handout too), `playback=pingpong` is refused (check 25), `sound` on an image raises
+  check 31, and a playback or sound on a continue shot warns.
 
 Needs ffmpeg + ffprobe; without them the module pins nothing, like
 timing_props' video unit.
@@ -93,6 +98,43 @@ A looping clip that moves the deck on when it ends.
 <!-- shot: still-advance advance -->
 
 A still that asks to advance.
+
+<!-- shot: clip-shot-once playback=once -->
+
+A looping card that this screen plays once.
+
+<!-- shot: continue sound -->
+
+A continue shot that asks for sound it cannot change.
+
+<!-- shot: clip-shot-loop playback=loop -->
+
+A play-once card that this screen loops.
+
+<!-- shot: clip-shot-advance playback=advance -->
+
+The alias for advance.
+
+<!-- shot: clip-shot-sound sound -->
+
+A muted card that this screen plays with sound.
+
+<!-- shot: clip-shot-mute sound=false -->
+
+A sound card that this screen mutes.
+
+<!-- shot: clip-shot-silent silent -->
+
+A sound card that this screen mutes with the silent alias.
+
+<!-- shot: clip-shot-pingpong playback=pingpong -->
+
+A shot asking for pingpong, which only a card can bake.
+
+<!-- shot: still-shot-sound sound -->
+
+A still whose shot asks for sound.
+
 """
 
 CARDS = """\
@@ -146,6 +188,42 @@ CARDS = """\
   status: file
   file: media/clip.mp4
 - slug: still-advance
+  type: image
+  status: file
+  file: media/still.png
+- slug: clip-shot-once
+  type: video
+  status: file
+  playback: loop
+  file: media/clip.mp4
+- slug: clip-shot-loop
+  type: video
+  status: file
+  playback: once
+  file: media/clip.mp4
+- slug: clip-shot-advance
+  type: video
+  status: file
+  file: media/clip.mp4
+- slug: clip-shot-sound
+  type: video
+  status: file
+  file: media/clip.mp4
+- slug: clip-shot-mute
+  type: video
+  status: file
+  sound: true
+  file: media/clip.mp4
+- slug: clip-shot-silent
+  type: video
+  status: file
+  sound: true
+  file: media/clip.mp4
+- slug: clip-shot-pingpong
+  type: video
+  status: file
+  file: media/clip.mp4
+- slug: still-shot-sound
   type: image
   status: file
   file: media/still.png
@@ -241,27 +319,55 @@ def check(errors: list) -> None:
             if 'preload="none"' not in t:
                 err(errors, f"playback: {name} must be preload=\"none\": {t}")
 
-        for name in ("clip-loop.mp4", "clip-default.mp4", "clip-typo.mp4"):
+        for name in ("clip-loop.mp4", "clip-default.mp4", "clip-typo.mp4",
+                     "clip-shot-loop.mp4", "clip-shot-pingpong.mp4"):
             t = tag_for(name)
             if t and (not re.search(r"\sloop\b", t) or "data-playback" in t):
                 err(errors, f"playback: {name} should loop plainly: {t}")
+        for name in ("clip-once.mp4", "clip-shot-once.mp4"):
+            t = tag_for(name)
+            if t and (re.search(r"\sloop\b", t) or 'data-playback="once"' not in t):
+                err(errors, f"playback: once must drop loop and mark itself: {t}")
         t = tag_for("clip-once.mp4")
         if t and (re.search(r"\sloop\b", t) or 'data-playback="once"' not in t):
             err(errors, f"playback: once must drop loop and mark itself: {t}")
-        # sound: only clip-sound is unmuted, and it still plays once
+        # sound: only clip-sound (card) and clip-shot-sound (shot) are
+        # unmuted; clip-shot-mute's card sound is muted by its shot
         for name, t in sorted(tags.items()):
-            loud = name == "clip-sound.mp4"
+            loud = name in ("clip-sound.mp4", "clip-shot-sound.mp4")
             if loud != ("data-sound" in t) or loud == bool(re.search(r"\smuted\b", t)):
                 err(errors, f"playback: {name} sound={loud} but tag is {t}")
         t = tag_for("clip-sound.mp4")
         if t and (re.search(r"\sloop\b", t) or 'data-playback="once"' not in t):
             err(errors, f"playback: sound must not change once: {t}")
         for name, t in sorted(tags.items()):
-            if (name == "clip-advance.mp4") != ("data-advance" in t):
-                err(errors, f"playback: data-advance belongs on clip-advance only: {t}")
+            adv = name in ("clip-advance.mp4", "clip-shot-advance.mp4")
+            if adv != ("data-advance" in t):
+                err(errors, f"playback: data-advance belongs on the advance clips only: {t}")
+        # playback=advance is the same flag as advance: identical tags
         t = tag_for("clip-advance.mp4")
         if t and (re.search(r"\sloop\b", t) or 'data-playback="once"' not in t):
             err(errors, f"playback: advance must play once, not loop: {t}")
+        t2 = tag_for("clip-shot-advance.mp4")
+        if t and t2 and t.replace("clip-advance", "X") != t2.replace("clip-shot-advance", "X"):
+            err(errors, f"playback: playback=advance differs from advance: {t} vs {t2}")
+        # the handout honours the shot's playback / sound, never advance
+        document = (out_a / "document" / "index.html").read_text(encoding="utf-8")
+        doc_tags = {}
+        for tag in VIDEO_TAG_RE.findall(document):
+            m = re.search(r'src="[^"]*_media/([^"/]+)"', tag)
+            if m:
+                doc_tags[m.group(1)] = tag
+        for name, want_once, want_sound in (("clip-shot-once.mp4", True, False),
+                                            ("clip-shot-loop.mp4", False, False),
+                                            ("clip-shot-sound.mp4", False, True),
+                                            ("clip-shot-mute.mp4", False, False),
+                                            ("clip-shot-silent.mp4", False, False)):
+            t = doc_tags.get(name, "")
+            if (not t or ('data-playback="once"' in t) != want_once
+                    or ("data-sound" in t) != want_sound or "data-advance" in t):
+                err(errors, f"playback: handout {name} once={want_once} "
+                            f"sound={want_sound} but tag is {t!r}")
         if "video[data-advance]" not in present:
             err(errors, "playback: pager lacks the advance-on-ended handler")
         if "NotAllowedError" not in present:
@@ -288,12 +394,14 @@ def check(errors: list) -> None:
 
         manifest = json.loads((out_a / "media-manifest.json").read_text(encoding="utf-8"))
         by_slug = {r["slug"]: r["media"] for r in manifest["referenced"]}
-        want = {"clip-once": "once", "clip-pingpong": "pingpong", "clip-sound": "once"}
+        # the manifest audits the card, not the screen: shot flags never show
+        want = {"clip-once": "once", "clip-pingpong": "pingpong", "clip-sound": "once",
+                "clip-shot-loop": "once"}
         for slug, media in by_slug.items():
             if media.get("playback") != want.get(slug):
                 err(errors, f"playback: manifest {slug} playback="
                             f"{media.get('playback')!r}, want {want.get(slug)!r}")
-            if media.get("sound") != (True if slug == "clip-sound" else None):
+            if media.get("sound") != (True if slug in ("clip-sound", "clip-shot-mute", "clip-shot-silent") else None):
                 err(errors, f"playback: manifest {slug} sound={media.get('sound')!r}")
 
         # check 29: exactly the two typos and the two image cards, at build and at check
@@ -307,9 +415,19 @@ def check(errors: list) -> None:
             err(errors, f"playback: check 29 found {len(c29)} issues, want 4: "
                         f"{[f.message for f in c29]}")
         c31 = [f for f in report.findings if f.check == 31]
-        if len(c31) != 1 or "still-advance" not in c31[0].message:
-            err(errors, f"playback: check 31 should flag still-advance only: "
-                        f"{[f.message for f in c31]}")
+        c31_msgs = sorted(f.message for f in c31)
+        if (len(c31) != 2 or not c31_msgs[0].startswith("advance on 'still-advance'")
+                or not c31_msgs[1].startswith("sound on 'still-shot-sound'")):
+            err(errors, f"playback: check 31 should flag still-advance and "
+                        f"still-shot-sound only: {c31_msgs}")
+        # playback=pingpong on a shot is refused (check 25); the clip still loops
+        c25 = [f.message for f in report.findings if f.check == 25]
+        if not any("playback=pingpong" in m and "card-only" in m for m in c25):
+            err(errors, f"playback: check 25 lacks the refused shot pingpong: {c25}")
+        # a sound on a continue shot cannot change the head's video: it warns
+        if not any("'sound=true' on a continue shot" in f.message for f in report.findings):
+            err(errors, f"playback: no warning for sound on a continue shot: "
+                        f"{[f.message for f in report.findings]}")
 
         # determinism: the cached pingpong makes a rebuild byte-identical
         _build(deck / "talk.md", out_b)

@@ -204,8 +204,10 @@ written on the continue shot applies on top (`<!-- shot: continue role=stat
 dim=0.4 -->`). Text never carries: each screen has its own heading, roles and
 VO. A video keeps playing across the step instead of starting over, in both
 directions and along a chain of continue screens; its playback (`loop`,
-`once`, `advance`, `sound`) is the same on every screen of the chain. A
-continue shot with no media screen before it warns and opens without media.
+`once`, `advance`, `sound`) is the same on every screen of the chain, so a
+`playback=`, `sound` or `silent` written on a continue shot warns and is
+dropped: write it on the chain's first shot. A continue shot with no media
+screen before it warns and opens without media.
 
 ### Flags and layout
 
@@ -218,6 +220,9 @@ Flags are the per-shot knobs. The top-level namespace is fixed:
 | `dim` | `0`–`1` | a dark scrim at that opacity, to keep on-screen text readable; on a screen with no on-screen text it is check 30's warning (fix a too-bright image in the file instead) |
 | `text` | `light` / `dark` | per-screen text treatment, overriding the theme default |
 | `advance` | (none) | when the screen's video ends, move to the next screen; the video plays once instead of looping. On media that is not a video it is check 31's warning |
+| `playback` | `once` / `loop` / `advance` | this screen's playback, over the card's `playback:`; `playback=advance` is the same flag as `advance`. `pingpong` is card-only (a baked file) and is check 25's warning. On media that is not a video it is check 31's warning |
+| `sound` | (none) / `true` / `false` | this screen's sound, over the card's `sound:`: bare `sound` is `sound=true`. On media that is not a video it is check 31's warning |
+| `silent` | (none) | `sound=false`: mutes a `sound: true` card on this screen |
 | `role` | a `roles.yaml` name | the screen's text role (see "Roles") |
 | `layout` | a `layouts.yaml` name | the screen's config-driven layout |
 
@@ -675,6 +680,15 @@ video plays muted rather than not at all. Presenter-view previews stay
 muted stills. A non-boolean value, or `sound: true` on a card that is not
 `type: video`, is a check 29 warning and the screen plays muted. The
 manifest carries `sound` only when it is true.
+
+**Shot overrides (additive, 2026-09-28).** The card's `playback:` and
+`sound:` are the clip's defaults; a shot's `playback=`, `sound` and `silent`
+flags override them for that screen alone (`<!-- shot: clip sound
+playback=once -->`), so the same clip can play with its audio on one screen
+and silently on another. The present view and the handout both honour the
+override; the manifest audits the card and never shows it. On a pingpong
+card the published file is the baked one, so `playback=once` plays there and
+back once.
 
 - **`status: file`** means a local media file is in hand — buildable now.
   **`status: url`** means a verified remote source is recorded but not yet

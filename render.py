@@ -308,6 +308,21 @@ def live_host_html(ref: MediaRef, css_class: str = "slide-media") -> str:
     )
 
 
+def shot_playback(ref: MediaRef, flags: dict) -> str:
+    """The screen's playback: the shot's `playback=` over the card's
+    `playback:`. On a pingpong card the file is the baked forward+reverse
+    clip, so `playback=once` plays that once."""
+    return flags.get("playback") or ref.playback
+
+
+def shot_sound(ref: MediaRef, flags: dict) -> bool:
+    """The screen's sound: the shot's `sound` / `sound=false` over the card's
+    `sound:`."""
+    if "sound" in flags:
+        return flags["sound"] == "true"
+    return bool(ref.sound)
+
+
 def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "figure-media",
                chain: str | None = None) -> str:
     """One resolved media element (image / video / live capture / placeholder).
@@ -342,17 +357,20 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
             # file (mediaresolve.publish) that loops like any other
             # `advance` (shot flag): when the video ends, the pager moves to
             # the next screen. A video that loops never ends, so advance
-            # implies once.
+            # implies once. A shot's `playback=` / `sound` override the card
+            # for that screen (shot_playback / shot_sound).
             advance = "advance" in flags
-            loop = "" if ref.playback == "once" or advance else " loop"
-            once = ' data-playback="once"' if ref.playback == "once" or advance else ""
+            playback = shot_playback(ref, flags)
+            loop = "" if playback == "once" or advance else " loop"
+            once = ' data-playback="once"' if playback == "once" or advance else ""
             adv = " data-advance" if advance else ""
             # sound (card `sound: true`): drop `muted`. The pager's play()
             # runs inside the keypress that changed slide, which is the user
             # activation browsers want before they play audio; if one still
             # refuses, the pager falls back to muted (PAGER_JS).
-            muted = "" if ref.sound else "muted"
-            sound = " data-sound" if ref.sound else ""
+            has_sound = shot_sound(ref, flags)
+            muted = "" if has_sound else "muted"
+            sound = " data-sound" if has_sound else ""
             if "slide-media" in css_class.split():
                 # cinematic: plays muted when the slide is active, no native
                 # controls bar (the big play button never belongs on a shot).
@@ -2353,7 +2371,11 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
     # figure first (media shot leads the screen), then flow blocks
     consumed = set()
     if ref is not None:
-        inner = media_html(ref, css_class="figure-media")
+        # the shot's playback / sound overrides hold in the handout as the
+        # card's do; slide-only flags (advance, kb, fit) stay out
+        doc_flags = {k: v for k, v in media_shot.flags.items()
+                     if k in ("playback", "sound")}
+        inner = media_html(ref, doc_flags, css_class="figure-media")
         cap = "".join(
             f'<figcaption>{html.escape(b.text)}</figcaption>'
             for b in screen.blocks if b.kind in ("lower", "credits") and b.text.strip()

@@ -149,7 +149,7 @@ REGISTER = [
     (28, "`[^id]` footnote with no sources: registry entry",         WARNING, "implemented"),
     (29, "card `playback:`/`sound:` value unknown, on a non-video, or unbakeable", WARNING, "implemented: check.py + mediaresolve.py"),
     (30, "`dim` on a media screen with no on-screen text",              WARNING, "implemented"),
-    (31, "`advance` on a screen whose media is not a video",            WARNING, "implemented"),
+    (31, "`advance`/`playback=`/`sound` shot flag on a screen whose media is not a video", WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -918,19 +918,28 @@ def check_30_dim_without_text(talk, resolver, report: Report) -> None:
 def check_31_advance_not_video(talk, resolver, report: Report) -> None:
     """`advance` moves the deck on when a slide video ends. On an image, a
     placeholder or a live capture nothing ever ends, so the screen waits for
-    the presenter as usual; say so rather than let a rehearsal find out."""
+    the presenter as usual; say so rather than let a rehearsal find out.
+    A shot's `playback=` and `sound` only change a video, so they warn the
+    same way."""
     for s in talk.screens:
         mshot = s.media_shot
-        if mshot is None or "advance" not in mshot.flags:
+        if mshot is None:
+            continue
+        names = [n for n in ("advance", "playback", "sound") if n in mshot.flags]
+        if not names:
             continue
         ref = resolver.resolve(mshot.slug)
         ext = Path(ref.file).suffix.lower() if ref.found and ref.file else ""
         if ref.live or MEDIA_EXTS.get(ext) != "video":
             what = ("a live capture" if ref.live else
                     "a placeholder" if not ref.found else f"a {ext} file")
+            if names == ["advance"]:
+                why = "only a slide video that ends can move the deck on"
+            else:
+                why = "only a slide video plays, loops or has sound"
             report.add(31, WARNING,
-                       f"advance on '{mshot.slug}' but it resolves to {what}: "
-                       f"only a slide video that ends can move the deck on",
+                       f"{', '.join(names)} on '{mshot.slug}' but it resolves to {what}: "
+                       f"{why}",
                        line=mshot.line, screen=s.idx)
 
 
