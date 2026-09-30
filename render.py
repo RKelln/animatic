@@ -224,7 +224,7 @@ def cue_estimate(screen: Screen, resolver: MediaResolver,
         if ref.found and ref.file:
             suffix = Path(ref.file).suffix.lower()
             if ref.type == "video" or suffix in VIDEO_EXTS:
-                video_seconds = timing.probe_video_seconds(ref.file)
+                video_seconds = timing.probe_video_seconds(ref.origin or ref.file)
     return timing.estimate_seconds(
         words, screen_kind(screen),
         video_seconds=video_seconds, wpm=wpm,
