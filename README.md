@@ -39,7 +39,7 @@ The same file renders as:
   read and never written: an `authored` hand override or a `measured` value per
   cue id, plus `settings.wpm`. The estimate stays in cues.json; the spec's
   Timing section owns the clock.
-- `check.py` — the deterministic check suite: the full 1-31 check register
+- `check.py` — the deterministic check suite: the full 1-32 check register
   (spec §6/§7/§10/§11) with the fatal/warning/info/report taxonomy and
   `--strict` (warnings fatal). Check 19 reports when the deck's effective
   timing diverges from the declared `dur` by more than 30% (never a warning).

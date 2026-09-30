@@ -38,6 +38,7 @@ from pathlib import Path
 import timing
 
 from talkparse import (
+    BLUR_MAX,
     BLACK_ROLE,
     Block,
     Screen,
@@ -439,8 +440,75 @@ def media_fit(flags: dict) -> str:
     return "cover" if flags.get("kb") in KB_VALUES else "contain"
 
 
-def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None) -> str:
+def underlay_html(under: MediaRef, flags: dict) -> str:
+    """The `under=` backdrop: a still picture that fills the under-stage, left
+    sharp; `dim=` darkens it. It fits like any slide media (contain by default,
+    `fit=cover` to fill)."""
+    if not (under.found and under.file) or \
+            Path(under.file).suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"):
+        return ""
+    src = html.escape(under.file if Path(under.file).is_absolute() else "../" + under.file)
+    out = (f'<div class="underlay"><img class="underlay-media" src="{src}" '
+           f'alt="" aria-hidden="true"></div>')
+    if flags.get("dim"):
+        try:
+            op = max(0.0, min(1.0, float(flags["dim"])))
+        except ValueError:
+            op = 0.0
+        out += DIM_OVERLAY.format(op=f"{op:.2f}")
+    return out
+
+
+# `under=` media are authored on a 1920x1080 stage: a video's pixel size says how
+# much of the frame it takes, so a 1270x880 credits roll is 66% wide and 81% tall
+STAGE_W, STAGE_H = 1920, 1080
+
+
+def under_panel_style(ref: MediaRef, radius: float) -> str:
+    style = []
+    if radius:
+        style.append(f"--frost-blur:{radius:g}px")
+    size = None
+    if ref.found and ref.origin and Path(ref.origin).suffix.lower() in VIDEO_EXTS:
+        size = timing.probe_video_size(ref.origin)
+    if size:
+        style.append(f"width:{min(100.0, size[0] / STAGE_W * 100):.3f}%")
+        style.append(f"height:{min(100.0, size[1] / STAGE_H * 100):.3f}%")
+    return f' style="{";".join(style)}"' if style else ""
+
+
+def under_blur(flags: dict) -> float:
+    """`blur=` as a radius in px, clamped; 0 when absent or unreadable."""
+    try:
+        return max(0.0, min(float(BLUR_MAX), float(flags.get("blur") or 0)))
+    except ValueError:
+        return 0.0
+
+
+def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None,
+                    under: MediaRef | None = None) -> str:
     """Full-bleed media zone: media element + kb class + fit/dim + role/layout handling."""
+    if under is not None and flags.get("layout") in ("piece", "duo", "titled"):
+        under = None          # a framed object has no full-bleed ground to put a backdrop on (check 32)
+    if under is not None:
+        # the shot's own media (a video with a transparent ground) lies over the
+        # backdrop, so it takes no kb drift and no dim of its own: dim belongs to
+        # the backdrop, or it would darken the very text it is there to protect
+        media_flags = {k: v for k, v in flags.items()
+                       if k not in ("dim", "kb", "layout", "under", "blur")}
+        media = media_html(ref, media_flags, css_class="slide-media", chain=chain)
+        radius = under_blur(flags)
+        # the media takes its own share of the frame (its pixel size against the
+        # 1920x1080 stage), placed by `anchor=`; `blur=` frosts a soft-edged panel
+        # behind exactly that box, so a credits roll shorter than the frame leaves
+        # the top of the picture (a title) untouched
+        anchor = flags.get("anchor") if flags.get("anchor") in ("top", "bottom") else "center"
+        panel = f"under-panel anchor-{anchor}" + (" frosted" if radius else "")
+        stage = "under-stage" + (" fill" if flags.get("fit") == "cover" else "")
+        return (f'<div class="media-zone under"><div class="{stage}">'
+                f'{underlay_html(under, flags)}'
+                f'<div class="{panel}"{under_panel_style(ref, radius)}>{media}</div>'
+                f'</div></div>')
     # Layout flags come from `layout=` (replaces flat piece/duo); read from flags.
     layout_name = flags.get("layout")
     piece = " piece" if layout_name == "piece" else ""
@@ -2166,7 +2234,8 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     if ref is not None:
         # fit=contain / fit=cover always reach the media; fit=hero is read
         # at slide level (text-fit below) and leaves the media at its default
-        inner.append(media_zone_html(ref, dict(flags), chain=mshot.chain))
+        under_ref = resolver.resolve(flags["under"]) if flags.get("under") else None
+        inner.append(media_zone_html(ref, dict(flags), chain=mshot.chain, under=under_ref))
 
     if credits_screen:
         # full end-roll: optional title + entries in balanced columns

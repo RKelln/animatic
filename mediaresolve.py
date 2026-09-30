@@ -93,6 +93,7 @@ class MediaRef:
     group: Optional[str] = None        # live only: hosts sharing one capture session
     playback: str = "loop"             # video only: loop | once | pingpong (card `playback:`)
     sound: bool = False                # video only: play the audio track (card `sound: true`)
+    origin: Optional[str] = None       # absolute source path; `file` becomes out-root-relative once published
 
 
 
@@ -472,6 +473,7 @@ class MediaResolver:
             status=(card.get("status") if card else None) or "have",
             found=True,
             file=str(path.resolve()),
+            origin=str(path.resolve()),
             source=source,
             alt=card.get("alt", "") if card else "",
             credit=card.get("credit", "") if card else "",

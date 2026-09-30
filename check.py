@@ -150,6 +150,7 @@ REGISTER = [
     (29, "card `playback:`/`sound:` value unknown, on a non-video, or unbakeable", WARNING, "implemented: check.py + mediaresolve.py"),
     (30, "`dim` on a media screen with no on-screen text",              WARNING, "implemented"),
     (31, "`advance`/`playback=`/`sound` shot flag on a screen whose media is not a video", WARNING, "implemented"),
+    (32, "`under=`/`blur=`/`anchor=` shot flag that cannot work: backdrop not a still image, `blur=`/`anchor=` with no `under=`, or a framed layout", WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -906,6 +907,8 @@ def check_30_dim_without_text(talk, resolver, report: Report) -> None:
             continue
         if mshot.flags.get("layout") in ("piece", "duo", "titled"):
             continue
+        if mshot.flags.get("under"):
+            continue          # dim darkens the backdrop under the shot's own media, which carries the text
         if render.onscreen_blocks(s):
             continue
         report.add(30, WARNING,
@@ -940,6 +943,45 @@ def check_31_advance_not_video(talk, resolver, report: Report) -> None:
             report.add(31, WARNING,
                        f"{', '.join(names)} on '{mshot.slug}' but it resolves to {what}: "
                        f"{why}",
+                       line=mshot.line, screen=s.idx)
+
+
+def check_32_under_backdrop(talk, resolver, report: Report) -> None:
+    """`under=<slug>` lays a still backdrop beneath the shot's own media and
+    `blur=` softens it. Say so when that cannot happen: the backdrop slug is not
+    a resolvable still image, `blur=` has nothing to blur, or the layout is a
+    framed object (piece, duo, titled) with no full-bleed ground to put it on."""
+    for s in talk.screens:
+        mshot = s.media_shot
+        if mshot is None:
+            continue
+        flags = mshot.flags
+        under, blur = flags.get("under"), flags.get("blur")
+        if blur is not None and not under:
+            report.add(32, WARNING,
+                       f"blur={blur} on '{mshot.slug}' without under=: blur frosts the "
+                       f"panel behind the video, so it does nothing here",
+                       line=mshot.line, screen=s.idx)
+        if flags.get("anchor") and not under:
+            report.add(32, WARNING,
+                       f"anchor={flags['anchor']} on '{mshot.slug}' without under=: "
+                       f"anchor places the media over a backdrop, so it does nothing here",
+                       line=mshot.line, screen=s.idx)
+        if not under:
+            continue
+        if flags.get("layout") in ("piece", "duo", "titled"):
+            report.add(32, WARNING,
+                       f"under={under} on '{mshot.slug}' with layout={flags['layout']}: "
+                       f"a framed object has no full-bleed ground, so the backdrop is dropped",
+                       line=mshot.line, screen=s.idx)
+        ref = resolver.resolve(under)
+        ext = Path(ref.file).suffix.lower() if ref.found and ref.file else ""
+        if ref.live or MEDIA_EXTS.get(ext) != "image":
+            what = ("a live capture" if ref.live else
+                    "nothing (no card or file)" if not ref.found else f"a {ext} file")
+            report.add(32, WARNING,
+                       f"under={under} on '{mshot.slug}' resolves to {what}: the backdrop "
+                       f"has to be a still image",
                        line=mshot.line, screen=s.idx)
 
 
@@ -1028,6 +1070,7 @@ def run_checks(talk, resolver, source_text: str,
     check_29_playback(talk, resolver, report)
     check_30_dim_without_text(talk, resolver, report)
     check_31_advance_not_video(talk, resolver, report)
+    check_32_under_backdrop(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

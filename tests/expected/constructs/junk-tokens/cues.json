@@ -50,7 +50,7 @@
   ],
   "warnings": [
     "line 11: check 25: token '+bogus' matches no flag or overlay pattern; token ignored",
-    "line 11: check 25: unknown flag 'wibble=3'; known flags: kb, dim, fit, text, advance, playback, sound, silent — token ignored",
-    "line 11: check 25: unknown flag 'wobble'; known flags: kb, dim, fit, text, advance, playback, sound, silent — token ignored"
+    "line 11: check 25: unknown flag 'wibble=3'; known flags: kb, dim, fit, text, advance, playback, sound, silent, under, blur, anchor — token ignored",
+    "line 11: check 25: unknown flag 'wobble'; known flags: kb, dim, fit, text, advance, playback, sound, silent, under, blur, anchor — token ignored"
   ]
 }

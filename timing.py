@@ -231,6 +231,38 @@ def probe_video_seconds(path) -> Optional[float]:
     return value
 
 
+def probe_video_size(path) -> Optional[tuple]:
+    """A video's (width, height) in pixels via ffprobe, or None.
+
+    Same contract as `probe_video_seconds`: no ffprobe, no file or an unreadable
+    container is "unknown", never an error, and the caller falls back to
+    treating the video as the whole frame. Cached per (path, size, mtime)."""
+    if shutil.which("ffprobe") is None:
+        return None
+    p = Path(path)
+    try:
+        st = p.stat()
+    except OSError:
+        return None
+    key = ("size", str(p), st.st_size, int(st.st_mtime))
+    if key in _PROBE_CACHE:
+        return _PROBE_CACHE[key]
+    value = None
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", str(p)],
+            capture_output=True, text=True, timeout=15, check=False)
+        if proc.returncode == 0 and "x" in proc.stdout:
+            w, h = proc.stdout.strip().splitlines()[0].split("x")[:2]
+            if int(w) > 0 and int(h) > 0:
+                value = (int(w), int(h))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        value = None
+    _PROBE_CACHE[key] = value
+    return value
+
+
 def load(deck_dir) -> Timing:
     """Read `<deck_dir>/timing.yaml` when present.  Never raises: malformed
     rows land in `problems` (surfaced by check 19 as reports) and are skipped,

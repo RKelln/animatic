@@ -81,13 +81,18 @@ CONTINUE_WORDS = ("continue", "cont")
 # Layout vocabulary (Tier B, config-driven via layouts.yaml).
 LAYOUTS = ("piece", "duo", "titled")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
-KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent")
+KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
+               "under", "blur", "anchor")
 FIT_VALUES = ("cover", "contain", "hero")
 # `playback=` on a shot overrides the card's `playback:` for that screen.
 # `advance` is stored as the `advance` flag; `pingpong` is card-only (a baked
 # forward+reverse file, so one screen cannot switch to it).
 SHOT_PLAYBACK_VALUES = ("once", "loop", "advance")
 SOUND_VALUES = ("true", "false")
+# `blur=` softens the `under=` backdrop only, in CSS pixels
+BLUR_MAX = 100
+# `anchor=` places an `under=` media that is smaller than the frame
+ANCHOR_VALUES = ("top", "center", "bottom")
 # `silent` is `sound=false`: mutes a card's `sound: true` on this screen
 # Movement recognition is case-insensitive (the frozen rule is the *shape*,
 # `Movement <integer> [separator] [title]`, not the typography — report Media).
@@ -773,6 +778,29 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
             # alias: the same flag as a bare `advance`
             shot.flags["advance"] = ""
             return
+    if name == "under" and not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,38}[a-z0-9]", value or ""):
+        shot.warnings.append(
+            f"check 25: {token!r}: under names the backdrop image by slug, "
+            f"under=<slug> — token ignored"
+        )
+        return
+    if name == "blur":
+        try:
+            ok = 0 <= float(value) <= BLUR_MAX
+        except ValueError:
+            ok = False
+        if not ok:
+            shot.warnings.append(
+                f"check 25: {token!r}: blur is a radius in pixels, blur=0 to "
+                f"blur={BLUR_MAX} — token ignored"
+            )
+            return
+    if name == "anchor" and value not in ANCHOR_VALUES:
+        shot.warnings.append(
+            f"check 25: {token!r}: anchor places the media on the frame, "
+            f"anchor={', anchor='.join(ANCHOR_VALUES)} — token ignored"
+        )
+        return
     if name == "silent":
         if value:
             shot.warnings.append(

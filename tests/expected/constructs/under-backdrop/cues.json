@@ -1,0 +1,219 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "under-backdrop",
+    "title": "Under backdrop construct",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "under-backdrop-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "cons-a",
+          "role": null,
+          "flags": {
+            "blur": "24",
+            "under": "sample-art"
+          }
+        }
+      ],
+      "media": {
+        "slug": "cons-a",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'cons-a' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "The backdrop resolves to a placeholder here, so check 32 says it has to be a still image.",
+      "stage": null,
+      "est_seconds": 7.2
+    },
+    {
+      "id": "under-backdrop-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "cons-b",
+          "role": null,
+          "flags": {
+            "blur": "12"
+          }
+        }
+      ],
+      "media": {
+        "slug": "cons-b",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'cons-b' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "Blur with no under has nothing to soften.",
+      "stage": null,
+      "est_seconds": 3.2
+    },
+    {
+      "id": "under-backdrop-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "second-art",
+          "role": null,
+          "flags": {
+            "layout": "piece",
+            "under": "sample-art"
+          }
+        }
+      ],
+      "media": {
+        "slug": "second-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'second-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "A framed object has no full-bleed ground for a backdrop.",
+      "stage": null,
+      "est_seconds": 4.0
+    },
+    {
+      "id": "under-backdrop-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "junk-host",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "junk-host",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'junk-host' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "Both values are refused at the tokenizer, and check 25 names them.",
+      "stage": null,
+      "est_seconds": 4.8
+    },
+    {
+      "id": "under-backdrop-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "cons-a",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "cons-a",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'cons-a' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "An anchor value that is not top, center or bottom is refused at the tokenizer.",
+      "stage": null,
+      "est_seconds": 6.0
+    },
+    {
+      "id": "under-backdrop-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "cons-b",
+          "role": null,
+          "flags": {
+            "anchor": "bottom"
+          }
+        }
+      ],
+      "media": {
+        "slug": "cons-b",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'cons-b' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "Anchor with no under has nothing to place.",
+      "stage": null,
+      "est_seconds": 3.2
+    }
+  ],
+  "warnings": [
+    "line 23: check 25: 'blur=999': blur is a radius in pixels, blur=0 to blur=100 — token ignored",
+    "line 23: check 25: 'under=Bad_Slug': under names the backdrop image by slug, under=<slug> — token ignored",
+    "line 27: check 25: 'anchor=middle': anchor places the media on the frame, anchor=top, anchor=center, anchor=bottom — token ignored"
+  ]
+}
