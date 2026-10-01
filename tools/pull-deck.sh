@@ -149,8 +149,28 @@ fi
 if [ "$SERVE" = 1 ]; then
   echo
   echo "=== serving ==="
-  if ss -ltn 2>/dev/null | grep -q ":$PORT "; then
-    echo "  port $PORT already listening (reusing it)"
+  # Whatever already holds the port: reuse it only if it is serve-deck.py. A stock
+  # `http.server` left over from an earlier run ignores Range (see below) and was
+  # being silently reused, which looked like a fixed script and behaved like the old one.
+  HELD=$(ss -ltnp 2>/dev/null | grep ":$PORT " | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2 || true)
+  if [ -n "$HELD" ]; then
+    HELD_CMD=$(ps -p "$HELD" -o cmd= 2>/dev/null || true)
+    case "$HELD_CMD" in
+      *serve-deck.py*) echo "  port $PORT already served by serve-deck.py (pid $HELD), reusing it" ;;
+      *http.server*)
+        echo "  port $PORT held by a stock http.server (pid $HELD): it ignores Range, replacing it"
+        kill "$HELD" 2>/dev/null || true; sleep 1 ;;
+      *) echo "  port $PORT is held by something else (pid $HELD: ${HELD_CMD:-unknown}); free it or set PORT=" >&2
+         SERVE=0 ;;
+    esac
+  elif ss -ltn 2>/dev/null | grep -q ":$PORT "; then
+    echo "  port $PORT is listening but its owner is not visible; free it or set PORT=" >&2
+    SERVE=0
+  fi
+  if [ "$SERVE" = 1 ] && ss -ltn 2>/dev/null | grep -q ":$PORT "; then
+    :   # reusing a serve-deck.py that is already up
+  elif [ "$SERVE" != 1 ]; then
+    :
   elif ! command -v python3 >/dev/null; then
     echo "  python3 not found here; serve it yourself some other way" >&2
     SERVE=0
@@ -159,7 +179,12 @@ if [ "$SERVE" = 1 ]; then
     # subshell, not the server, so a pid file written that way cannot stop the server
     # (the port stays bound and the next --serve reuses a deck nobody can kill).
     mkdir -p "$(dirname "$HOME/.cache/pull-deck.pid")"
-    nohup python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$LOCAL_BASE" \
+    # NOT `python3 -m http.server`: it ignores Range, so every video is a whole-file
+    # 200 that cannot be seeked or stopped early, and a cancelled preload resets the
+    # connection and leaves the next slide's video black. serve-deck.py answers 206.
+    mkdir -p "$LOCAL_BASE/tools"
+    rsync -a "$BOX:$REMOTE_BASE/tools/serve-deck.py" "$LOCAL_BASE/tools/serve-deck.py"
+    nohup python3 "$LOCAL_BASE/tools/serve-deck.py" --port "$PORT" --bind 127.0.0.1 --directory "$LOCAL_BASE" \
       >> "$HOME/.cache/pull-deck-server.log" 2>&1 &
     SRV_PID=$!
     echo "$SRV_PID" > "$HOME/.cache/pull-deck.pid"
@@ -172,6 +197,12 @@ if [ "$SERVE" = 1 ]; then
     echo
     echo "  present  : $URL/present/index.html   [$CODE]"
     echo "  handout  : $URL/document/index.html"
+    VID=$(find "$DST/_media" -name '*.mp4' -size +100k 2>/dev/null | head -1)
+    if [ -n "$VID" ]; then
+      RC=$(curl -s -o /dev/null -w '%{http_code}' -H 'Range: bytes=0-99' "$URL/_media/$(basename "$VID")" || echo 000)
+      if [ "$RC" = 206 ]; then echo "  range    : video requests answered 206 (seek/stop-early OK) ✓"
+      else echo "  range    : got $RC, expected 206: this server cannot stream video properly ✗" >&2; fi
+    fi
     echo "  presenter: press s in the deck (or $URL/present/presenter.html)"
     echo "  on screen : press i for the diagnostics dump"
   fi

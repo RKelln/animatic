@@ -633,6 +633,7 @@
   .media-kind, .media-where { color: var(--stage-muted); }
   .media-waiting .media-state { color: var(--stage-muted); }
   .media-loading .media-state { color: #d9a441; }
+  .media-stalled .media-state { color: #e0605a; }
   .media-ready .media-state { color: #6fbf73; }
   .media-failed, .media-failed .media-state { color: #e0605a; font-weight: 600; }
   .debug-head {

@@ -153,7 +153,7 @@ The layout half needs a real engine, because a state-level harness asserts state
 and never pixels:
 
 ```bash
-python3 -m http.server 8788 --bind 127.0.0.1     # from the built folder
+python3 /path/to/animatic/tools/serve-deck.py --port 8788 --directory .   # from the built folder (Range-capable)
 ```
 
 Then, with the deck open: press `s` **for real** (CDP `Input.dispatchKeyEvent`,

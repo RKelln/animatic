@@ -218,7 +218,7 @@ outside it, and both have bitten:
   calling `.click()`: a synthetic click dispatches straight to the element and
   will happily "pass" while every real click lands on the layer above.
 
-With the deck served locally (`python3 -m http.server`), point a browser at
+With the deck served locally (`python3 tools/serve-deck.py`), point a browser at
 `present/index.html#11` and check what is actually on top:
 
 ```js

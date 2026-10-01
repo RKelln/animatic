@@ -626,7 +626,7 @@ PAGER_JS = """
       try { listeners[li](cur); } catch (err) { /* never break nav */ }
     }
     // warm before play: a load() after play() would abort that play
-    for (var w = cur; w <= cur + WARM_AHEAD && w < slides.length; w++) warm(w);
+    warmAround(cur);
     // autoplay the active slide's video; pause everything else
     for (var i = 0; i < slides.length; i++) {
       var v = slides[i].querySelector("video[data-autoplay]");
@@ -696,15 +696,29 @@ PAGER_JS = """
   })();
 
   // A `sound` video that the browser will not start with audio (autoplay
-  // policy: no user activation yet, e.g. the deck opened on that slide)
-  // plays muted rather than not at all.
+  // policy: the deck window has had no click or key since it loaded, which is
+  // also the case when every move comes from the presenter window) plays muted
+  // rather than not at all. The mute is for THIS attempt only: every arrival
+  // tries unmuted first, so one early refusal does not silence the clip for
+  // the rest of the talk.
   function playVideo(v) {
+    if (v.hasAttribute("data-sound")) v.muted = false;
     var p = v.play();
     if (!p || !p.catch) return;
     p.catch(function (err) {
-      if (err && err.name === "NotAllowedError" && !v.muted) {
+      if (!err) return;
+      if (err.name === "NotAllowedError" && !v.muted) {
         v.muted = true;
         var q = v.play(); if (q && q.catch) q.catch(function () {});
+        toast("sound blocked by the browser: click once in the deck window, then press R");
+      } else if (err.name === "AbortError") {
+        // the load was restarted under the play (a warm or reload); play again
+        // once the new load can, if this slide is still the one on screen
+        v.addEventListener("canplay", function () {
+          if (slides[cur] && slides[cur].contains(v)) {
+            var q2 = v.play(); if (q2 && q2.catch) q2.catch(function () {});
+          }
+        }, { once: true });
       }
     });
   }
@@ -712,7 +726,52 @@ PAGER_JS = """
   // Slide videos are built preload="none" (media_html): nothing loads until
   // the slide is near. warm(i) switches slide i's videos to preload="auto"
   // and starts the load once; the media panel (`m`) calls it for every slide.
-  var WARM_AHEAD = 3;
+  var WARM_AHEAD = 3;      // the next few slides, whatever they hold
+  var WARM_VIDEOS = 2;     // plus the next few slides that carry a video
+  var KEEP_BEHIND = 2;     // slides behind the current one keep their buffer
+  function hasVideo(i) { return !!slides[i].querySelector("video[data-autoplay]"); }
+
+  // Warm what is about to be needed and let go of what has been passed. A
+  // deck of cards with a long clip six slides ahead still gets that clip warm
+  // in time (the video look-ahead counts video slides, not slides), and a clip
+  // far behind gives its buffer back so a whole talk never holds every video
+  // in memory at once (Firefox and a screen capture both feel that). A video
+  // the media panel's Load all pinned is never released.
+  function warmAround(c) {
+    var w, found = 0;
+    for (w = c; w < slides.length; w++) {
+      if (w <= c + WARM_AHEAD) { warm(w); if (w > c && hasVideo(w)) found++; continue; }
+      if (found >= WARM_VIDEOS) break;
+      if (hasVideo(w)) { warm(w); found++; }
+    }
+    for (w = 0; w < c - KEEP_BEHIND; w++) release(w);
+  }
+  function release(i) {
+    var vids = slides[i].querySelectorAll("video[data-autoplay][data-warmed]");
+    for (var j = 0; j < vids.length; j++) {
+      var v = vids[j];
+      // a chained clip is carried between slides, so it is never "behind"
+      if (v.hasAttribute("data-pinned") || v.hasAttribute("data-chain")) continue;
+      v.removeAttribute("data-warmed");
+      v.preload = "none";
+      v.pause();
+      try { v.load(); } catch (err) { /* never break nav */ }
+    }
+  }
+
+  // A video the browser cancelled before any data arrived (Firefox shows
+  // NS_BINDING_ABORTED) sits at readyState 0 and does nothing. If the slide on
+  // screen has one, ask again.
+  setInterval(function () {
+    var s = slides[cur];
+    if (!s) return;
+    var v = s.querySelector("video[data-autoplay]");
+    if (!v || v.error || v.readyState !== 0 || v.networkState === 2) return;
+    if (!v.hasAttribute("data-warmed")) { warm(cur); return; }
+    try { v.load(); } catch (err) { /* never break nav */ }
+    playVideo(v);
+  }, 3000);
+
   function warm(i) {
     var s = slides[i];
     if (!s) return;
@@ -728,6 +787,54 @@ PAGER_JS = """
         try { v.load(); } catch (err) { /* never break nav */ }
       }
     }
+  }
+
+  // `r`: force-load the media of the slide on screen. A video that sits at
+  // nothing (a cancelled request, a stalled connection) is dropped and fetched
+  // again from the top, and a failed image is re-requested past the cache.
+  var toastEl = null, toastTimer = null;
+  function toast(msg) {
+    if (!toastEl) {
+      toastEl = document.createElement("div");
+      toastEl.setAttribute("style", "position:fixed;left:50%;bottom:1.2em;" +
+        "transform:translateX(-50%);padding:.35em .9em;border-radius:.4em;" +
+        "background:rgba(0,0,0,.75);color:#fff;font:14px system-ui,sans-serif;" +
+        "z-index:99999;pointer-events:none;opacity:0;transition:opacity .2s");
+      document.body.appendChild(toastEl);
+    }
+    toastEl.textContent = msg;
+    toastEl.style.opacity = "1";
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.style.opacity = "0"; }, 1800);
+  }
+  function reloadMedia() {
+    var s = slides[cur];
+    if (!s) return;
+    var vids = s.querySelectorAll("video.media-video"), n = 0, k;
+    // First cancel every other slide's in-flight preload: a browser allows only
+    // a few connections to one host, and a server that cannot stop a transfer
+    // early (no Range) keeps them all busy, so this slide's request would just
+    // queue behind them. They warm again once this slide is under way.
+    for (k = 0; k < slides.length; k++) { if (k !== cur) release(k); }
+    for (k = 0; k < vids.length; k++) {
+      var v = vids[k];
+      v.setAttribute("data-warmed", "");
+      v.removeAttribute("data-stalled");
+      v.preload = "auto";
+      try { v.pause(); v.load(); } catch (err) { /* never break nav */ }
+      if (v.hasAttribute("data-autoplay")) playVideo(v);
+      n++;
+    }
+    var imgs = s.querySelectorAll("img.media-image");
+    for (k = 0; k < imgs.length; k++) {
+      var im = imgs[k];
+      if (im.complete && im.naturalWidth > 0) continue;
+      var u = im.getAttribute("src").replace(/[?&]r=\\d+$/, "");
+      im.setAttribute("src", u + (u.indexOf("?") < 0 ? "?" : "&") + "r=" + Date.now());
+      n++;
+    }
+    toast(n ? "reloading " + n + " media on this slide" : "no media on this slide");
+    setTimeout(function () { warmAround(cur); }, 2500);
   }
 
   function go(i, updateHash) {
@@ -770,7 +877,7 @@ PAGER_JS = """
   // cannot break navigation. `onChange` stays single-slot (the live module
   // owns it); `addOnChange` is the fan-out for everyone else.
   window.animatic = {
-    go: go, next: next, prev: prev, warm: warm,
+    go: go, next: next, prev: prev, warm: warm, reloadMedia: reloadMedia,
     count: function () { return slides.length; },
     current: function () { return cur; },
     onChange: null,
@@ -791,6 +898,7 @@ PAGER_JS = """
       // 'n' = notes in THIS window (a one-screen room); 's' = the second
       // window with the speaker UI, which PRESENTER_JS binds (below).
       case "n": case "N": toggleNotes(); break;
+      case "r": case "R": reloadMedia(); break;
       case "Escape": if (panel) panel.classList.remove("open"); break;
     }
   });
@@ -1211,20 +1319,60 @@ PRESENTER_JS = r"""
     var notes = clone.querySelector(".notes");
     if (notes && notes.parentNode) notes.parentNode.removeChild(notes);
     clone.classList.add("active");
+    // A preview is a look, not a playback, and a second <video> costs a decoder
+    // (a machine with hardware decoding has only a handful: the presenter's
+    // previews were starving the deck's own video). So no <video> goes into the
+    // presenter at all: each is swapped for a still frame taken from the deck's
+    // own copy, or a labelled box when that copy has nothing decoded yet.
     var vids = clone.querySelectorAll("video");
+    var srcs = sec.querySelectorAll("video");
     for (var j = 0; j < vids.length; j++) {
-      // a preview is a look, not a second playback: hold the first frame
-      // rather than run a second decoder on the talk machine
-      vids[j].removeAttribute("autoplay");
-      vids[j].setAttribute("preload", "auto");
-      vids[j].setAttribute("data-preview-still", "");
-      vids[j].setAttribute("muted", "");   // a still never speaks
+      var still = frameOf(srcs[j]);
+      var rep;
+      if (still) {
+        rep = document.createElement("img");
+        rep.setAttribute("src", still);
+        rep.setAttribute("alt", vids[j].getAttribute("aria-label") || "video frame");
+      } else {
+        rep = document.createElement("div");
+        rep.setAttribute("style", "aspect-ratio:16/9;width:100%;background:#111;" +
+          "color:#bbb;display:flex;align-items:center;justify-content:center;" +
+          "font:14px system-ui,sans-serif;text-align:center");
+        rep.textContent = "video: " + ((vids[j].getAttribute("src") || "").split("/").pop() || "clip");
+        waitForFrame(srcs[j]);
+      }
+      rep.className = vids[j].className;
+      vids[j].parentNode.replaceChild(rep, vids[j]);
     }
     var focusable = clone.querySelectorAll("button, [tabindex]");
     for (var k = 0; k < focusable.length; k++) {
       focusable[k].setAttribute("tabindex", "-1");
     }
     return clone.outerHTML;
+  }
+
+  // One frame of the deck's own video as a small JPEG, or null when nothing is
+  // decoded yet (or the canvas is tainted, as on file://).
+  function frameOf(v) {
+    try {
+      if (!v || v.readyState < 2 || !v.videoWidth) return null;
+      var w = Math.min(640, v.videoWidth);
+      var h = Math.max(1, Math.round(w * v.videoHeight / v.videoWidth));
+      var c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(v, 0, 0, w, h);
+      return c.toDataURL("image/jpeg", 0.7);
+    } catch (err) { return null; }
+  }
+  // A video that has no frame yet (the next slide's, not warmed until after
+  // the arrival is pushed) gets the presenter its still when it does.
+  function waitForFrame(v) {
+    if (!v || v.hasAttribute("data-preview-wait")) return;
+    v.setAttribute("data-preview-wait", "");
+    v.addEventListener("loadeddata", function () {
+      v.removeAttribute("data-preview-wait");
+      push();
+    }, { once: true });
   }
 
   function liveCueOf(i) {
@@ -1308,13 +1456,18 @@ PRESENTER_JS = r"""
     if (d.type === "animatic-presenter-ready") {
       // the presenter loaded or was reloaded by hand: adopt its handle when
       // ours is gone, then re-push, so a reload re-syncs with nothing to click
-      if ((!win || win.closed) && e.source && e.source !== window) win = e.source;
-      push();
+      // The presenter repeats this hello every couple of seconds (it cannot see
+      // a deck reload), carrying the deck run it last heard from. Answer only
+      // when it is new to us or out of date, so a steady hello costs nothing.
+      var fresh = !win || win.closed;
+      if (fresh && e.source && e.source !== window) win = e.source;
+      if (fresh || d.have !== startedAt) push();
       return;
     }
     if (!win || e.source !== win || !window.animatic) return;
     if (d.type === "animatic-next") window.animatic.next();
     else if (d.type === "animatic-prev") window.animatic.prev();
+    else if (d.type === "animatic-reload-media") window.animatic.reloadMedia();
     else if (d.type === "animatic-go" && typeof d.index === "number") {
       window.animatic.go(d.index);
     }
@@ -1421,8 +1574,21 @@ PRESENTER_UI_JS = r"""
     else video.addEventListener("loadedmetadata", seek, { once: true });
   }
 
+  // A removed <video> is not a stopped one: it keeps its connection and its
+  // decoder until the browser garbage-collects it, and a machine with hardware
+  // decoding has only a handful. Two new previews per slide change used to pile
+  // up that way and starve the deck window's own video. Let go explicitly.
+  function releaseVideos(node) {
+    var old = node.querySelectorAll("video");
+    for (var i = 0; i < old.length; i++) {
+      try { old[i].pause(); old[i].removeAttribute("src"); old[i].load(); }
+      catch (err) { /* never break the presenter */ }
+    }
+  }
+
   function fillPreview(node, html, cue) {
     if (!node) return;
+    releaseVideos(node);
     node.textContent = "";
     if (!cue) { node.appendChild(label("end of deck")); return; }
     if (cue.live) {
@@ -1555,7 +1721,8 @@ PRESENTER_UI_JS = r"""
       say("Open this window from the deck: press s in the deck window.");
       return;
     }
-    post({ type: "animatic-presenter-ready", schema: "animatic.presenter.v1" });
+    post({ type: "animatic-presenter-ready", schema: "animatic.presenter.v1",
+           have: state ? state.startedAt : null });
   }
 
   window.addEventListener("message", function (e) {
@@ -1583,6 +1750,11 @@ PRESENTER_UI_JS = r"""
         e.preventDefault(); post({ type: "animatic-next" }); break;
       case "ArrowLeft": case "ArrowUp": case "PageUp":
         e.preventDefault(); post({ type: "animatic-prev" }); break;
+      case "r": case "R":
+        post({ type: "animatic-reload-media" });
+        say("reloading this slide's media in the deck");
+        window.setTimeout(function () { say(""); }, 1800);
+        break;
       case "s": case "S": e.preventDefault(); window.close(); break;
     }
   });
@@ -1592,6 +1764,10 @@ PRESENTER_UI_JS = r"""
   tick();
   if (window.opener && !state) say("Waiting for the deck to send its state.");
   window.setTimeout(hello, 1500);   // a slow deck still gets its handshake
+  // A reloaded deck forgets this window and a presenter has no way to see that
+  // happen, so keep saying hello: the deck re-adopts us and re-pushes state, and
+  // ignores the hello while nothing has changed.
+  window.setInterval(hello, 2000);
 
   // Test surface for the layout harness (tools/presenter-probe.html): it fills
   // this page with a constructed state and drives the REAL paint path, so what
@@ -1845,7 +2021,9 @@ MEDIA_JS = r"""
   if (!box || !list) return;
   var slides = Array.prototype.slice.call(
     document.querySelectorAll(".animatic-slide"));
-  var CONCURRENT = 2, TIMEOUT_MS = 120000;
+  // A video that makes no progress for STALL_MS is skipped (marked stalled) so
+  // one dead connection cannot hold the queue; MAX_MS caps a slow-but-moving one.
+  var CONCURRENT = 2, STALL_MS = 12000, MAX_MS = 90000;
   var timer = null, running = false;
 
   // one row per file; a file shown on several slides is one row
@@ -1891,7 +2069,8 @@ MEDIA_JS = r"""
       } else {
         var pct = bufferedPct(el);
         if (el.error || el.networkState === 3) st = { s: "failed", pct: 0 };
-        else if (el.readyState >= 4) st = { s: "ready", pct: pct };
+        else if (el.readyState >= 4 || (pct >= 100 && el.readyState >= 3)) st = { s: "ready", pct: pct };
+        else if (el.hasAttribute("data-stalled")) st = { s: "stalled", pct: pct };
         else if (el.readyState > 0 || el.networkState === 2) st = { s: "loading", pct: pct };
         else st = { s: "waiting", pct: 0 };
       }
@@ -1899,7 +2078,7 @@ MEDIA_JS = r"""
     }
     return best;
   }
-  function rank(s) { return { failed: 4, ready: 3, loading: 2, waiting: 1 }[s] || 0; }
+  function rank(s) { return { failed: 5, ready: 4, loading: 3, stalled: 2, waiting: 1 }[s] || 0; }
 
   function name(src) {
     var q = src.split("?")[0];
@@ -1926,6 +2105,7 @@ MEDIA_JS = r"""
       var c = counts[kind];
       if (!c.all) return "";
       return kind + "s " + (c.ready || 0) + "/" + c.all + " ready" +
+        (c.stalled ? " · " + c.stalled + " stalled" : "") +
         (c.failed ? " · " + c.failed + " failed" : "");
     }
     var parts = [line("image"), line("video")].filter(Boolean);
@@ -1939,39 +2119,65 @@ MEDIA_JS = r"""
     });
   }
 
+  function isReady(v) {
+    return v.readyState >= 4 || (v.readyState >= 3 && bufferedPct(v) >= 100);
+  }
+
+  // Every video in the deck, autoplay or not. Running it again retries the
+  // ones that stalled or failed.
   function loadAll() {
     if (running) return;
     running = true;
     var queue = [];
     for (var i = 0; i < slides.length; i++) {
-      var vids = slides[i].querySelectorAll("video[data-autoplay]");
+      var vids = slides[i].querySelectorAll("video.media-video");
       for (var j = 0; j < vids.length; j++) {
-        if (vids[j].readyState < 4 && !vids[j].error) queue.push({ v: vids[j], i: i });
+        // pinned: the pager's look-behind release leaves it alone
+        vids[j].setAttribute("data-pinned", "");
+        if (!isReady(vids[j])) queue.push({ v: vids[j], i: i });
       }
     }
     var active = 0;
     function pump() {
       while (active < CONCURRENT && queue.length) start(queue.shift());
-      if (!active && !queue.length) { running = false; paint(); }
+      if (!active && !queue.length) { running = false; }
+      paint();
+    }
+    function kick(v, i) {
+      var retry = v.hasAttribute("data-stalled") || v.error || v.networkState === 3;
+      v.removeAttribute("data-stalled");
+      if (window.animatic && window.animatic.warm) window.animatic.warm(i);
+      // warm() only touches autoplay videos, and only once; cover the rest,
+      // and re-request one that stalled or failed
+      if (v.preload !== "auto") v.preload = "auto";
+      if (retry || (v.readyState === 0 && v.networkState !== 2)) {
+        try { v.load(); } catch (err) { /* never break the panel */ }
+      }
     }
     function start(job) {
       active++;
-      var v = job.v, done = false, t;
-      function finish() {
+      var v = job.v, done = false, poll, lastSig = "", lastMove = Date.now(), began = Date.now();
+      function finish(stalled) {
         if (done) return;
-        done = true; clearTimeout(t);
-        v.removeEventListener("canplaythrough", finish);
-        v.removeEventListener("error", finish);
+        done = true; clearInterval(poll);
+        v.removeEventListener("canplaythrough", onDone);
+        v.removeEventListener("error", onDone);
+        if (stalled === true && !isReady(v)) v.setAttribute("data-stalled", "");
         active--; pump();
       }
-      v.addEventListener("canplaythrough", finish);
-      v.addEventListener("error", finish);
-      t = setTimeout(finish, TIMEOUT_MS);
-      if (window.animatic && window.animatic.warm) window.animatic.warm(job.i);
-      if (v.readyState >= 4) finish();
+      function onDone() { finish(false); }
+      v.addEventListener("canplaythrough", onDone);
+      v.addEventListener("error", onDone);
+      kick(v, job.i);
+      poll = setInterval(function () {
+        if (isReady(v)) { finish(false); return; }
+        var sig = v.readyState + ":" + bufferedPct(v) + ":" + v.networkState;
+        if (sig !== lastSig) { lastSig = sig; lastMove = Date.now(); }
+        if (Date.now() - lastMove > STALL_MS || Date.now() - began > MAX_MS) finish(true);
+      }, 1000);
+      if (isReady(v)) finish(false);
     }
     pump();
-    paint();
   }
 
   function open() {

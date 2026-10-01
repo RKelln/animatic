@@ -142,7 +142,7 @@ want "http status of the handout view" "$CODE2" "200"
 grep -qi "localhost is a secure context" "$T/serve.log" && ok "mentions the localhost secure-context win" || bad "no secure-context note"
 SRVPID=$(cat "$PIDFILE" 2>/dev/null)
 LIVE=$(ss -ltnp 2>/dev/null | grep ":$PORT " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1)
-if [ -n "$SRVPID" ] && ps -p "$SRVPID" -o cmd= 2>/dev/null | grep -q "http.server $PORT"; then
+if [ -n "$SRVPID" ] && ps -p "$SRVPID" -o cmd= 2>/dev/null | grep -q "serve-deck.py --port $PORT"; then
   ok "pid file names the real server (pid $SRVPID)"
 else
   bad "pid file does not name the server: file='${SRVPID:-empty}', actually listening pid='${LIVE:-none}'"
