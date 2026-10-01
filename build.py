@@ -255,14 +255,30 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
             more = f" (+{len(changed) - 5})" if len(changed) > 5 else ""
             print(f"\n[{stamp}] changed: {names}{more}")
         t0 = time.monotonic()
+        # build() empties OUTDIR first, so a browser reload mid-build would
+        # 404.  Build beside it and swap the finished tree in with a rename.
+        final = Path(args.out).expanduser().resolve()
+        stage = None
+        if not args.keep:
+            stage = final.with_name(f".{final.name}.building")
+            shutil.rmtree(stage, ignore_errors=True)
+            args.out = str(stage)
         try:
             rc = build(talk_path, args)
             if rc == 0:
-                inject_reload(Path(args.out).expanduser().resolve(),
-                              f"{time.time_ns()}")
+                inject_reload(stage or final, f"{time.time_ns()}")
+                if stage is not None:
+                    old = final.with_name(f".{final.name}.old")
+                    shutil.rmtree(old, ignore_errors=True)
+                    if final.exists():
+                        final.rename(old)
+                    stage.rename(final)
+                    shutil.rmtree(old, ignore_errors=True)
         except Exception:
             traceback.print_exc()
             rc = 1
+        finally:
+            args.out = str(final)
         status = "ok" if rc == 0 else f"FAILED (exit {rc})"
         print(f"[{time.strftime('%H:%M:%S')}] build {status} in "
               f"{time.monotonic() - t0:.1f}s; watching {talk_path.parent} "
