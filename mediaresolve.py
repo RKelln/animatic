@@ -61,12 +61,18 @@ import re
 
 import yaml
 
+from talkparse import parse_still
+
 MEDIA_EXTS = {
     ".mp4": "video", ".webm": "video", ".mov": "video", ".m4v": "video",
     ".webp": "image", ".png": "image", ".jpg": "image", ".jpeg": "image",
     ".gif": "image", ".svg": "image",
 }
 VIDEO_EXTS = {e for e, t in MEDIA_EXTS.items() if t == "video"}
+
+DOC_MAX_WIDTH = 1100              # handout figures: about 150 dpi across a letter page
+DOC_JPEG_QUALITY = 70
+DOC_RECIPE = f"doc-v1|{DOC_MAX_WIDTH}|{DOC_JPEG_QUALITY}"
 
 PLAYBACK_VALUES = ("loop", "once", "pingpong")
 PINGPONG_CHUNK_SECONDS = 1        # the reverse holds one chunk of frames, never the clip
@@ -94,6 +100,8 @@ class MediaRef:
     playback: str = "loop"             # video only: loop | once | pingpong (card `playback:`)
     sound: bool = False                # video only: play the audio track (card `sound: true`)
     origin: Optional[str] = None       # absolute source path; `file` becomes out-root-relative once published
+    still: Optional[tuple] = None      # video only: the handout frame (card `still:`, see talkparse.parse_still); None = a quarter in
+    doc_file: Optional[str] = None     # out-root-relative small JPEG the handout prints (image) or shows as the still (video)
 
 
 
@@ -124,6 +132,8 @@ class MediaResolver:
     # the publish step could not bake (the screen falls back to `loop`).
     playback_issues: list = field(default_factory=list)
     playback_fallback: dict = field(default_factory=dict)   # slug -> "loop"
+    doc_files: dict = field(default_factory=dict)           # slug -> out-root-relative handout JPEG
+    out_root: Optional[Path] = None                         # set by publish()
     # --link-media: symlink published files instead of copying them. For
     # throwaway and test builds only: the output folder is no longer portable.
     link_media: bool = False
@@ -421,6 +431,8 @@ class MediaResolver:
             ref.file = self.published[slug]
         if slug in self.playback_fallback:
             ref.playback = self.playback_fallback[slug]
+        if slug in self.doc_files:
+            ref.doc_file = self.doc_files[slug]
         if ref.live:
             published_poster = self.published.get(slug + "-poster")
             if published_poster:
@@ -434,10 +446,13 @@ class MediaResolver:
         absolute machine paths. Idempotent: same bytes every build."""
         media_dir = Path(out_root) / "_media"
         media_dir.mkdir(parents=True, exist_ok=True)
+        self.out_root = Path(out_root)
         for slug in slugs:
             if slug in self.published or (slug + "-poster") in self.published:
                 continue
             ref = self._resolve(slug)
+            if ref.found and ref.file:
+                self._doc_derivative(ref.file, media_dir, slug, slug, ref.still)
             if ref.live:
                 # the poster is the only file a live screen contributes
                 if not ref.poster:
@@ -447,6 +462,7 @@ class MediaResolver:
                 _place(ref.poster, dst, self.link_media)
                 self.published[slug + "-poster"] = str(
                     Path("_media") / f"{slug}-poster{ext}")
+                self._doc_derivative(ref.poster, media_dir, slug + "-poster", slug)
                 continue
             if not (ref.found and ref.file):
                 continue
@@ -464,6 +480,46 @@ class MediaResolver:
             dst = media_dir / f"{slug}{ext}"
             _place(ref.file, dst, self.link_media)
             self.published[slug] = str(Path("_media") / f"{slug}{ext}")
+
+    def doc_still(self, ref: "MediaRef", spec: str) -> Optional[str]:
+        """A shot's own `still=` frame (it overrides the card's): a JPEG
+        beside the slug's default one, named for the spec.  None on failure."""
+        want = parse_still(spec)
+        if want is None or not ref.origin or self.out_root is None:
+            return None
+        key = re.sub(r"[^a-z0-9.]+", "-", str(spec).lower().replace("%", "pct")).strip("-")
+        name = f"{ref.slug}@{key}"
+        self._doc_derivative(ref.origin, self.out_root / "_media", name, name, want)
+        return self.doc_files.get(name)
+
+    def _doc_derivative(self, src, media_dir: Path, name: str, slug: str,
+                        still: Optional[tuple] = None) -> None:
+        """The handout's own copy of a figure: a small JPEG under
+        `_media/doc/` (an image downscaled and recompressed; a video
+        reduced to one still).  The present view keeps the full-size
+        originals; a printed page never needs them, and a PDF built from
+        the originals runs to hundreds of MB.  Cached on the source's
+        size and mtime, so rebuilds are quick and byte-stable.  Silent on
+        failure: the figure then falls back to the original file."""
+        src = Path(src)
+        ext = src.suffix.lower()
+        if ext == ".svg" or not src.is_file():
+            return
+        doc_dir = media_dir / "doc"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        dst = doc_dir / f"{name}.jpg"
+        stamp = doc_dir / f"{name}.stamp"
+        st = src.stat()
+        key = f"{DOC_RECIPE}|{st.st_size}|{int(st.st_mtime)}|{still}"
+        if not (dst.exists() and stamp.exists() and stamp.read_text() == key):
+            if ext in VIDEO_EXTS:
+                ok = _video_still(src, dst, still)
+            else:
+                ok = _image_small(src, dst)
+            if not ok:
+                return
+            stamp.write_text(key)
+        self.doc_files[slug] = str(Path("_media") / "doc" / f"{name}.jpg")
 
     def _make(self, slug: str, card: Optional[dict], path: Path, source: str) -> MediaRef:
         ext = path.suffix.lower()
@@ -485,6 +541,12 @@ class MediaResolver:
             ref.playback = card["playback"]
         if card and ext in VIDEO_EXTS and card.get("sound") is True:
             ref.sound = True
+        if card and ext in VIDEO_EXTS and "still" in card:
+            ref.still = parse_still(card["still"])
+            if ref.still is None:
+                self.playback_issues.append((slug,
+                    f"card '{slug}' has still: {card['still']!r}; use start, end, "
+                    f"seconds, or n%; the handout uses a quarter in"))
         if card and card.get("brief"):
             brief = card["brief"]
             if isinstance(brief, str) and brief.strip():
@@ -507,6 +569,58 @@ class MediaResolver:
 def _cache_dir() -> Path:
     base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
     return Path(base) / "animatic" / "pingpong"
+
+
+def _image_small(src: Path, dst: Path) -> bool:
+    try:
+        from PIL import Image, ImageOps
+        with Image.open(src) as im:
+            im = ImageOps.exif_transpose(im)
+            if im.mode in ("RGBA", "LA", "P"):
+                im = im.convert("RGBA")
+                flat = Image.new("RGB", im.size, (255, 255, 255))
+                flat.paste(im, mask=im.getchannel("A"))
+                im = flat
+            else:
+                im = im.convert("RGB")
+            if im.width > DOC_MAX_WIDTH:
+                im = im.resize((DOC_MAX_WIDTH, round(im.height * DOC_MAX_WIDTH / im.width)),
+                               Image.LANCZOS)
+            im.save(dst, "JPEG", quality=DOC_JPEG_QUALITY, optimize=True, progressive=True)
+        return True
+    except Exception:
+        return False
+
+
+def _video_still(src: Path, dst: Path, spec: Optional[tuple] = None) -> bool:
+    """One frame, scaled to the handout width: `spec` (talkparse.parse_still)
+    picks start, end, a time or a share of the clip; the default is a quarter
+    of the way in (the first frame is often black)."""
+    if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
+        return False
+    spec = spec or ("frac", 0.25)
+    seek = []
+    if spec[0] == "end":
+        seek = ["-sseof", "-0.2"]
+    elif spec[0] == "start":
+        seek = ["-ss", "0"]
+    else:
+        try:
+            out = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=nw=1:nk=1", str(src)],
+                capture_output=True, text=True, timeout=60).stdout.strip()
+            dur = float(out)
+        except Exception:
+            dur = 0.0
+        at = spec[1] * dur if spec[0] == "frac" else spec[1]
+        if dur:
+            at = min(at, max(0.0, dur - 0.2))   # a time past the end shows the last frame
+        seek = ["-ss", f"{max(0.0, at):.2f}"]
+    why = _ffmpeg(seek + ["-i", str(src), "-frames:v", "1",
+                          "-vf", f"scale='min({DOC_MAX_WIDTH},iw)':-2",
+                          "-q:v", "6", str(dst)], timeout=120)
+    return why is None and dst.exists()
 
 
 def _ffmpeg(args: list, timeout: int = 600) -> Optional[str]:

@@ -82,7 +82,25 @@ CONTINUE_WORDS = ("continue", "cont")
 LAYOUTS = ("piece", "duo", "titled")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
-               "under", "blur", "anchor")
+               "under", "blur", "anchor", "still")
+# `still=` (and a card's `still:`) picks the frame a video becomes in the
+# handout: start, end, a time in seconds (`3`, `3.5`, `3s`) or a share of the
+# clip (`25%`).  Unset, a quarter of the way in.
+STILL_RE = re.compile(r"(start|end|\d+(?:\.\d+)?s?|\d+(?:\.\d+)?%)")
+
+
+def parse_still(spec) -> Optional[tuple]:
+    """('start',) | ('end',) | ('sec', t) | ('frac', f), or None if invalid."""
+    spec = str(spec).strip().lower()
+    if not STILL_RE.fullmatch(spec):
+        return None
+    if spec in ("start", "end"):
+        return (spec,)
+    if spec.endswith("%"):
+        pct = float(spec[:-1])
+        return ("frac", pct / 100.0) if pct <= 100 else None
+    return ("sec", float(spec.rstrip("s")))
+
 FIT_VALUES = ("cover", "contain", "hero")
 # `playback=` on a shot overrides the card's `playback:` for that screen.
 # `advance` is stored as the `advance` flag; `pingpong` is card-only (a baked
@@ -308,6 +326,7 @@ class Block:
     line_end: int = 0             # last source line: merged soft-wrap or a
                                   # multi-line quote / list occupies every line
                                   # in between, so the screen's range must too
+    refs: list = field(default_factory=list)    # handout only: (source id, the text just before the `[^id]`)
 
 
 @dataclass
@@ -450,7 +469,7 @@ def nested_paren_at(text: str) -> Optional[int]:
     return None
 
 
-def strip_footnote_refs(text: str, collected: list) -> str:
+def strip_footnote_refs(text: str, collected: list, marks: Optional[list] = None) -> str:
     """Remove `[^id]` body-footnote references (spec: Text) from text.
 
     References are inert: never spoken, never on screen, never verbatim in
@@ -460,12 +479,20 @@ def strip_footnote_refs(text: str, collected: list) -> str:
     in-body `[^id]: …` definition line intact — receipts have no body-level
     definition form; a definition is its `sources:` registry entry (Frontmatter).
     """
-    def _drop(m):
+    out = []
+    last = 0
+    for m in FOOTNOTE_REF_RE.finditer(text):
+        out.append(text[last:m.start()])
+        last = m.end()
         rid = m.group(1)
         if rid not in collected:
             collected.append(rid)
-        return ""
-    return FOOTNOTE_REF_RE.sub(_drop, text)
+        if marks is not None:
+            # where the ref sat: the text just before it, so the handout can
+            # put the citation number back (Block.refs)
+            marks.append((rid, "".join(out)[-40:]))
+    out.append(text[last:])
+    return "".join(out)
 
 
 _INLINE_TOK = re.compile(r"(\*\*.+?\*\*|`[^`]+`|\*[^*\s][^*]*\*)")
@@ -546,6 +573,23 @@ def _lex_frontmatter(body: str, source: str) -> tuple[dict, list]:
     return meta, rest
 
 
+# A non-shot comment that trails prose on its own line (`text. <!-- note -->`,
+# possibly running over several lines).  Comments that start a line are handled
+# by the lexer; these would otherwise be read as spoken text (spec principle 4:
+# non-directive comments are inert).
+_TRAILING_COMMENT_RE = re.compile(r"(?<=\S)[ \t]*<!--(?!\s*shot\b).*?-->", re.S)
+
+
+def _strip_trailing_comments(lines: list) -> list:
+    """Drop trailing comments, keeping every newline so later lines keep
+    their numbers."""
+    text = "".join(l if l.endswith("\n") else l + "\n" for l in lines)
+    if "<!--" not in text:
+        return lines
+    text = _TRAILING_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    return text.splitlines(keepends=True)
+
+
 def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
                 line_offset: int = 0) -> list:
     """Tokenize source lines into primitive blocks (list of dicts).
@@ -559,6 +603,7 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
     (deck -> shared -> built-in); they decide which `role=` / `layout=`
     tokens are known.
     """
+    lines = _strip_trailing_comments(lines)
     blocks: list[dict] = []
     para_buf: list[str] = []
     para_line = 0
@@ -795,6 +840,13 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
                 f"blur={BLUR_MAX} — token ignored"
             )
             return
+    if name == "still" and parse_still(value) is None:
+        shot.warnings.append(
+            f"check 25: {token!r}: still picks the video frame the handout "
+            f"prints, still=start, still=end, still=<seconds> or still=<n>% "
+            f"— token ignored"
+        )
+        return
     if name == "anchor" and value not in ANCHOR_VALUES:
         shot.warnings.append(
             f"check 25: {token!r}: anchor places the media on the frame, "
@@ -1129,9 +1181,10 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                 and i_rb + 1 < len(raw_blocks)
                 and raw_blocks[i_rb + 1]["kind"] == "shot"
                 and not (i_rb > 0 and raw_blocks[i_rb - 1]["kind"] == "shot")):
+            hmarks: list = []
             pending_handout.append(
-                Block(kind="handout-heading",
-                      text=strip_footnote_refs(rb["text"], talk.footnote_ids),
+                Block(kind="handout-heading", refs=hmarks,
+                      text=strip_footnote_refs(rb["text"], talk.footnote_ids, hmarks),
                       level=rb["level"],
                       line=rb.get("line", 0),
                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
@@ -1155,9 +1208,10 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         if kind == "heading":
             if pending_role is not None and rb["level"] == 2:
                 pass  # handled above; defensive
+            hmarks: list = []
             cur.blocks.append(
-                Block(kind="heading",
-                      text=strip_footnote_refs(rb["text"], talk.footnote_ids),
+                Block(kind="heading", refs=hmarks,
+                      text=strip_footnote_refs(rb["text"], talk.footnote_ids, hmarks),
                       level=rb["level"],
                       line=rb.get("line", 0),
                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
@@ -1165,9 +1219,10 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             continue
 
         if kind == "quote":
+            qmarks: list = []
             cur.blocks.append(
-                Block(kind="quote",
-                      text=strip_footnote_refs(rb["text"], talk.footnote_ids),
+                Block(kind="quote", refs=qmarks,
+                      text=strip_footnote_refs(rb["text"], talk.footnote_ids, qmarks),
                       line=rb.get("line", 0),
                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
             )
@@ -1216,7 +1271,8 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             continue
 
         if kind == "para":
-            clean = strip_footnote_refs(rb["text"], talk.footnote_ids)
+            pmarks: list = []
+            clean = strip_footnote_refs(rb["text"], talk.footnote_ids, pmarks)
             spoken, stage = split_parens(clean)
             np = nested_paren_at(clean)
             if np is not None:
@@ -1274,7 +1330,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             cur.blocks.append(
                 Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0),
                       line_end=rb.get("line_end", 0) or rb.get("line", 0),
-                      spoken=is_spoken)
+                      spoken=is_spoken, refs=pmarks)
             )
             continue
 

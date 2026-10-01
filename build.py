@@ -39,7 +39,7 @@ import yaml
 
 import talkparse
 from mediaresolve import MediaResolver
-from render import (render_cues, render_document, render_manifest, render_nav,
+from render import (cited_sources, render_cues, render_document, render_manifest, render_nav,
                     render_present, render_presenter)
 
 
@@ -52,6 +52,9 @@ def main(argv=None) -> int:
                     help="corpus mode (check 21): with ROOT, scan that "
                          "directory; without, use the corpus.yaml content "
                          "roots.  Exclusive with TALKFILE.")
+    ap.add_argument("--handout-figures", default=None, metavar="WIDTH",
+                    help="handout figure width: capped (default), full, or n%% "
+                         "(overrides frontmatter handout-figures)")
     ap.add_argument("--keep", action="store_true",
                     help="do not wipe the output directory first")
     ap.add_argument("--theme", default=None,
@@ -127,9 +130,16 @@ def build(talk_path: Path, args) -> int:
     for _slug, msg in resolver.playback_issues:
         print(f"warn      : check 29: {msg}")
 
+    cites = talk.meta.get("cites")
+    if isinstance(cites, dict):
+        bare = [c["id"] for c in cited_sources(talk) if not str(cites.get(c["id"], "")).strip()]
+        if bare:
+            print(f"warn      : handout Sources omits {len(bare)} cited id(s) "
+                  f"with no `cites:` entry: {', '.join(bare)}")
+
     present = render_present(talk, resolver, out / "present")
     presenter = render_presenter(talk, resolver, out / "present")
-    document = render_document(talk, resolver, out / "document")
+    document = render_document(talk, resolver, out / "document", figures=args.handout_figures)
     cues = render_cues(talk, resolver, out)
     nav = render_nav(talk, out)
     manifest = render_manifest(talk, resolver, out)

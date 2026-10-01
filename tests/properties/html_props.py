@@ -42,7 +42,7 @@ MOVEMENT_H2_RE = re.compile(
 OPENING_RE = re.compile(r'<section class="opening">')
 SOURCES_RE = re.compile(r'<section class="sources">')
 SOURCES_LI_RE = re.compile(r'<ol class="doc-sources">(.*?)</ol>', re.DOTALL)
-LI_RE = re.compile(r"<li>(.*?)</li>")
+LI_RE = re.compile(r"<li(?: [^>]*)?>(.*?)</li>")
 
 
 def _scan_links(text: str) -> list:
@@ -366,6 +366,10 @@ def check(fx, errors: list) -> None:
         for c in cues["cues"]
         if c.get("media") and c["kind"] != "black"
     ]
+    # a figure naming the slug of the figure just before it (a `continue`
+    # shot, or the same slug again) is printed once, at its first appearance
+    want_fig_slugs = [slug for i, slug in enumerate(want_fig_slugs)
+                      if i == 0 or slug != want_fig_slugs[i - 1]]
     if doc_figures != want_fig_slugs:
         err(errors, f"document figure data-slugs {doc_figures} != cues media "
                     f"slugs {want_fig_slugs}")
@@ -380,6 +384,11 @@ def check(fx, errors: list) -> None:
         if m:
             lis = [html_mod.unescape(x) for x in LI_RE.findall(m.group(1))]
             want = [s["source"] for s in sources]
+            cites = fx.meta.get("cites")
+            if isinstance(cites, dict):
+                # the handout prints the public form, and leaves out an id with none
+                want = [str(cites[s["id"]]) for s in sources
+                        if str(cites.get(s["id"], "")).strip()]
             if lis != want:
                 err(errors, f"document Sources list {lis!r} != deck.sources "
                             f"{want!r}")

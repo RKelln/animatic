@@ -14,6 +14,11 @@ status: "construct fixture (spec §0 principle 4) - non-directive comments are i
 
 A paragraph between comments. None of the comment text speaks, renders, or warns.
 
+A trailing comment never speaks. <!-- a note on the same line as prose -->
+
+A multi-line trailing one does not either. <!-- this note
+runs over two lines -->
+
 <!-- an inert comment sitting between blocks -->
 
 ### Screen two

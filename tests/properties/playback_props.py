@@ -351,23 +351,17 @@ def check(errors: list) -> None:
         t2 = tag_for("clip-shot-advance.mp4")
         if t and t2 and t.replace("clip-advance", "X") != t2.replace("clip-shot-advance", "X"):
             err(errors, f"playback: playback=advance differs from advance: {t} vs {t2}")
-        # the handout honours the shot's playback / sound, never advance
+        # the handout carries no video: each clip is its small JPEG still
+        # (2026-09-30), so playback / sound / advance have nothing to set
         document = (out_a / "document" / "index.html").read_text(encoding="utf-8")
-        doc_tags = {}
-        for tag in VIDEO_TAG_RE.findall(document):
-            m = re.search(r'src="[^"]*_media/([^"/]+)"', tag)
-            if m:
-                doc_tags[m.group(1)] = tag
-        for name, want_once, want_sound in (("clip-shot-once.mp4", True, False),
-                                            ("clip-shot-loop.mp4", False, False),
-                                            ("clip-shot-sound.mp4", False, True),
-                                            ("clip-shot-mute.mp4", False, False),
-                                            ("clip-shot-silent.mp4", False, False)):
-            t = doc_tags.get(name, "")
-            if (not t or ('data-playback="once"' in t) != want_once
-                    or ("data-sound" in t) != want_sound or "data-advance" in t):
-                err(errors, f"playback: handout {name} once={want_once} "
-                            f"sound={want_sound} but tag is {t!r}")
+        if VIDEO_TAG_RE.search(document):
+            err(errors, "playback: the handout must not carry a <video> element")
+        for name in ("clip-shot-once", "clip-shot-loop", "clip-shot-sound",
+                     "clip-shot-mute", "clip-shot-silent"):
+            if f'src="../_media/doc/{name}.jpg"' not in document:
+                err(errors, f"playback: handout has no still for {name}")
+            elif not (out_a / "_media" / "doc" / f"{name}.jpg").is_file():
+                err(errors, f"playback: handout still for {name} missing on disk")
         if "video[data-advance]" not in present:
             err(errors, "playback: pager lacks the advance-on-ended handler")
         if "NotAllowedError" not in present:

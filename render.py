@@ -30,6 +30,7 @@ Deterministic: no timestamps, no set iteration, stable ordering everywhere.
 
 from __future__ import annotations
 
+import dataclasses
 import html
 import json
 import re
@@ -338,7 +339,8 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
             parts.append(live_host_html(ref, css_class=css_class))
         elif ref.poster:
             # document figure: the handout prints the still, never a live stream
-            poster_src = ref.poster if Path(ref.poster).is_absolute() else "../" + ref.poster
+            poster = ref.doc_file or ref.poster
+            poster_src = poster if Path(poster).is_absolute() else "../" + poster
             parts.append(
                 f'<img class="{css_class} media-image" src="{html.escape(poster_src)}" '
                 f'alt="{html.escape(ref.alt or ref.slug)}" loading="lazy">'
@@ -351,6 +353,14 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
                 f'<span class="ph-note">shown live in the room; not printed in '
                 f'the handout</span></div>'
             )
+    elif ref.found and ref.file and ref.doc_file and "slide-media" not in css_class.split():
+        # document figure: the handout carries a small JPEG, and a video is
+        # only its still (a printed page cannot play it, and a black player
+        # box is worse than a frame)
+        parts.append(
+            f'<img class="{css_class} media-image" src="{html.escape("../" + ref.doc_file)}" '
+            f'alt="{html.escape(ref.alt or ref.slug)}" loading="lazy">'
+        )
     elif ref.found and ref.file:
         ext = Path(ref.file).suffix.lower()
         if ext in (".mp4", ".webm", ".mov", ".m4v"):
@@ -2365,7 +2375,27 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
 # ---------------------------------------------------------------------------
 
 
-def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
+def _figure_css(talk: Talk, override=None) -> str:
+    """The handout's figure width (frontmatter `handout-figures:`, or the
+    `override` from the command line): `capped` (the default: natural width,
+    at most 68 mm tall), `full` (the text column's width), or a share of it
+    (`80%`).  Print only; the web page already fits its column."""
+    value = str(override or talk.meta.get("handout-figures") or "capped").strip().lower()
+    m = re.fullmatch(r"(\d{1,3})%", value)
+    if value == "full":
+        w, h = "100%", "none"
+    elif m and 10 <= int(m.group(1)) <= 100:
+        w, h = f"{int(m.group(1))}%", "none"
+    else:
+        if value != "capped":
+            print(f"warn      : handout-figures {value!r} is not capped, full or n%; using capped")
+        return ""
+    return (f"<style>@media print {{ figure.shot img {{ width: {w}; "
+            f"max-height: {h}; object-fit: contain; }} }}</style>")
+
+
+def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
+                    figures: str | None = None) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     theme = resolve_theme(talk)
     meta = talk.meta
@@ -2374,9 +2404,27 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
                  (meta.get("venue"), meta.get("date"), meta.get("format"), meta.get("dur"))
                  if v]
 
+    # The handout's citation list, numbered in first-appearance order.  The
+    # `[^id]` refs in the prose become links to these numbers.
+    #
+    # `cites:` (optional frontmatter map, id -> public citation): the
+    # registry entries are working receipts (repo paths, "verify this"), so
+    # a deck that declares `cites:` prints those in the handout instead.  An
+    # id with no public form is left out, never printed raw; build.py warns.
+    cited = cited_sources(talk)
+    cites = talk.meta.get("cites")
+    if isinstance(cites, dict):
+        cited = [{"id": c["id"], "source": str(cites[c["id"]])}
+                 for c in cited if str(cites.get(c["id"], "")).strip()]
+    cite_no = {c["id"]: n for n, c in enumerate(cited, start=1)}
+
+    fig_css = _figure_css(talk, figures)
+    fig_css = fig_css + "\n" if fig_css else ""
+
     opening = []
     movement_sections = []
     current = {"idx": 0, "items": opening}
+    last_fig = None   # slug of the figure just before: a repeat is left out
     for screen in talk.screens:
         if is_black_screen(screen):
             continue  # black beats have no prose: nothing to print
@@ -2387,7 +2435,16 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
                 movement_sections.append(
                     (m.label, current["items"])
                 )
-        current["items"].append(_doc_screen_blocks(talk, screen, resolver, skip_deck_h1=deck_title))
+        slug = screen.media_shot.slug if screen.media_shot else None
+        # A `continue` shot, or any shot naming the slug of the figure just
+        # before it, is the same picture again: the handout shows it once,
+        # at its first appearance.  The screen's text still prints.
+        repeat = bool(slug) and slug == last_fig
+        if slug:
+            last_fig = slug
+        current["items"].append(_doc_screen_blocks(
+            talk, screen, resolver, skip_deck_h1=deck_title,
+            cite_no=cite_no, skip_figure=repeat))
 
     def render_flow(blocks) -> str:
         return "".join(blocks)
@@ -2403,10 +2460,10 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     # registry value is the citation — ids are authoring keys and stay in
     # cues.json, never on the page.  No receipts, no section.
     sources_html = ""
-    cited = cited_sources(talk)
     if cited:
         items = "".join(
-            f'<li>{html.escape(src["source"])}</li>' for src in cited
+            f'<li id="src-{n}">{html.escape(src["source"])}</li>'
+            for n, src in enumerate(cited, start=1)
         )
         sources_html = (
             '<section class="sources">'
@@ -2424,9 +2481,9 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(deck_title)} — document view</title>
+<title>{html.escape(deck_title)}</title>
 {theme_style_blocks(theme)}
-</head>
+{fig_css}</head>
 <body class="view-document">
 <article>
 <header class="doc-head">
@@ -2443,11 +2500,60 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     return path
 
 
+CITE_OPEN, CITE_CLOSE = "\ue000", "\ue001"   # private-use fences round a citation number through inline_md
+
+
+def _with_cites(b: Block, cite_no: dict) -> str:
+    """The block's text with a citation marker where each `[^id]` sat.  The
+    parser kept only the text just before each ref; find that text (a shorter
+    tail if parentheticals were stripped since) and mark the spot, else the
+    end of the block.  Run the result through `_cite_links` after
+    inline_md."""
+    text = b.text
+    if not b.refs or not cite_no:
+        return text
+    points = []   # (offset, number)
+    pos = 0
+    for rid, tail in b.refs:
+        n = cite_no.get(rid)
+        if n is None:
+            continue
+        at = -1
+        for cut in (len(tail), 24, 12):
+            t = tail[-cut:] if cut < len(tail) else tail
+            if t:
+                at = text.find(t, pos)
+                if at >= 0:
+                    at += len(t)
+                    break
+        if at < 0:
+            at = len(text)
+        pos = at
+        points.append((at, n))
+    for at, n in sorted(points, reverse=True):
+        text = f"{text[:at]}{CITE_OPEN}{n}{CITE_CLOSE}{text[at:]}"
+    return text
+
+
+def _cite_links(rendered: str) -> str:
+    return re.sub(
+        CITE_OPEN + r"(\d+)" + CITE_CLOSE,
+        lambda m: f'<sup class="cite"><a href="#src-{m.group(1)}">{m.group(1)}</a></sup>',
+        rendered)
+
+
 def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
-                       skip_deck_h1: str) -> str:
+                       skip_deck_h1: str, cite_no: dict | None = None,
+                       skip_figure: bool = False) -> str:
     out = []
+    cite_no = cite_no or {}
     media_shot = screen.media_shot
     ref = resolver.resolve(media_shot.slug) if (media_shot and media_shot.slug) else None
+    if ref is not None and media_shot.flags.get("still") and ref.doc_file and not ref.live:
+        # this shot's own `still=` frame beats the card's
+        own = resolver.doc_still(ref, media_shot.flags["still"])
+        if own:
+            ref = dataclasses.replace(ref, doc_file=own)
     credits_entries_ = credits_entries(screen)
     is_credits = is_credits_screen(screen)
     # a handout heading (written just before the screen's shot) leads the
@@ -2458,10 +2564,10 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         if b.text.strip() == skip_deck_h1 and screen.movement == 0:
             continue  # deck title already in the header
         lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
-        out.append(f"<h{lvl} class='screen-heading'>{inline_md(b.text)}</h{lvl}>")
+        out.append(f"<h{lvl} class='screen-heading'>{_cite_links(inline_md(_with_cites(b, cite_no)))}</h{lvl}>")
     # figure first (media shot leads the screen), then flow blocks
     consumed = set()
-    if ref is not None:
+    if ref is not None and not skip_figure:
         # the shot's playback / sound overrides hold in the handout as the
         # card's do; slide-only flags (advance, kb, fit) stay out
         doc_flags = {k: v for k, v in media_shot.flags.items()
@@ -2479,14 +2585,14 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             continue
         if b.kind == "vo":
             if b.text.strip():
-                out.append(f'<p class="vo">{inline_md(b.text)}</p>')
+                out.append(f'<p class="vo">{_cite_links(inline_md(_with_cites(b, cite_no)))}</p>')
         elif b.kind == "heading":
             if b.text.strip() == skip_deck_h1 and screen.movement == 0:
                 continue  # deck title already in the header
             lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
-            out.append(f"<h{lvl} class='screen-heading'>{inline_md(b.text)}</h{lvl}>")
+            out.append(f"<h{lvl} class='screen-heading'>{_cite_links(inline_md(_with_cites(b, cite_no)))}</h{lvl}>")
         elif b.kind == "quote":
-            out.append(f"<blockquote>{quote_paras_html(b.text)}</blockquote>")
+            out.append(f"<blockquote>{_cite_links(quote_paras_html(_with_cites(b, cite_no)))}</blockquote>")
         elif b.kind == "quote-source":
             out.append(f'<p class="doc-quote-source">{inline_md(b.text)}</p>')
         elif b.kind == "list":
@@ -2495,7 +2601,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             out.append(table_html(b))
         elif b.kind == "stat":
             if b.text.strip():
-                out.append(f'<div class="stat-callout"><p>{inline_md(b.text)}</p></div>')
+                out.append(f'<div class="stat-callout"><p>{_cite_links(inline_md(_with_cites(b, cite_no)))}</p></div>')
         elif b.kind == "paraphrase":
             # Callout-level object in the prose flow (the stat-callout
             # treatment is the model), never a figure: our words beside the
@@ -2503,7 +2609,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             if b.text.strip():
                 out.append(
                     f'<div class="paraphrase-block">'
-                    f'<p class="paraphrase-text">{inline_md(b.text)}</p></div>'
+                    f'<p class="paraphrase-text">{_cite_links(inline_md(_with_cites(b, cite_no)))}</p></div>'
                 )
         elif b.kind in ("lower", "credits") and not is_credits:
             if b.text.strip():

@@ -886,6 +886,14 @@
     border-top: 2px solid var(--doc-line);
   }
   h3.screen-heading, h2.screen-heading { font-size: 1.15rem; margin: 1.8em 0 0.4em; }
+  /* a `####` on-screen heading reads as a run-in title: bolder and larger than the prose */
+  body.view-document h4.screen-heading {
+    font-size: 1.1rem; font-weight: 700; margin: 1.6em 0 0.35em;
+    break-after: avoid; page-break-after: avoid;
+  }
+  sup.cite { font-size: 0.7em; line-height: 0; margin-left: 0.1em; font-family: var(--font-ui); }
+  sup.cite a { color: var(--doc-accent); text-decoration: none; }
+  sup.cite a:hover { text-decoration: underline; }
 
   figure.shot { margin: 1.6em 0; text-align: center; }
   figure.shot img, figure.shot video { max-width: 100%; border-radius: 4px; margin: 0 auto; }
@@ -976,5 +984,14 @@
     h2.movement { page-break-before: always; }
     figure.shot, .stat-callout, .paraphrase-block, blockquote, .doc-credits { page-break-inside: avoid; }
     ol.doc-sources li { page-break-inside: avoid; }
+    /* a figure and its paragraph share a page: smaller type, pictures capped
+       in height so a long talk does not print one picture per page */
+    html { font-size: 11pt; }
+    body.view-document { line-height: 1.5; background: #fff; }
+    figure.shot { margin: 1em 0; }
+    figure.shot img { max-height: 68mm; width: auto; }
+    .vo { margin: 0.8em 0; }
+    /* a live-only screen with no poster has nothing to print */
+    figure.shot:has(.media-note) { display: none; }
   }
 }

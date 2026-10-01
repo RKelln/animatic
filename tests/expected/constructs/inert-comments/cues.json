@@ -40,9 +40,9 @@
           "text": "Screen two"
         }
       ],
-      "script": "A paragraph between comments. None of the comment text speaks, renders, or warns.\n\nThis heading opened no new screen: a non-shot comment never closes one.",
+      "script": "A paragraph between comments. None of the comment text speaks, renders, or warns.\n\nA trailing comment never speaks.\n\nA multi-line trailing one does not either.\n\nThis heading opened no new screen: a non-shot comment never closes one.",
       "stage": null,
-      "est_seconds": 10.0
+      "est_seconds": 14.8
     }
   ],
   "warnings": []

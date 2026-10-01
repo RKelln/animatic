@@ -1,0 +1,230 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "handout-extras",
+    "title": "Handout extras",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": [
+      {
+        "id": "prince-2026",
+        "source": "Working receipt: Cloudflare CEO Matthew Prince, June 3 2026, events/L01/notes.md ~ verify"
+      },
+      {
+        "id": "other-2026",
+        "source": "Working receipt: a second source, never printed raw"
+      }
+    ]
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "handout-extras-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "Most web traffic is bots, not people. This sentence cites nothing.",
+      "stage": null,
+      "est_seconds": 4.4
+    },
+    {
+      "id": "handout-extras-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {
+            "still": "end"
+          }
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "The same picture again: the handout prints it once.",
+      "stage": null,
+      "est_seconds": 3.6
+    },
+    {
+      "id": "handout-extras-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {
+            "still": "end"
+          }
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "A continue shot is the same thing said another way.",
+      "stage": null,
+      "est_seconds": 4.0
+    },
+    {
+      "id": "handout-extras-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "media",
+      "title": "A smaller heading",
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {
+            "still": "start"
+          }
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 4,
+          "text": "A smaller heading"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "handout-extras-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {
+            "still": "3s"
+          }
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "Valid forms: start, end, 3, 3.5s, 25%.",
+      "stage": null,
+      "est_seconds": 3.2
+    },
+    {
+      "id": "handout-extras-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "An invalid still warns and is ignored.",
+      "stage": null,
+      "est_seconds": 2.8
+    }
+  ],
+  "warnings": [
+    "line 31: check 25: 'still=banana': still picks the video frame the handout prints, still=start, still=end, still=<seconds> or still=<n>% — token ignored"
+  ]
+}
