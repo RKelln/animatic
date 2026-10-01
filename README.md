@@ -52,6 +52,38 @@ The same file renders as:
     python3 build.py <talkfile> [--out OUTDIR]
     python3 build.py <talkfile> [--out OUTDIR] --watch   # rebuild on every save; open pages reload
 
+### Handout PDF
+
+    python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures capped|full|80%]
+
+Builds the deck, then prints the document view with headless Chromium. Rebuild
+it after any edit to the talkfile or its media; the PDF is a build product, so
+it is not committed. For the L01 talk, from this repo:
+
+    D=~/talks/decks/L01-opening-talk
+    python3 tools/handout-pdf.py $D/talk.md $D/handout/L01-handout.pdf
+
+What the handout does (all from the one talkfile):
+
+- A video prints as one JPEG still, a quarter of the way in. Change it with the
+  card field `still:` or the shot flag `still=` (`start`, `end`, seconds like
+  `3` or `3.5s`, or `50%`); the shot beats the card. Images print as small
+  downscaled JPEGs (`_media/doc/`, 1100 px wide), so the PDF stays near 8 MB.
+- A figure with the same slug as the figure just before it (including a
+  `continue` shot) prints once; that screen's text still prints.
+- `[^id]` refs print as numbered links to the Sources list. If the frontmatter
+  has a `cites:` map (id to public citation), the list prints those. The
+  `sources:` entries are working receipts and may hold repo paths and "verify
+  this" notes, so with `cites:` declared an id that has none is left out, with
+  a build warning.
+- Figure width: frontmatter `handout-figures:` or `--figures`; `capped` (the
+  default, at most 68 mm tall), `full` (the text column), or a share like `80%`.
+- Print is white, 11 pt. The web page keeps the theme's paper colour.
+
+Chromium notes: a snap-packaged Chromium cannot read or write `/tmp` or hidden
+directories, so the tool builds into `~/animatic-handout-build/<deck>/`
+(override with `--work`, which must be under `$HOME` and not hidden).
+
 ### Check
 
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]

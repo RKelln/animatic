@@ -25,11 +25,12 @@ coding agent. Edit here, never there.
 
     python3 build.py <talkfile> [--out OUTDIR]     # render present + document views
     python3 build.py <talkfile> --watch [...]      # rebuild on save, open pages reload (Ctrl-C stops)
+    python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see README: Handout PDF)
     python3 build.py --corpus                      # every deck under corpus.yaml roots
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
     python3 check.py --register                    # the canonical 1-32 check register
     python3 check.py --corpus [ROOT] --strict      # warnings become deck failures
-    python3 tests/run.py                           # golden suite (profiles: 31, passed: 33)
+    python3 tests/run.py                           # golden suite (profiles: 35, passed: 38)
 
 `check.py` exits 0 on a clean deck, 1 on a fatal (or, under `--strict`, a warning),
 2 on usage errors. Corpus mode is read-only: it parses and checks, never writes into
@@ -38,6 +39,11 @@ a content root. Builds are deterministic — re-running rebuilds identical bytes
 As of 2026-09-16: `--corpus` reports 3/3 decks passed, banks 1, exit 0.
 
 ## Rules
+
+- **The handout is public.** It prints `cites:` (public citations), never the
+  `sources:` working receipts. Check a handout for repo paths, "verify" notes and
+  internal comments before anyone is pointed at it. Rebuild it with
+  `tools/handout-pdf.py`; PDFs are build products and are not committed.
 
 - **Zero install base.** There are no shipped users and no compatibility burden. Delete
   defects outright rather than grandfathering them behind deprecation shims.
