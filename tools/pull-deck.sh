@@ -6,6 +6,8 @@
 #   bash pull-deck.sh --dry-run     # show what would move, write nothing (start here)
 #   bash pull-deck.sh               # mirror the built deck into ~/Documents/art/animatic
 #   bash pull-deck.sh --serve       # mirror, then serve on http://localhost:8787
+#   bash pull-deck.sh --serve-only  # NO network: serve the copy already on this machine
+#                                   # (use this at the venue, where experimance is out of reach)
 #   bash pull-deck.sh --check       # verify the copy matches the source, no writes (-c, thorough)
 #   DECK=W11-vibe-coding-games OUTDIR=out-w11 bash pull-deck.sh    # another deck
 #   BOX=203.0.113.10 bash pull-deck.sh                          # if name lookup fails
@@ -28,13 +30,14 @@ LOCAL_BASE=${LOCAL_BASE:-$HOME/Documents/art/animatic}
 PORT=${PORT:-8787}
 FORCE=${FORCE:-0}                    # FORCE=1 skips the on-the-right-machine guard (tests only)
 
-DRY=0; SERVE=0; CHECK=0
+DRY=0; SERVE=0; CHECK=0; OFFLINE=0
 for a in "$@"; do
   case "$a" in
     --dry-run|-n) DRY=1 ;;
     --serve)      SERVE=1 ;;
+    --serve-only) SERVE=1; OFFLINE=1 ;;
     --check)      CHECK=1 ;;
-    -h|--help)    sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)    sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $a (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -43,6 +46,92 @@ if [ "$(hostname)" = "experimance" ] && [ "$FORCE" != 1 ]; then
   echo "This script runs ON framework and pulls FROM experimance; you are on experimance." >&2
   echo "(Nothing was changed. Run it on framework, or FORCE=1 for a local test run.)" >&2
   exit 2
+fi
+
+# --- serve it the way the talk will ------------------------------------------
+serve_deck() {
+  echo
+  echo "=== serving ==="
+  # Whatever already holds the port: reuse it only if it is serve-deck.py. A stock
+  # `http.server` left over from an earlier run ignores Range (see below) and was
+  # being silently reused, which looked like a fixed script and behaved like the old one.
+  HELD=$(ss -ltnp 2>/dev/null | grep ":$PORT " | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2 || true)
+  if [ -n "$HELD" ]; then
+    HELD_CMD=$(ps -p "$HELD" -o cmd= 2>/dev/null || true)
+    case "$HELD_CMD" in
+      *serve-deck.py*) echo "  port $PORT already served by serve-deck.py (pid $HELD), reusing it" ;;
+      *http.server*)
+        echo "  port $PORT held by a stock http.server (pid $HELD): it ignores Range, replacing it"
+        kill "$HELD" 2>/dev/null || true; sleep 1 ;;
+      *) echo "  port $PORT is held by something else (pid $HELD: ${HELD_CMD:-unknown}); free it or set PORT=" >&2
+         SERVE=0 ;;
+    esac
+  elif ss -ltn 2>/dev/null | grep -q ":$PORT "; then
+    echo "  port $PORT is listening but its owner is not visible; free it or set PORT=" >&2
+    SERVE=0
+  fi
+  if [ "$SERVE" = 1 ] && ss -ltn 2>/dev/null | grep -q ":$PORT "; then
+    :   # reusing a serve-deck.py that is already up
+  elif [ "$SERVE" != 1 ]; then
+    :
+  elif ! command -v python3 >/dev/null; then
+    echo "  python3 not found here; serve it yourself some other way" >&2
+    SERVE=0
+  else
+    # --directory, not `cd X &&`: with a list in the background $! names the wrapper
+    # subshell, not the server, so a pid file written that way cannot stop the server
+    # (the port stays bound and the next --serve reuses a deck nobody can kill).
+    mkdir -p "$(dirname "$HOME/.cache/pull-deck.pid")"
+    # NOT `python3 -m http.server`: it ignores Range, so every video is a whole-file
+    # 200 that cannot be seeked or stopped early, and a cancelled preload resets the
+    # connection and leaves the next slide's video black. serve-deck.py answers 206.
+    mkdir -p "$LOCAL_BASE/tools"
+    if [ "$OFFLINE" = 1 ]; then
+      if [ ! -f "$LOCAL_BASE/tools/serve-deck.py" ]; then
+        echo "  no $LOCAL_BASE/tools/serve-deck.py here: run  bash pull-deck.sh --serve  once while experimance is reachable" >&2
+        return 1
+      fi
+    else
+      rsync -a "$BOX:$REMOTE_BASE/tools/serve-deck.py" "$LOCAL_BASE/tools/serve-deck.py"
+    fi
+    nohup python3 "$LOCAL_BASE/tools/serve-deck.py" --port "$PORT" --bind 127.0.0.1 --directory "$LOCAL_BASE" \
+      >> "$HOME/.cache/pull-deck-server.log" 2>&1 &
+    SRV_PID=$!
+    echo "$SRV_PID" > "$HOME/.cache/pull-deck.pid"
+    echo "  serving pid $SRV_PID (log: ~/.cache/pull-deck-server.log)"
+    echo "  stop it with: kill $SRV_PID"
+  fi
+  if [ "$SERVE" = 1 ]; then
+    URL="http://localhost:$PORT/$OUTDIR"
+    CODE=$(curl -s --retry 6 --retry-connrefused --retry-delay 1 -m 10 -o /dev/null -w '%{http_code}' "$URL/present/index.html" || echo 000)
+    echo
+    echo "  present  : $URL/present/index.html   [$CODE]"
+    echo "  handout  : $URL/document/index.html"
+    VID=$(find "$DST/_media" -name '*.mp4' -size +100k 2>/dev/null | head -1)
+    if [ -n "$VID" ]; then
+      RC=$(curl -s -o /dev/null -w '%{http_code}' -H 'Range: bytes=0-99' "$URL/_media/$(basename "$VID")" || echo 000)
+      if [ "$RC" = 206 ]; then echo "  range    : video requests answered 206 (seek/stop-early OK) ✓"
+      else echo "  range    : got $RC, expected 206: this server cannot stream video properly ✗" >&2; fi
+    fi
+    echo "  presenter: press s in the deck (or $URL/present/presenter.html)"
+    echo "  on screen : press i for the diagnostics dump"
+  fi
+}
+
+# --- offline: serve what is already here, touch no network ---------------------
+if [ "$OFFLINE" = 1 ]; then
+  DST="$LOCAL_BASE/$OUTDIR"
+  if [ ! -f "$DST/present/index.html" ]; then
+    echo "no deck at $DST: pull it first (bash pull-deck.sh) while experimance is reachable." >&2
+    exit 4
+  fi
+  LOCAL_HTML=$(sha256sum "$DST/present/index.html" | cut -c1-12)
+  printf 'serving the local copy only (no network): %s, html %s\n' "$DST" "$LOCAL_HTML"
+  serve_deck || exit $?
+  echo
+  echo "notes: this is the copy already on this machine (build '$LOCAL_HTML'); nothing was pulled."
+  echo "       Reload with ctrl-shift-R: the deck has no cache-buster."
+  exit 0
 fi
 
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new)
@@ -145,68 +234,7 @@ if [ "$LEFT" != "0" ] || [ "$SRC_HTML" != "$LOCAL_HTML" ]; then
   echo "  mirror is not proven exact; re-run, or --check for the full list" >&2
 fi
 
-# --- serve it the way the talk will ------------------------------------------
-if [ "$SERVE" = 1 ]; then
-  echo
-  echo "=== serving ==="
-  # Whatever already holds the port: reuse it only if it is serve-deck.py. A stock
-  # `http.server` left over from an earlier run ignores Range (see below) and was
-  # being silently reused, which looked like a fixed script and behaved like the old one.
-  HELD=$(ss -ltnp 2>/dev/null | grep ":$PORT " | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2 || true)
-  if [ -n "$HELD" ]; then
-    HELD_CMD=$(ps -p "$HELD" -o cmd= 2>/dev/null || true)
-    case "$HELD_CMD" in
-      *serve-deck.py*) echo "  port $PORT already served by serve-deck.py (pid $HELD), reusing it" ;;
-      *http.server*)
-        echo "  port $PORT held by a stock http.server (pid $HELD): it ignores Range, replacing it"
-        kill "$HELD" 2>/dev/null || true; sleep 1 ;;
-      *) echo "  port $PORT is held by something else (pid $HELD: ${HELD_CMD:-unknown}); free it or set PORT=" >&2
-         SERVE=0 ;;
-    esac
-  elif ss -ltn 2>/dev/null | grep -q ":$PORT "; then
-    echo "  port $PORT is listening but its owner is not visible; free it or set PORT=" >&2
-    SERVE=0
-  fi
-  if [ "$SERVE" = 1 ] && ss -ltn 2>/dev/null | grep -q ":$PORT "; then
-    :   # reusing a serve-deck.py that is already up
-  elif [ "$SERVE" != 1 ]; then
-    :
-  elif ! command -v python3 >/dev/null; then
-    echo "  python3 not found here; serve it yourself some other way" >&2
-    SERVE=0
-  else
-    # --directory, not `cd X &&`: with a list in the background $! names the wrapper
-    # subshell, not the server, so a pid file written that way cannot stop the server
-    # (the port stays bound and the next --serve reuses a deck nobody can kill).
-    mkdir -p "$(dirname "$HOME/.cache/pull-deck.pid")"
-    # NOT `python3 -m http.server`: it ignores Range, so every video is a whole-file
-    # 200 that cannot be seeked or stopped early, and a cancelled preload resets the
-    # connection and leaves the next slide's video black. serve-deck.py answers 206.
-    mkdir -p "$LOCAL_BASE/tools"
-    rsync -a "$BOX:$REMOTE_BASE/tools/serve-deck.py" "$LOCAL_BASE/tools/serve-deck.py"
-    nohup python3 "$LOCAL_BASE/tools/serve-deck.py" --port "$PORT" --bind 127.0.0.1 --directory "$LOCAL_BASE" \
-      >> "$HOME/.cache/pull-deck-server.log" 2>&1 &
-    SRV_PID=$!
-    echo "$SRV_PID" > "$HOME/.cache/pull-deck.pid"
-    echo "  serving pid $SRV_PID (log: ~/.cache/pull-deck-server.log)"
-    echo "  stop it with: kill $SRV_PID"
-  fi
-  if [ "$SERVE" = 1 ]; then
-    URL="http://localhost:$PORT/$OUTDIR"
-    CODE=$(curl -s --retry 6 --retry-connrefused --retry-delay 1 -m 10 -o /dev/null -w '%{http_code}' "$URL/present/index.html" || echo 000)
-    echo
-    echo "  present  : $URL/present/index.html   [$CODE]"
-    echo "  handout  : $URL/document/index.html"
-    VID=$(find "$DST/_media" -name '*.mp4' -size +100k 2>/dev/null | head -1)
-    if [ -n "$VID" ]; then
-      RC=$(curl -s -o /dev/null -w '%{http_code}' -H 'Range: bytes=0-99' "$URL/_media/$(basename "$VID")" || echo 000)
-      if [ "$RC" = 206 ]; then echo "  range    : video requests answered 206 (seek/stop-early OK) ✓"
-      else echo "  range    : got $RC, expected 206: this server cannot stream video properly ✗" >&2; fi
-    fi
-    echo "  presenter: press s in the deck (or $URL/present/presenter.html)"
-    echo "  on screen : press i for the diagnostics dump"
-  fi
-fi
+if [ "$SERVE" = 1 ]; then serve_deck; fi
 
 echo
 echo "notes: localhost is a SECURE CONTEXT, so the live-capture screens work here and"

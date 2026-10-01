@@ -1,33 +1,164 @@
 #!/usr/bin/env python3
-"""serve-deck.py — static server for a built deck, with HTTP Range support.
+"""serve-deck.py — serve a built deck, with HTTP Range support and a request log
+you can read while presenting. No pull, no network beyond localhost.
 
-`python3 -m http.server` ignores Range: every video request is the whole file
-as a 200, so a browser cannot seek, cannot stop reading once it has enough,
-and a cancelled preload shows up as ConnectionResetError / NS_BINDING_ABORTED
-while the next video waits behind it. This answers Range with 206 (what
-Firefox and Chrome expect for <video>) and is otherwise the stock handler.
+    python3 tools/serve-deck.py                  # serves the animatic folder on :8787
+    python3 tools/serve-deck.py --port 8788 --directory DIR --bind 127.0.0.1 --quiet
 
-    python3 tools/serve-deck.py [--port 8787] [--directory DIR] [--bind 127.0.0.1]
+Why not `python3 -m http.server`: it ignores Range, so every video request is the
+whole file as a 200 that a browser cannot seek or stop early, and a cancelled
+preload shows up as ConnectionResetError / NS_BINDING_ABORTED while the next
+video waits behind it. This answers Range with 206, which is what Firefox and
+Chrome expect for <video>.
+
+The log, one line per finished request (a `...` line first for anything big, so a
+request that hangs is visible while it hangs):
+
+    15:04:50  206  a15-astra-robot-paint.mp4   bytes=0-   1.2 of 70 MB   0.3s   CANCELLED by browser
+
+Flags it raises: CANCELLED (the browser hung up before the end: normal for a
+preload it no longer needs, trouble if the video then never plays), SLOW (over
+3 s), WHOLE FILE (a video answered 200: the client sent no Range), 404 and 5xx.
 """
-import argparse, os, re, sys
+import argparse, os, re, sys, threading, time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 RANGE = re.compile(r"bytes=(\d*)-(\d*)$")
+MEDIA = (".mp4", ".webm", ".mov", ".m4v", ".ogv")
+BIG = 1 << 20          # announce transfers over 1 MB when they start
+SLOW_S = 3.0
+_lock = threading.Lock()
+_color = sys.stdout.isatty()
+
+
+def paint(code, text):
+    return f"\033[{code}m{text}\033[0m" if _color else text
+
+
+def human(n):
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
 
 
 class RangeHandler(SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+    quiet = False
+
+    # -- request bookkeeping -------------------------------------------------
+
+    def _begin(self):
+        self._t0 = time.time()
+        self._status = "-"
+        self._sent = 0
+        self._expect = None
+        self._aborted = False
+        self._announced = False
+
+    def send_response(self, code, message=None):
+        self._status = code
+        super().send_response(code, message)
+
+    def send_header(self, keyword, value):
+        if keyword.lower() == "content-length":
+            try:
+                self._expect = int(value)
+            except ValueError:
+                pass
+        super().send_header(keyword, value)
+
+    def end_headers(self):
+        if self.command in ("GET", "HEAD") and not self._has_header(b"Accept-Ranges"):
+            self.send_header("Accept-Ranges", "bytes")
+        super().end_headers()
+        if (self.command == "GET" and self._expect and self._expect >= BIG
+                and not self.quiet):
+            self._announced = True
+            self._say(f"{paint('2', '        ...')}  {self._name():<34} "
+                      f"{self._range_label():<14} {human(self._expect)} starting")
+
+    def _has_header(self, name):
+        return any(name in h for h in getattr(self, "_headers_buffer", []))
+
+    def log_request(self, code="-", size="-"):
+        pass   # reported by _report() when the transfer has actually finished
+
+    def log_message(self, fmt, *args):
+        sys.stderr.write("%s %s\n" % (self.log_date_time_string(), fmt % args))
+
+    def _name(self):
+        return os.path.basename(self.path.split("?")[0]) or self.path
+
+    def _range_label(self):
+        r = self.headers.get("Range")
+        return r.replace("bytes=", "bytes=") if r else "(no range)"
+
+    def _say(self, line):
+        if self.quiet:
+            return
+        with _lock:
+            print(line, flush=True)
+
+    def _report(self):
+        if self.quiet or self.command not in ("GET", "HEAD") or self._status == "-":
+            return
+        dt = time.time() - self._t0
+        code = self._status
+        name = self._name()
+        notes = []
+        if self._aborted:
+            notes.append(paint("33;1", "CANCELLED by browser"))
+        if dt > SLOW_S:
+            notes.append(paint("33;1", "SLOW"))
+        if code == 200 and name.lower().endswith(MEDIA):
+            notes.append(paint("33", "WHOLE FILE (no Range sent)"))
+        if code == 404:
+            notes.append(paint("31;1", "NOT FOUND"))
+        if isinstance(code, int) and code >= 500:
+            notes.append(paint("31;1", "SERVER ERROR"))
+        cs = (paint("32", str(code)) if code in (200, 206, 304)
+              else paint("31;1", str(code)))
+        if self._expect is not None and self.command == "GET" and code != 304:
+            size = f"{human(self._sent)} of {human(self._expect)}"
+        else:
+            size = ""
+        self._say(f"{time.strftime('%H:%M:%S')}  {cs}  {name:<34} "
+                  f"{self._range_label():<14} {size:<18} {dt:4.1f}s  {' '.join(notes)}")
+
+    # -- the handlers ----------------------------------------------------------
+
+    def do_GET(self):
+        self._begin()
+        try:
+            super().do_GET()
+        finally:
+            self._report()
+
+    def do_HEAD(self):
+        self._begin()
+        try:
+            super().do_HEAD()
+        finally:
+            self._report()
+
+    def handle(self):
+        try:
+            super().handle()
+        except (ConnectionResetError, BrokenPipeError):
+            pass   # the browser closed an idle or cancelled connection
 
     def send_head(self):
         rng = self.headers.get("Range")
         path = self.translate_path(self.path)
+        self._remaining = None
         if not rng or os.path.isdir(path) or not os.path.isfile(path):
-            return self._plain_head()
+            return super().send_head()
         m = RANGE.match(rng.strip())
         size = os.path.getsize(path)
         if not m or (not m.group(1) and not m.group(2)):
-            return self._plain_head()
+            return super().send_head()
         if m.group(1):
             start = int(m.group(1))
             end = int(m.group(2)) if m.group(2) else size - 1
@@ -52,58 +183,61 @@ class RangeHandler(SimpleHTTPRequestHandler):
         self._remaining = end - start + 1
         return f
 
-    def _plain_head(self):
-        self._remaining = None
-        f = super().send_head()
-        return f
-
-    def end_headers(self):
-        if self.command in ("GET", "HEAD") and not self._sent_accept():
-            self.send_header("Accept-Ranges", "bytes")
-        super().end_headers()
-
-    def _sent_accept(self):
-        return any(b"Accept-Ranges" in h for h in getattr(self, "_headers_buffer", []))
-
     def copyfile(self, source, outputfile):
-        n = getattr(self, "_remaining", None)
+        n = self._remaining
         try:
-            if n is None:
-                super().copyfile(source, outputfile)
-                return
-            while n > 0:
-                buf = source.read(min(n, 1 << 20))
+            while n is None or n > 0:
+                buf = source.read(1 << 20 if n is None else min(n, 1 << 20))
                 if not buf:
                     break
                 outputfile.write(buf)
-                n -= len(buf)
+                self._sent += len(buf)
+                if n is not None:
+                    n -= len(buf)
         except (BrokenPipeError, ConnectionResetError):
-            pass   # the browser cancelled (preload done, slide changed): not an error
+            self._aborted = True   # the browser hung up mid-transfer
 
-    def handle(self):
-        try:
-            super().handle()
-        except (ConnectionResetError, BrokenPipeError):
-            pass   # the browser closed an idle or cancelled connection
 
-    def log_message(self, fmt, *args):
-        sys.stderr.write("%s %s\n" % (self.log_date_time_string(), fmt % args))
+def decks_under(base):
+    try:
+        return sorted(d for d in os.listdir(base)
+                      if os.path.isfile(os.path.join(base, d, "present", "index.html")))
+    except OSError:
+        return []
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    here = os.path.dirname(os.path.abspath(__file__))
+    default_dir = os.path.dirname(here)         # the animatic folder next to tools/
+    ap = argparse.ArgumentParser(description="Serve a built deck with Range support "
+                                 "and a live request log.")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--bind", default="127.0.0.1")
-    ap.add_argument("--directory", default=".")
+    ap.add_argument("--directory", default=default_dir)
+    ap.add_argument("--quiet", action="store_true", help="no request log")
     a = ap.parse_args()
-    handler = partial(RangeHandler, directory=a.directory)
-    srv = ThreadingHTTPServer((a.bind, a.port), handler)
+    RangeHandler.quiet = a.quiet
+    base = os.path.abspath(a.directory)
+    try:
+        srv = ThreadingHTTPServer((a.bind, a.port), partial(RangeHandler, directory=base))
+    except OSError as err:
+        print(f"cannot listen on {a.bind}:{a.port}: {err}", file=sys.stderr)
+        pid = os.path.expanduser("~/.cache/pull-deck.pid")
+        if os.path.exists(pid):
+            print(f"a server from pull-deck.sh may hold it: kill $(cat {pid})", file=sys.stderr)
+        sys.exit(2)
     srv.daemon_threads = True
-    print(f"serving {os.path.abspath(a.directory)} on http://{a.bind}:{a.port}", flush=True)
+    print(f"serving {base} on http://{a.bind}:{a.port}   (Ctrl-C stops it)")
+    for d in decks_under(base):
+        print(f"  {d}: http://localhost:{a.port}/{d}/present/index.html")
+    if not decks_under(base):
+        print("  no built deck found under it (expected <dir>/out-*/present/index.html)")
+    if not a.quiet:
+        print("log: time  status  file  range  sent of total  duration  flags\n", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
-        pass
+        print("\nstopped")
 
 
 if __name__ == "__main__":
