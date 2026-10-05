@@ -98,6 +98,25 @@ case "$OUT" in
 esac
 if [ -e "$T/local/out-l01" ]; then bad "dry run created files"; else ok "nothing written"; fi
 
+echo "=== 4b. which deck: slug, full name, DECK, OUTDIR, bare ==="
+tgt() { PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox LOCAL_BASE="$T/local" REMOTE_BASE="$T/remote" "$@" bash "$SCRIPT" --dry-run 2>&1 | grep '^target'; }
+mkdir -p "$T/remote/out-w01/present" "$T/remote/out-l01/present"; echo w > "$T/remote/out-w01/present/index.html"; echo l > "$T/remote/out-l01/present/index.html"
+case "$(tgt env)" in *"/out-l01") ok "bare run still means out-l01";; *) bad "bare run changed: $(tgt env)";; esac
+case "$(PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox LOCAL_BASE="$T/local" REMOTE_BASE="$T/remote" bash "$SCRIPT" W01 --dry-run 2>&1 | grep '^target')" in *"/out-w01") ok "slug W01 -> out-w01";; *) bad "slug W01 not mapped";; esac
+case "$(PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox LOCAL_BASE="$T/local" REMOTE_BASE="$T/remote" bash "$SCRIPT" --dry-run W01-bring-your-problems 2>&1 | grep '^target')" in *"/out-w01") ok "full deck name -> out-w01 (flags may come first)";; *) bad "full name not mapped";; esac
+case "$(tgt env DECK=W01-bring-your-problems)" in *"/out-w01") ok "DECK alone now selects the deck";; *) bad "DECK ignored";; esac
+case "$(PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox LOCAL_BASE="$T/local" REMOTE_BASE="$T/remote" OUTDIR=out-l01 bash "$SCRIPT" W01 --dry-run 2>&1 | grep '^target')" in *"/out-l01") ok "OUTDIR still wins over the slug";; *) bad "OUTDIR no longer wins";; esac
+OUT=$(PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox LOCAL_BASE="$T/local" REMOTE_BASE="$T/remote" bash "$SCRIPT" W01 L01 --dry-run 2>&1); want "two decks refused" "$?" "2"
+OUT=$(PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox LOCAL_BASE="$T/local" REMOTE_BASE="$T/remote" bash "$SCRIPT" W99 --dry-run 2>&1); want "unbuilt slug -> exit 4" "$?" "4"
+
+echo "=== 4c. LOCAL_BASE defaults to the folder the script sits in ==="
+ALT="$T/Projects/Art/animatic"; mkdir -p "$ALT/tools"; cp "$SCRIPT" "$ALT/tools/pull-deck.sh"
+OUT=$(env -u LOCAL_BASE PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox REMOTE_BASE="$T/remote" bash "$ALT/tools/pull-deck.sh" W01 --dry-run 2>&1 | grep '^target')
+case "$OUT" in *"$ALT/out-w01") ok "a copy in <base>/tools/ targets <base>/out-w01";; *) bad "wrong base: $OUT";; esac
+mkdir -p "$T/loose"; cp "$SCRIPT" "$T/loose/pull-deck.sh"
+OUT=$(env -u LOCAL_BASE PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox REMOTE_BASE="$T/remote" bash "$T/loose/pull-deck.sh" W01 --dry-run 2>&1 | grep '^target')
+case "$OUT" in *"$HOME/Documents/art/animatic/out-w01") ok "outside a tools/ folder, falls back to the old default";; *) bad "fallback wrong: $OUT";; esac
+
 echo "=== 5. real pull ==="
 PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox LOCAL_BASE="$T/local" bash "$SCRIPT" > "$T/pull.log" 2>&1
 RC=$?; want "exit code" "$RC" "0"
@@ -152,6 +171,32 @@ for _ in 1 2 3 4 5 6; do ss -ltn 2>/dev/null | grep -q ":$PORT " || break; sleep
 ss -ltn 2>/dev/null | grep -q ":$PORT " && bad "port $PORT still bound after the kill" || ok "port $PORT released"
 LIVE=$(ss -ltnp 2>/dev/null | grep ":$PORT " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1)
 [ -n "$LIVE" ] && { kill "$LIVE" 2>/dev/null; printf '  (cleaned up a listener left on %s)\n' "$PORT"; }
+
+echo "=== 9. --follow: pulls changes, stamp last, plain build drops the stamp ==="
+R="$T/fremote"; L="$T/flocal"; rm -rf "$R" "$L"; mkdir -p "$R/out-w01/present" "$R/tools" "$L"
+cp "$REPO/tools/serve-deck.py" "$R/tools/"
+printf '<html>v1 animatic --watch</html>' > "$R/out-w01/present/index.html"; printf 'stamp1\n' > "$R/out-w01/_watch.js"
+OUT=$(PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox REMOTE_BASE="$R" LOCAL_BASE="$L" bash "$SCRIPT" W01 --serve-only --follow 2>&1); want "--follow with --serve-only refused" "$?" "2"
+PORT=8791; while ss -ltn 2>/dev/null | grep -q ":$PORT "; do PORT=$((PORT+1)); done
+PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox REMOTE_BASE="$R" LOCAL_BASE="$L" PORT="$PORT" FOLLOW_INTERVAL=0.3 bash "$SCRIPT" W01 --follow > "$T/follow.log" 2>&1 &
+FPID=$!
+for _ in $(seq 1 40); do grep -q "following" "$T/follow.log" 2>/dev/null && break; sleep 0.3; done
+grep -q "following" "$T/follow.log" && ok "follow loop started" || bad "follow never started: $(tail -3 "$T/follow.log")"
+grep -q "WATCH BUILD" "$T/follow.log" && ok "warns that a watch build must not be carried" || bad "no watch-build warning"
+want "initial pull landed" "$(cat "$L/out-w01/present/index.html")" "$(cat "$R/out-w01/present/index.html")"
+printf '<html>v2 animatic --watch</html>' > "$R/out-w01/present/index.html"; printf 'stamp2\n' > "$R/out-w01/_watch.js"
+for _ in $(seq 1 20); do [ "$(cat "$L/out-w01/_watch.js" 2>/dev/null)" = stamp2 ] && break; sleep 0.3; done
+want "page change followed" "$(cat "$L/out-w01/present/index.html")" "<html>v2 animatic --watch</html>"
+want "stamp followed" "$(cat "$L/out-w01/_watch.js")" "stamp2"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/out-w01/present/index.html"); want "served copy is reachable while following" "$CODE" "200"
+printf '<html>v3 plain</html>' > "$R/out-w01/present/index.html"; rm -f "$R/out-w01/_watch.js"
+for _ in $(seq 1 20); do [ ! -e "$L/out-w01/_watch.js" ] && break; sleep 0.3; done
+[ ! -e "$L/out-w01/_watch.js" ] && ok "plain build removes the stale stamp" || bad "stale _watch.js left behind"
+want "plain page followed" "$(cat "$L/out-w01/present/index.html")" "<html>v3 plain</html>"
+kill -TERM "$FPID" 2>/dev/null; wait "$FPID" 2>/dev/null
+grep -q "follow stopped" "$T/follow.log" && ok "TERM stops the loop cleanly" || bad "no clean stop message"
+SRV=$(cat "$HOME/.cache/pull-deck.pid" 2>/dev/null); [ -n "$SRV" ] && kill "$SRV" 2>/dev/null
+LIVE=$(ss -ltnp 2>/dev/null | grep ":$PORT " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1); [ -n "$LIVE" ] && kill "$LIVE" 2>/dev/null
 
 echo
 printf '=== %d passed, %d failed ===\n' "$PASS" "$FAIL"
