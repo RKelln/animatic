@@ -127,6 +127,8 @@ QUOTE_RE = re.compile(r"^>\s?(.*)$")
 LIST_ITEM_RE = re.compile(r"^[-*+]\s+(.*)$")
 HR_RE = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
 ORDERED_ITEM_RE = re.compile(r"^\d+[.)]\s+(.*)$")
+# an indented list item (a sub-point under the list item above it)
+SUB_ITEM_RE = re.compile(r"^(\s+)(?:[-*+]|\d+[.)])\s+(.*)$")
 # a pipe table row: starts with `|` (GFM's leading pipe is required here, so a
 # prose line with a stray pipe never becomes a table); the delimiter row
 # (`|---|:--:|`) marks the row above it as the header
@@ -321,6 +323,7 @@ class Block:
     level: Optional[int] = None   # heading depth (1..6)
     items: list = field(default_factory=list)   # list items
     ordered: bool = False         # numbered list (`1.` items)
+    depths: list = field(default_factory=list)  # list: nesting depth per item (0 = top); empty when flat
     rows: list = field(default_factory=list)    # table: list of rows of cell strings
     header: bool = False          # table: rows[0] is the header row
     stage: list = field(default_factory=list)   # extracted parentheticals
@@ -701,16 +704,38 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
         # `-` and `1.` items make separate lists: a switch starts a new block.
         lm = LIST_ITEM_RE.match(line)
         om = None if lm else ORDERED_ITEM_RE.match(line)
+        # An indented item directly under a list item is a sub-point (either
+        # marker); indented anywhere else it is not a list item, as before.
+        sub = None
+        if not (lm or om) and line[:1] in (" ", "\t") \
+                and cont and cont[0] in ("list", "olist") and lineno == cont[2] + 1:
+            sub = SUB_ITEM_RE.match(line)
+        if sub:
+            blk = cont[1]
+            ind = len(sub.group(1).expandtabs(4))
+            stack = blk["indents"]
+            while len(stack) > 1 and ind < stack[-1]:
+                stack.pop()
+            if ind > stack[-1]:
+                stack.append(ind)
+            blk["items"].append(sub.group(2).strip())
+            blk["depths"].append(len(stack) - 1)
+            blk["line_end"] = lineno
+            cont[2] = lineno
+            continue
         if lm or om:
             ckind = "olist" if om else "list"
             item = (lm or om).group(1).strip()
             if cont and cont[0] == ckind and lineno == cont[2] + 1:
                 cont[1]["items"].append(item)
+                cont[1]["depths"].append(0)
+                cont[1]["indents"] = [0]
                 cont[1]["line_end"] = lineno
                 cont[2] = lineno
             else:
                 flush_para()
                 block = {"kind": "list", "items": [item], "ordered": bool(om),
+                         "depths": [0], "indents": [0],
                          "line": lineno, "line_end": lineno}
                 blocks.append(block)
                 cont = [ckind, block, lineno]
@@ -1263,6 +1288,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                       items=[strip_footnote_refs(i, talk.footnote_ids)
                              for i in rb["items"]],
                       ordered=rb.get("ordered", False),
+                      depths=(rb["depths"] if any(rb.get("depths", ())) else []),
                       line=rb.get("line", 0),
                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
             )

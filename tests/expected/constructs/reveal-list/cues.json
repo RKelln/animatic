@@ -170,6 +170,50 @@
       "script": "",
       "stage": null,
       "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-list-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "card",
+      "title": "Sub-points reveal in order",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Sub-points reveal in order"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "\"Our league changes game times by email.\"",
+            "real problem",
+            "\"I am bad at keeping up with my email.\"",
+            "symptom",
+            "deeper still"
+          ],
+          "depths": [
+            0,
+            1,
+            0,
+            1,
+            2
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
     }
   ],
   "warnings": [

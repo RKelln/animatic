@@ -2485,18 +2485,31 @@ def quote_size_class(text: str) -> str:
 
 
 def list_html(b, reveal: bool = False, start: int = 0) -> str:
-    """A list block: `<ol>` for numbered items, `<ul>` otherwise.
+    """A list block: `<ol>` for numbered items, `<ul>` otherwise.  Sub-points
+    (`b.depths`) nest as `<ul>` inside the item above.
 
-    `reveal` (shot flag `reveal=list`) marks each item with its step number and
-    the list with `data-reveal`; `start` items are showing when the slide
-    opens.  The pager hides the rest and shows one more per next-press.
+    `reveal` (shot flag `reveal=list`) marks each item, sub-points included,
+    with its step number in document order and the list with `data-reveal`;
+    `start` items are showing when the slide opens.  The pager hides the rest
+    and shows one more per next-press.
     """
     tag = "ol" if b.ordered else "ul"
-    items = "".join(
-        f'<li data-step="{n}">{inline_md(i)}</li>' if reveal else f"<li>{inline_md(i)}</li>"
-        for n, i in enumerate(b.items, 1))
-    mark = f' data-reveal="{start}"' if reveal else ""
-    return f"<{tag}{mark}>{items}</{tag}>"
+    depths = list(b.depths) or [0] * len(b.items)
+    out = [f"<{tag}" + (f' data-reveal="{start}"' if reveal else "") + ">"]
+    d = 0
+    for n, (text, depth) in enumerate(zip(b.items, depths), 1):
+        depth = min(depth, d + 1) if n > 1 else 0
+        if n == 1:
+            pass
+        elif depth > d:
+            out.append("<ul>")
+        else:
+            out.append("</li>" + "</ul></li>" * (d - depth))
+        d = depth
+        out.append(f'<li data-step="{n}">' if reveal else "<li>")
+        out.append(inline_md(text))
+    out.append("</li>" + "</ul></li>" * d + f"</{tag}>")
+    return "".join(out)
 
 
 def table_html(b) -> str:
@@ -2956,6 +2969,8 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
                 text.append({"kind": "source", "text": b.text})
             elif b.kind == "list":
                 entry = {"kind": "list", "items": list(b.items)}
+                if b.depths:
+                    entry["depths"] = list(b.depths)
                 if b.ordered:
                     entry["ordered"] = True
                 text.append(entry)

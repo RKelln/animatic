@@ -32,3 +32,12 @@ status: "construct fixture (spec: The shot directive, `reveal`) - `reveal=list` 
 
 - a
 - b
+
+<!-- shot: reveal=list -->
+### Sub-points reveal in order
+
+- "Our league changes game times by email."
+  - real problem
+- "I am bad at keeping up with my email."
+  - symptom
+    - deeper still

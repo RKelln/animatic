@@ -316,6 +316,8 @@
   /* reveal=list: items not yet shown keep their space (nothing jumps) */
   .animatic-slide li.pending { visibility: hidden; }
   .animatic-slide ol { padding-left: 1.4em; }
+  /* sub-points: indented, a touch smaller and tighter */
+  .animatic-slide li > ul, .animatic-slide li > ol { padding-left: 1.4em; font-size: 0.85em; margin: 0.15em 0; }
   .animatic-slide ol > li::marker { font-variant-numeric: tabular-nums; }
   .animatic-slide .md-table { border-collapse: collapse; font-size: 1em; }
   .animatic-slide .md-table :is(th, td) {
