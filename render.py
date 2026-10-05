@@ -702,9 +702,40 @@ PAGER_JS = """
       if (body.scrollHeight > body.clientHeight + 1) q.style.fontSize = "";
     }
   }
-  fitQuotes();
-  window.addEventListener("resize", fitQuotes);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitQuotes);
+  // Any other slide whose text overflows shrinks its text a little (the
+  // screen's size is not known when the deck is built). Only the text scales:
+  // the slide body's font size, which every heading, list and stat is sized
+  // from in em; media and layout boxes are in vw/% and do not move. The floor
+  // is deliberately close to full size: this is for small adjustments, and a
+  // slide that still does not fit at the floor is left at the floor and marked
+  // data-fit="floor" (with a console warning) for the author to shorten. A
+  // slide that fits is never touched. Hero text (text-fit) sizes itself.
+  var FIT_FLOOR = 0.75, FIT_STEP = 0.02;
+  function fitBodies() {
+    for (var i = 0; i < slides.length; i++) {
+      var sl = slides[i];
+      var body = sl.querySelector(".screen-body");
+      if (!body || sl.classList.contains("text-fit")) continue;
+      body.style.fontSize = "";
+      sl.removeAttribute("data-fit");
+      if (body.scrollHeight <= body.clientHeight + 1) continue;
+      var scale = 1;
+      while (body.scrollHeight > body.clientHeight + 1 && scale > FIT_FLOOR + 1e-6) {
+        scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
+        body.style.fontSize = scale.toFixed(2) + "em";
+      }
+      if (body.scrollHeight > body.clientHeight + 1) {
+        sl.setAttribute("data-fit", "floor");
+        if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
+      } else {
+        sl.setAttribute("data-fit", scale.toFixed(2));
+      }
+    }
+  }
+  function fitAll() { fitQuotes(); fitBodies(); }
+  fitAll();
+  window.addEventListener("resize", fitAll);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
 
   // `continue` shots: slides whose videos share a data-chain show one clip.
   // Moving between two of them swaps the <video> elements, so the one that is
