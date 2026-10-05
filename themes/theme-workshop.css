@@ -79,7 +79,7 @@
   }
 
   .credits-screen .credits-title { color: var(--stage-ink); text-shadow: none; }
-  .credits-screen .credits-entry { color: var(--stage-muted); }
+  .credits-screen .credits-entry { color: var(--stage-ink); }
   .credits-screen .credits-entry strong { color: var(--stage-ink); }
 
   .media-placeholder .ph-slug { color: var(--stage-ink); }

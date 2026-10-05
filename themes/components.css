@@ -307,12 +307,12 @@
     text-wrap: balance;
   }
   .animatic-slide :is(ul, ol, table) {
-    text-align: left; font-size: 1.15em;
+    text-align: left; font-size: 1.5em;   /* ~48px at 1080p: readable from the back of a room */
     color: var(--stage-ink);
     text-shadow: var(--stage-text-glow);
-    max-width: 22em;
+    max-width: 24em;
   }
-  .animatic-slide li { margin: 0.25em 0; }
+  .animatic-slide li { margin: 0.3em 0; line-height: 1.25; }
   .animatic-slide ol { padding-left: 1.4em; }
   .animatic-slide ol > li::marker { font-variant-numeric: tabular-nums; }
   .animatic-slide .md-table { border-collapse: collapse; font-size: 1em; }
@@ -372,7 +372,7 @@
   }
   .credits-screen.many .credits-columns {
     columns: 3; column-gap: 4vw;
-    max-height: 58vh;
+    max-height: 70vh;
     column-fill: balance;
   }
   .credits-screen.few .credits-columns {
@@ -382,10 +382,10 @@
   .credits-screen .credits-entry {
     break-inside: avoid;
     font-family: var(--font-ui);
-    font-size: 0.74em;
-    line-height: 1.5;
-    color: var(--stage-muted);
-    margin-bottom: 1.4vh;
+    font-size: 1em;
+    line-height: 1.4;
+    color: var(--stage-ink);
+    margin-bottom: 2vh;
   }
   .credits-screen .credits-entry strong { color: var(--stage-ink); font-weight: 600; }
 
