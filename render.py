@@ -579,7 +579,40 @@ PAGER_JS = """
   // Modules that cannot own the single onChange slot register here instead
   // (the presenter window wants every arrival; the live module owns onChange).
   var listeners = [];
+  var stepListeners = [];
+  // `reveal=list` slides: stepAt[i] is how many list items slide i shows.
+  var stepAt = [];
   totalEl.textContent = String(slides.length);
+
+  // The reveal list on slide i: {start, total}, or null when it has none.
+  // `start` items show on arrival (1 when the list opens the slide, else 0).
+  function revealOf(i) {
+    var l = slides[i] && slides[i].querySelector("[data-reveal]");
+    if (!l) return null;
+    return {
+      start: parseInt(l.getAttribute("data-reveal"), 10) || 0,
+      total: l.querySelectorAll("li[data-step]").length
+    };
+  }
+  function getStep(i) {
+    var r = revealOf(i);
+    if (!r) return 0;
+    return stepAt[i] === undefined ? r.start : stepAt[i];
+  }
+  function applyStep(i) {
+    var r = revealOf(i);
+    if (!r) return;
+    var k = getStep(i);
+    var lis = slides[i].querySelectorAll("li[data-step]");
+    for (var n = 0; n < lis.length; n++) {
+      lis[n].classList.toggle("pending", n + 1 > k);
+    }
+  }
+  function setHash() {
+    var r = revealOf(cur);
+    var k = getStep(cur);
+    history.replaceState(null, "", "#" + (cur + 1) + (r && k > r.start ? "." + k : ""));
+  }
 
   function notesFor(i) {
     var aside = slides[i].querySelector(".notes");
@@ -610,6 +643,10 @@ PAGER_JS = """
     for (var i = 0; i < slides.length; i++) {
       if (i === cur) { slides[i].classList.add("active"); }
       else { slides[i].classList.remove("active"); }
+      // a slide you are not on is back at its start step (so the presenter's
+      // next-up preview shows it as it will open)
+      if (i !== cur) delete stepAt[i];
+      applyStep(i);
     }
     if (cur !== lastCur) {
       var carried = carryChain(slides[lastCur], slides[cur]);
@@ -837,7 +874,7 @@ PAGER_JS = """
     setTimeout(function () { warmAround(cur); }, 2500);
   }
 
-  function go(i, updateHash) {
+  function go(i, updateHash, step) {
     // An index that is not a finite number (a cue id, undefined, NaN) is not a
     // destination.  Ignore it instead of letting cur become NaN: the pager
     // would strip `active` from every slide before restartMotion threw, so the
@@ -845,11 +882,35 @@ PAGER_JS = """
     var n = Number(i);
     if (!isFinite(n)) return;
     cur = Math.max(0, Math.min(slides.length - 1, Math.floor(n)));
+    var r = revealOf(cur);
+    if (r && step !== undefined && step !== null) {
+      stepAt[cur] = Math.max(r.start, Math.min(r.total, step));
+    } else {
+      delete stepAt[cur];
+    }
     render();
-    if (updateHash !== false) history.replaceState(null, "", "#" + (cur + 1));
+    if (updateHash !== false) setHash();
   }
-  function next() { go(cur + 1); }
-  function prev() { go(cur - 1); }
+  // next/prev move through a reveal list one item at a time, then on to the
+  // neighbouring slide. Going back into a revealed slide lands fully shown.
+  function stepped() {
+    applyStep(cur);
+    setHash();
+    for (var si = 0; si < stepListeners.length; si++) {
+      try { stepListeners[si](cur, getStep(cur)); } catch (err) { /* never break nav */ }
+    }
+  }
+  function next() {
+    var r = revealOf(cur);
+    if (r && getStep(cur) < r.total) { stepAt[cur] = getStep(cur) + 1; stepped(); }
+    else go(cur + 1);
+  }
+  function prev() {
+    var r = revealOf(cur);
+    if (r && getStep(cur) > r.start) { stepAt[cur] = getStep(cur) - 1; stepped(); return; }
+    var t = cur > 0 ? revealOf(cur - 1) : null;
+    go(cur - 1, true, t ? t.total : undefined);
+  }
 
   function toggleNotes() {
     if (!panel) return;
@@ -858,10 +919,12 @@ PAGER_JS = """
   }
 
   function fromHash() {
-    var m = /^#(\\d+)$/.exec(location.hash);
+    var m = /^#(\\d+)(?:\\.(\\d+))?$/.exec(location.hash);
     if (m) {
       var n = parseInt(m[1], 10) - 1;
-      if (n >= 0 && n < slides.length) go(n, false);
+      if (n >= 0 && n < slides.length) {
+        go(n, false, m[2] === undefined ? undefined : parseInt(m[2], 10));
+      }
     }
   }
 
@@ -880,6 +943,11 @@ PAGER_JS = """
     go: go, next: next, prev: prev, warm: warm, reloadMedia: reloadMedia,
     count: function () { return slides.length; },
     current: function () { return cur; },
+    step: function () { return getStep(cur); },
+    steps: function () { var r = revealOf(cur); return r ? r.total : 0; },
+    addOnStep: function (fn) {
+      if (typeof fn === "function") stepListeners.push(fn);
+    },
     onChange: null,
     addOnChange: function (fn) {
       if (typeof fn === "function") listeners.push(fn);
@@ -1394,6 +1462,8 @@ PRESENTER_JS = r"""
       schema: "animatic.presenter.v1",
       index: i,
       count: n,
+      step: window.animatic.step(),
+      steps: window.animatic.steps(),
       startedAt: startedAt,
       notes: notesOf(slides[i]),
       nextNotes: i + 1 < n ? notesOf(slides[i + 1]) : null,
@@ -1483,6 +1553,7 @@ PRESENTER_JS = r"""
 
   // Every arrival, including the ones the live module drives.
   window.animatic.addOnChange(push);
+  window.animatic.addOnStep(push);
 
   // Read-only surface for the diagnostics dump: whether a presenter window is
   // actually open right now. Nothing here drives the presenter.
@@ -1664,6 +1735,7 @@ PRESENTER_UI_JS = r"""
     if (el.cue) {
       el.cue.textContent = cur
         ? cur.id + (cur.movement_label ? " \u00b7 " + cur.movement_label : "")
+          + (state.steps ? " \u00b7 item " + state.step + " / " + state.steps : "")
         : "";
     }
     if (el.title) el.title.textContent = cueTitle(cur);
@@ -2412,11 +2484,19 @@ def quote_size_class(text: str) -> str:
     return ""
 
 
-def list_html(b) -> str:
-    """A list block: `<ol>` for numbered items, `<ul>` otherwise."""
+def list_html(b, reveal: bool = False, start: int = 0) -> str:
+    """A list block: `<ol>` for numbered items, `<ul>` otherwise.
+
+    `reveal` (shot flag `reveal=list`) marks each item with its step number and
+    the list with `data-reveal`; `start` items are showing when the slide
+    opens.  The pager hides the rest and shows one more per next-press.
+    """
     tag = "ol" if b.ordered else "ul"
-    items = "".join(f"<li>{inline_md(i)}</li>" for i in b.items)
-    return f"<{tag}>{items}</{tag}>"
+    items = "".join(
+        f'<li data-step="{n}">{inline_md(i)}</li>' if reveal else f"<li>{inline_md(i)}</li>"
+        for n, i in enumerate(b.items, 1))
+    mark = f' data-reveal="{start}"' if reveal else ""
+    return f"<{tag}{mark}>{items}</{tag}>"
 
 
 def table_html(b) -> str:
@@ -2475,6 +2555,13 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         body = []
         i = 0
         blocks = screen.blocks
+        # `reveal=list` (any shot of the screen): the first list's items appear
+        # one per next-press.  With nothing on screen before the list, item 1
+        # is showing on arrival; with a title first, none are.
+        reveal_list = any(sh.flags.get("reveal") == "list" for sh in screen.shots)
+        if reveal_list and not any(b.kind == "list" and len(b.items) >= 2 for b in blocks):
+            print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items on the screen; ignored")
+            reveal_list = False
         while i < len(blocks):
             b = blocks[i]
             # VO never renders on the slide body (cinematic slides; VO is
@@ -2501,7 +2588,11 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                     f"{src}</div>"
                 )
             elif b.kind == "list":
-                body.append(list_html(b))
+                if reveal_list:
+                    body.append(list_html(b, True, 0 if body else 1))
+                    reveal_list = False   # only the first list reveals
+                else:
+                    body.append(list_html(b))
             elif b.kind == "table":
                 body.append(table_html(b))
             elif b.kind == "stat":

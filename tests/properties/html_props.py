@@ -339,6 +339,11 @@ def check(fx, errors: list) -> None:
                         "live screen in any deck would render an empty box")
 
     # -- document view ------------------------------------------------------
+    # `reveal=list` is a presentation effect only: the handout and its PDF show
+    # every item, so the document view carries no reveal markup at all.
+    if "data-reveal" in doc_text or "data-step" in doc_text:
+        err(errors, "document view carries reveal markup (reveal is present-only)")
+
     deck = cues["deck"]
     deck_title = str(deck.get("title") or fx.slug)
     h1s = [html_mod.unescape(x) for x in H1_RE.findall(doc_text)]
