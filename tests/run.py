@@ -48,7 +48,7 @@ sys.path.insert(0, str(TESTS))
 
 import build as build_mod  # noqa: E402
 from properties import (check_props, corpus_props, cue_props, html_props,  # noqa: E402
-                        ingest_props, manifest_props, nav_props, playback_props,
+                        ingest_props, include_props, manifest_props, nav_props, playback_props,
                         timing_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
@@ -232,6 +232,18 @@ def main(argv=None) -> int:
     else:
         passed.append("playback")
         print("ok    playback")
+
+    # includes: a throwaway deck of talk + section files
+    include_errors: list = []
+    include_props.check(include_errors)
+    if include_errors:
+        failed.append("include")
+        print("FAIL  include")
+        for e in include_errors[:12]:
+            print(f"      {e}")
+    else:
+        passed.append("include")
+        print("ok    include")
 
     # ingest name matching: a throwaway deck and inbox, --no-recover only
     ingest_errors: list = []

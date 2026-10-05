@@ -27,7 +27,7 @@ from __future__ import annotations
 from .common import ABS_PATH_RE, body_lines, err, frontmatter_lines, walk_strings
 
 ENTRY_KEYS = {"ordinal", "movement", "kind", "lines", "document"}
-DOCUMENT_OMISSION_REASON = "black-beat"
+DOCUMENT_OMISSION_REASONS = {"black": "black-beat", "live-only": "live-only"}
 
 
 def _handout_heading_at(src: list, start: int) -> bool:
@@ -158,19 +158,20 @@ def check(fx, errors: list) -> None:
         if not isinstance(doc, dict) or "present" not in doc:
             err(errors, f"nav.json {cue['id']}: document flag missing")
         else:
-            want_present = cue["kind"] != "black"
+            live = bool(cue.get("live_only"))
+            want_present = cue["kind"] != "black" and not live
+            want_reason = "live-only" if live and cue["kind"] != "black" else "black-beat"
             if doc.get("present") is not want_present:
                 err(errors, f"nav.json {cue['id']}: document.present "
                             f"{doc.get('present')!r} but kind is "
-                            f"{cue['kind']!r} — only a black beat is omitted "
-                            f"from the document view")
+                            f"{cue['kind']!r} — only a black beat or a live-only "
+                            f"screen is omitted from the document view")
             if want_present and "reason" in doc:
                 err(errors, f"nav.json {cue['id']}: document present but "
                             f"carries an omission reason")
-            if not want_present and doc.get("reason") != DOCUMENT_OMISSION_REASON:
+            if not want_present and doc.get("reason") != want_reason:
                 err(errors, f"nav.json {cue['id']}: document omission reason "
-                            f"{doc.get('reason')!r} != "
-                            f"{DOCUMENT_OMISSION_REASON!r}")
+                            f"{doc.get('reason')!r} != {want_reason!r}")
 
         # -- line range ------------------------------------------------------
         lines = entry.get("lines") or {}

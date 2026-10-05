@@ -189,6 +189,19 @@
   .animatic-slide h3.slide-title { font-size: 1.55em; }
   .animatic-slide h4.slide-title { font-size: 1.25em; }
 
+  /* vertical rhythm: the reset zeroes every margin, so headings need their own.
+     Space below scales with the heading (em), a heading after other content gets
+     room above, headings stacked on one card stay close, and a list or quote
+     under a heading gets a little more air. The slide body is a flex column, so
+     these margins do not collapse into each other. */
+  .animatic-slide .slide-title { margin: 0 0 0.4em; line-height: 1.15; }
+  .animatic-slide h1.slide-title { margin-bottom: 0.35em; }
+  .animatic-slide h4.slide-title { margin-bottom: 0.5em; }
+  .animatic-slide .slide-title:not(:first-child) { margin-top: 0.9em; }
+  .animatic-slide .slide-title + .slide-title { margin-top: 0; }
+  .animatic-slide .slide-title:last-child { margin-bottom: 0; }
+  .animatic-slide .slide-title + :is(ul, ol, table, blockquote, .quote-block) { margin-top: 0.5em; }
+
   /* pull-quote cards: the quote and its attribution share one centered
      block; the credit hugs the block's right edge, not the slide's */
   .quote-block {

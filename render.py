@@ -533,9 +533,14 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None,
         # duo implies piece (same layering rule as before)
         if not piece:
             piece = " piece"
-    if layout_name == "duo" or (isinstance(duo, str) and duo == "left"):
+    # layout=duo puts the object on the right, beside the text column (themes:
+    # "object right by default"); it used to fall into the left branch, which
+    # laid the picture over the text.
+    if layout_name == "duo":
+        duo_cls = " duo"
+    elif isinstance(duo, str) and duo == "left":
         duo_cls = " duo-left"
-    elif layout_name == "duo" or (duo is not None and not isinstance(duo, bool)):
+    elif duo is not None and not isinstance(duo, bool):
         duo_cls = " duo"
     # Role-driven rendering: stat payloads render as screen objects; lower/credits
     # as overlays. The yaml-backed vocabulary keeps this deterministic.
@@ -2736,8 +2741,8 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
     current = {"idx": 0, "items": opening}
     last_fig = None   # slug of the figure just before: a repeat is left out
     for screen in talk.screens:
-        if is_black_screen(screen):
-            continue  # black beats have no prose: nothing to print
+        if is_black_screen(screen) or screen.live_only:
+            continue  # black beats have no prose; live-only screens stay off paper
         if screen.movement != current["idx"]:
             m = next((m for m in talk.movements if m.index == screen.movement), None)
             current = {"idx": screen.movement, "items": []}
@@ -3005,6 +3010,9 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             "script": screen_script(screen),
             "stage": stage_of(screen) or None,
             "est_seconds": cue_estimate(screen, resolver, tt.wpm),
+            # live-only: shown in the live deck, never in a recorded video or
+            # the handout.  A video renderer must skip cues where this is true.
+            **({"live_only": True} if screen.live_only else {}),
         })
 
     movements_out = []
@@ -3127,16 +3135,17 @@ def render_nav(talk: Talk, out_dir: Path) -> Path:
     for screen in talk.screens:
         cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"
         start, end = screen.line_range
-        omitted = is_black_screen(screen)
+        omitted = is_black_screen(screen) or screen.live_only
         document: dict = {"present": not omitted}
         if omitted:
-            document["reason"] = "black-beat"
+            document["reason"] = "black-beat" if is_black_screen(screen) else "live-only"
         screens[cue_id] = {
             "ordinal": screen.idx,
             "movement": screen.movement,
             "kind": screen_kind(screen),
             "lines": {"start": start, "end": end},
             "document": document,
+            **({"include": screen.include} if screen.include else {}),
         }
     payload = {
         "schema": "animatic.nav.v1",

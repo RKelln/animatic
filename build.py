@@ -193,6 +193,10 @@ def watched_files(talk_path: Path, args) -> dict:
         paths += [p for p in media.rglob("*") if p.is_file()]
     if args.media_remap:
         paths.append(Path(args.media_remap).expanduser().resolve())
+    try:                                  # files pulled in by `include:`
+        paths += talkparse.build_talk(talk_path).includes
+    except Exception:                     # a half-saved talkfile: watch the rest
+        pass
     snap = {}
     for p in paths:
         try:

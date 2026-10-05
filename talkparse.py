@@ -62,11 +62,17 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 import yaml
 
 SHOT_RE = re.compile(r"^\s*<!--\s*shot(?::\s*(.*?))?\s*-->\s*$")
+# `<!-- include: path [live] -->` on its own line splices another file's
+# screens in (spec: Includes).  Only the `live` modifier exists so far.
+INCLUDE_RE = re.compile(r"^\s*<!--\s*include:\s*(\S+)((?:\s+\S+)*?)\s*-->\s*$")
+INCLUDE_FLAGS = ("live",)
+INCLUDE_MAX_DEPTH = 3
 # Role vocabulary (Tier A frozen, config-driven via roles.yaml).
 # The yaml drives the vocabulary; this set is the frozen token set the
 # tokenizer recognizes as `role=<name>` (replaces the old +overlay syntax).
@@ -82,7 +88,7 @@ CONTINUE_WORDS = ("continue", "cont")
 LAYOUTS = ("piece", "duo", "titled")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
-               "under", "blur", "anchor", "still", "reveal")
+               "under", "blur", "anchor", "still", "reveal", "live")
 # `reveal=` shows a screen's content one piece per next-press.  `list` is the
 # only form so far (a list's items); the value leaves room for more.
 REVEAL_VALUES = ("list",)
@@ -302,6 +308,9 @@ class Shot:
     # Chain id shared by a media shot and every `continue` screen after it
     # (the head's line number as a string); None when the shot is in no chain.
     chain: Optional[str] = None
+    # The include directive's path as authored, when this shot came from an
+    # included file (nav.json reports it); None for the talkfile's own shots.
+    include: Optional[str] = None
 
     @property
     def is_role(self) -> bool:
@@ -357,6 +366,19 @@ class Screen:
             if b.kind != "vo" or b.text.strip():
                 return True
         return False
+
+    @property
+    def include(self) -> Optional[str]:
+        """The authored include path this screen came from, if any."""
+        return self.shots[0].include if self.shots else None
+
+    @property
+    def live_only(self) -> bool:
+        """True when any shot carries the bare `live` flag: the screen belongs
+        to the live deck only (present + presenter views).  The document view
+        / handout leaves it out and cues.json marks it, so a video render
+        skips it."""
+        return any("live" in s.flags for s in self.shots)
 
     @property
     def media_shot(self) -> Optional[Shot]:
@@ -423,6 +445,9 @@ class Talk:
     role_vocab: tuple = ()
     layout_vocab: tuple = ()
     role_bundles: dict = field(default_factory=dict)
+    # Every file pulled in by `include:` (resolved, nested ones too), for
+    # --watch and the footnote check.
+    includes: list = field(default_factory=list)
 
     @property
     def role_names(self) -> set:
@@ -660,6 +685,15 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
                     {"kind": "shot", "shot": shot, "line": lineno,
                      "line_end": lineno}
                 )
+            else:
+                im = INCLUDE_RE.match(line)
+                if im:
+                    flush_para()
+                    blocks.append(
+                        {"kind": "include", "path": im.group(1),
+                         "flags": im.group(2).split(), "line": lineno,
+                         "line_end": lineno}
+                    )
             continue
 
         # --- blank line ------------------------------------------------------
@@ -1037,7 +1071,88 @@ def _resolve_continue(shot: Shot, screens: list, talk) -> None:
         prev.chain = str(prev.line)
     shot.chain = prev.chain
     shot.slug = prev.slug
+    own_live = "live" in shot.flags
     shot.flags = {**prev.flags, **shot.flags}
+    if not own_live:
+        shot.flags.pop("live", None)     # live-only belongs to one screen
+
+
+def _heading_run_opens_at_shot(raw_blocks: list, i: int) -> bool:
+    """True when heading `i` belongs to a run of headings that starts right
+    after a shot: a title card (`# Title`, `## Date`, `### Website`) keeps every
+    heading on its slide, not only the first.  Movement headings are structure
+    and end the run."""
+    j = i - 1
+    while j >= 0 and raw_blocks[j]["kind"] == "heading" and not (
+            raw_blocks[j]["level"] == 2 and MOVEMENT_RE.match(raw_blocks[j]["text"])):
+        j -= 1
+    return j >= 0 and raw_blocks[j]["kind"] == "shot"
+
+
+def _include_error(source: str, line: int, msg: str) -> ValueError:
+    # same shape as check 22 so check.py reports it as a fatal with its line
+    return ValueError(f"{source}:{line}: check 22: {msg}")
+
+
+def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
+                     layout_vocab, stack: tuple, includes: list,
+                     frag_meta: list) -> list:
+    """Replace each `include` block with the included file's blocks.
+
+    Each file is lexed on its own, so line numbers, paragraph state and
+    comments never cross files.  Every block from an included file is pinned
+    to the include directive's line in the file that wrote it, so warnings
+    and nav.json ranges point somewhere the author can find.  Flags written
+    on the directive (`live`) are applied to every shot inside.
+    """
+    out: list = []
+    for rb in raw_blocks:
+        if rb["kind"] != "include":
+            out.append(rb)
+            continue
+        line, rel = rb["line"], rb["path"]
+        bad = [f for f in rb["flags"] if f not in INCLUDE_FLAGS]
+        if bad:
+            raise _include_error(source, line, f"include flag {bad[0]!r} unknown; "
+                                 f"known: {', '.join(INCLUDE_FLAGS)}")
+        if Path(rel).is_absolute():
+            raise _include_error(source, line, f"include path {rel!r} must be "
+                                 f"relative to the including file")
+        target = (host.parent / rel).resolve()
+        if not target.is_file():
+            raise _include_error(source, line, f"include file not found: {rel}")
+        if target in stack:
+            raise _include_error(source, line, f"include cycle through {rel}")
+        if len(stack) >= INCLUDE_MAX_DEPTH:
+            raise _include_error(source, line, f"includes nested deeper than "
+                                 f"{INCLUDE_MAX_DEPTH}")
+        body = target.read_text(encoding="utf-8")
+        fsource = str(target)
+        meta, lines = _lex_frontmatter(body, fsource)
+        offset = body.count("\n") + 1 - len(lines)
+        fblocks = _lex_blocks(lines, fsource, role_vocab, layout_vocab,
+                              line_offset=offset)
+        fblocks = _expand_includes(fblocks, target, fsource, role_vocab,
+                                   layout_vocab, stack + (target,), includes,
+                                   frag_meta)
+        if target not in includes:
+            includes.append(target)
+        frag_meta.append(meta)
+        for fb in fblocks:
+            if fb["kind"] == "heading" and fb["level"] == 2 \
+                    and MOVEMENT_LOOK_RE.match(fb["text"]):
+                raise _include_error(fsource, fb["line"], "a section cannot "
+                                     "hold a Movement heading; it lives inside "
+                                     "the including talk's movement")
+            fb["line"] = fb["line_end"] = line
+            if fb["kind"] == "shot":
+                sh = fb["shot"]
+                sh.line_begin = line
+                sh.include = rel          # the outermost directive wins
+                for f in rb["flags"]:
+                    sh.flags[f] = ""
+            out.append(fb)
+    return out
 
 
 def build_talk(path, source: Optional[str] = None) -> Talk:
@@ -1048,7 +1163,6 @@ def build_talk(path, source: Optional[str] = None) -> Talk:
     built-in, spec: Roles), so the vocabulary the parser accepts and the one
     the checker reports against are resolved once, here.
     """
-    from pathlib import Path
     source = source or str(path)
     with open(path, "r", encoding="utf-8") as fh:
         body = fh.read()
@@ -1061,8 +1175,22 @@ def build_talk(path, source: Optional[str] = None) -> Talk:
     offset = body.count("\n") + 1 - len(lines)
     raw_blocks = _lex_blocks(lines, source, role_vocab, layout_vocab,
                              line_offset=offset)
-    return assemble(meta, raw_blocks, source, role_vocab=role_vocab,
+    includes: list = []
+    frag_meta: list = []
+    raw_blocks = _expand_includes(raw_blocks, Path(path).resolve(), source,
+                                  role_vocab, layout_vocab,
+                                  (Path(path).resolve(),), includes, frag_meta)
+    # an included file's `cites:` / `sources:` join the talk's; the talk wins
+    for fm in frag_meta:
+        for key in ("cites", "sources"):
+            if isinstance(fm.get(key), dict):
+                merged = dict(fm[key])
+                merged.update(meta.get(key) if isinstance(meta.get(key), dict) else {})
+                meta[key] = merged
+    talk = assemble(meta, raw_blocks, source, role_vocab=role_vocab,
                     layout_vocab=layout_vocab, role_bundles=role_bundles)
+    talk.includes = includes
+    return talk
 
 
 def assemble(meta: dict, raw_blocks: list, source: str,
@@ -1145,7 +1273,8 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             # Ordinary screen opener: media shot, flag-only shot, black beat,
             # or a media shot that also carries a role (role written on the
             # screen's own shot).
-            if cur is not None and cur.shots and not cur.has_content():
+            if (cur is not None and cur.shots and not cur.has_content()
+                    and not cur.live_only):   # a live-only slide is a deliberate wordless beat
                 talk.warnings.append(
                     f"line {shot.line}: consecutive shot directives with no "
                     f"content between; the second opens a new screen and the "
@@ -1214,7 +1343,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         if (kind == "heading" and not credits_open
                 and i_rb + 1 < len(raw_blocks)
                 and raw_blocks[i_rb + 1]["kind"] == "shot"
-                and not (i_rb > 0 and raw_blocks[i_rb - 1]["kind"] == "shot")):
+                and not _heading_run_opens_at_shot(raw_blocks, i_rb)):
             hmarks: list = []
             pending_handout.append(
                 Block(kind="handout-heading", refs=hmarks,

@@ -1103,6 +1103,11 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
         warnings.simplefilter("ignore")     # mediaresolve warns check 10 via
         resolver = MediaResolver(talk_dir=p.parent, meta=talk.meta)
         # the warnings module; the suite surfaces declared_missing itself.
+    for inc in talk.includes:            # footnote refs inside included files
+        try:
+            text += "\n" + inc.read_text(encoding="utf-8")
+        except OSError:
+            pass
     return run_checks(talk, resolver, text, extra_files=extra_files,
                       cues_path=cues_path, report=report)
 

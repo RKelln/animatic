@@ -16,6 +16,24 @@ The same file renders as:
 - document view: the spoken text as prose with visuals embedded = PDF handout and scrolling web page
 - recorded narrated web version and YouTube video (audio captured live, sliced per slide by the advance timeline; no hand-timed subtitles)
 
+## Includes
+
+`<!-- include: path [live] -->` on its own line splices another file's screens in at
+that point, so a standard piece (TPL's privacy slides, an about-me, credits) is
+written once and used by every talk. The path is relative to the including file;
+absolute paths are refused. Name included files `*.section.md` (the corpus check
+treats `*.talk.md` as decks).
+
+- Each file is lexed on its own. Every screen from an included file points at the
+  directive's line in the talk (warnings, `nav.json` ranges), and `nav.json` adds
+  `"include": "<path as written>"` to those screens.
+- `live` marks every screen inside as live-only (see the `live` shot flag in
+  "What the handout does"). A `continue` shot after the include does not inherit it.
+- Includes nest to 3 deep. A missing file, a cycle, an absolute path, an unknown flag
+  or a `## Movement` heading inside the section is a fatal error with its line (check 22).
+- An included file's frontmatter `cites:` / `sources:` join the talk's; the talk wins.
+- `--watch` follows included files. Properties: `tests/properties/include_props.py`.
+
 ## Repo layout
 
 - `docs/format-spec-v1.md` — the talkfile grammar (normative; v1.0 draft, hardening 2026-09-08)
@@ -71,6 +89,10 @@ What the handout does (all from the one talkfile):
   downscaled JPEGs (`_media/doc/`, 1100 px wide), so the PDF stays near 8 MB.
 - A figure with the same slug as the figure just before it (including a
   `continue` shot) prints once; that screen's text still prints.
+- A screen whose shot carries the bare flag `live` (`<!-- shot: tpl-privacy-01 live -->`)
+  is for the room only: the present and presenter views show it, the handout
+  leaves it out (nav.json says `reason: "live-only"`), and cues.json marks the
+  cue `"live_only": true` so a video render must skip it.
 - `[^id]` refs print as numbered links to the Sources list. If the frontmatter
   has a `cites:` map (id to public citation), the list prints those. The
   `sources:` entries are working receipts and may hold repo paths and "verify

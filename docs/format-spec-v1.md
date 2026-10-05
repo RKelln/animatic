@@ -69,7 +69,10 @@ its **position**.
    own words needs no overlay. Blank lines and non-shot comments between the
    heading and the shot do not count; any other block does. A heading
    directly after one shot and before the next stays on screen (a title
-   card). Movement headings are structure and are unaffected, and a credits
+   card), and so does every heading in a run of headings that starts right
+   after a shot (`# Title`, `## Date`, `### Website`); only a heading outside
+   such a run is a handout heading (2026-10-05: the last heading of a
+   multi-heading card used to be pulled off the slide). Movement headings are structure and are unaffected, and a credits
    screen still consumes its headings as entries. (Added 2026-09-29: such a
    heading used to be drawn at the end of the previous screen.)
 

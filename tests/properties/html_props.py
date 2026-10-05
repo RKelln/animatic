@@ -359,7 +359,8 @@ def check(fx, errors: list) -> None:
 
     # opening section iff any movement-0 screen is not a black beat
     has_opening_content = any(
-        c["movement"] == 0 and c["kind"] != "black" for c in cues["cues"])
+        c["movement"] == 0 and c["kind"] != "black" and not c.get("live_only")
+        for c in cues["cues"])
     if has_opening_content != bool(OPENING_RE.search(doc_text)):
         err(errors, "document opening section presence does not match "
                     "movement-0 content")
@@ -369,7 +370,7 @@ def check(fx, errors: list) -> None:
     want_fig_slugs = [
         c["media"]["slug"]
         for c in cues["cues"]
-        if c.get("media") and c["kind"] != "black"
+        if c.get("media") and c["kind"] != "black" and not c.get("live_only")
     ]
     # a figure naming the slug of the figure just before it (a `continue`
     # shot, or the same slug again) is printed once, at its first appearance

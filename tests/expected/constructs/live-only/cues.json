@@ -1,0 +1,98 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "live-only",
+    "title": "Live-only screens",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "live-only-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Opening",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "Opening"
+        }
+      ],
+      "script": "Spoken text on an ordinary screen.",
+      "stage": null,
+      "est_seconds": 2.4
+    },
+    {
+      "id": "live-only-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Shown in the room only",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "live": ""
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Shown in the room only"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "not in the handout",
+            "not in the video"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0,
+      "live_only": true
+    },
+    {
+      "id": "live-only-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": null,
+      "script": "Spoken text after the live-only screen.",
+      "stage": null,
+      "est_seconds": 2.4
+    }
+  ],
+  "warnings": []
+}
