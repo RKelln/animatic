@@ -771,33 +771,21 @@ PAGER_JS = """
   // data-fit="floor" (with a console warning) for the author to shorten. A
   // slide that fits is never touched. Hero text (text-fit) sizes itself.
   var FIT_FLOOR = 0.75, FIT_STEP = 0.02;
-  // A fenced block (.code-block) is never cut: a line wider than the slide
-  // counts as overflow too. At the floor, a block that is still too wide
-  // wraps its long lines (.wrap) instead of running off the slide.
+  // A fenced block (.code-block) wraps its long lines under a hanging indent,
+  // so width never shrinks the text: only height decides the size.
   function codeBlocks(sl) { return sl.querySelectorAll(".code-block"); }
-  // The natural width (padding included) is measured with the width limits
-  // lifted, then compared with the room the slide body leaves it.
-  function codeWide(sl) {
-    var c = codeBlocks(sl);
-    for (var k = 0; k < c.length; k++) {
-      var pre = c[k];
-      if (pre.classList.contains("wrap")) continue;
-      var w0 = pre.style.width, m0 = pre.style.maxWidth;
-      pre.style.width = "max-content"; pre.style.maxWidth = "none";
-      var natural = pre.getBoundingClientRect().width;
-      pre.style.width = w0; pre.style.maxWidth = m0;
-      var host = getComputedStyle(pre.parentNode);
-      var room = pre.parentNode.clientWidth - parseFloat(host.paddingLeft) - parseFloat(host.paddingRight);
-      if (natural > room + 1) return true;
+  // On a slide with a fenced block the content must also stay inside the
+  // body's padding, so a block sized to the last pixel never touches the edge.
+  function overflows(sl, body) {
+    if (body.scrollHeight > body.clientHeight + 1) return true;
+    if (!codeBlocks(sl).length) return false;
+    var r = body.getBoundingClientRect(), cs = getComputedStyle(body);
+    var top = r.top + parseFloat(cs.paddingTop), bot = r.bottom - parseFloat(cs.paddingBottom);
+    for (var k = 0; k < body.children.length; k++) {
+      var c = body.children[k].getBoundingClientRect();
+      if (c.top < top - 1 || c.bottom > bot + 1) return true;
     }
     return false;
-  }
-  function overflows(sl, body) {
-    return body.scrollHeight > body.clientHeight + 1 || codeWide(sl);
-  }
-  function wrapCode(sl) {
-    var c = codeBlocks(sl);
-    for (var k = 0; k < c.length; k++) c[k].classList.add("wrap");
   }
   function fitBodies() {
     for (var i = 0; i < slides.length; i++) {
@@ -806,15 +794,12 @@ PAGER_JS = """
       if (!body || sl.classList.contains("text-fit")) continue;
       body.style.fontSize = "";
       sl.removeAttribute("data-fit");
-      var cb = codeBlocks(sl);
-      for (var k = 0; k < cb.length; k++) cb[k].classList.remove("wrap");
       if (!overflows(sl, body)) continue;
       var scale = 1;
       while (overflows(sl, body) && scale > FIT_FLOOR + 1e-6) {
         scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
         body.style.fontSize = scale.toFixed(2) + "em";
       }
-      if (overflows(sl, body) && cb.length) wrapCode(sl);
       if (overflows(sl, body)) {
         sl.setAttribute("data-fit", "floor");
         if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
@@ -825,9 +810,9 @@ PAGER_JS = """
   }
   // fit=hero with a fenced block: the block takes the biggest size at which
   // the whole slide still fits, between the 75% floor and 300% of its normal
-  // size. The title sizes itself (hero text), and only the block scales. Below
-  // the floor its long lines wrap; a slide still too tall there is marked
-  // data-fit="floor", as above.
+  // size, by height alone (long lines wrap). The title sizes itself (hero
+  // text), and only the block scales. A slide still too tall at the floor is
+  // marked data-fit="floor", as above.
   var HERO_CODE_MAX = 3;
   function fitHeroCode() {
     for (var i = 0; i < slides.length; i++) {
@@ -836,7 +821,6 @@ PAGER_JS = """
       var pre = body && sl.classList.contains("text-fit") && body.querySelector(".code-block");
       if (!pre) continue;
       pre.style.fontSize = "";
-      pre.classList.remove("wrap");
       sl.removeAttribute("data-fit");
       var base = parseFloat(getComputedStyle(pre).fontSize);
       var parent = parseFloat(getComputedStyle(pre.parentNode).fontSize) || 1;
@@ -861,7 +845,6 @@ PAGER_JS = """
           scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
           set(scale);
         }
-        if (!fits()) wrapCode(sl);
         if (!fits()) {
           sl.setAttribute("data-fit", "floor");
           if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
@@ -2965,12 +2948,25 @@ def table_html(b) -> str:
     return f'<table class="md-table">{head}<tbody>{body}</tbody></table>'
 
 
+# a source line that starts with a list marker or indentation hangs its wrapped
+# rows under the text after it (layout only; the characters never change)
+_HANG_RE = re.compile(r"^([ \t]*(?:[-*+]|\d+[.)])[ \t]+|[ \t]+)")
+
+
 def code_html(b) -> str:
     """A fenced block (spec: Text, fenced code): the lines exactly as written,
-    HTML-escaped, in a <pre>.  No markdown, no inline code, no cites.  A
-    newline straight after <pre> is dropped by the HTML parser, so one is
-    written first: a block whose first line is blank keeps it."""
-    return f'<pre class="code-block">\n{html.escape(b.text, quote=False)}</pre>'
+    HTML-escaped, in a <pre>.  No markdown, no inline code, no cites.  Each
+    source line is its own block <span> that ends in its own newline, so the
+    text (and copy/paste) is the source's lines exactly, while a long line can
+    wrap under a hanging indent: padding-left and a negative text-indent of
+    the marker width, in ch."""
+    out = []
+    for line in b.text.split("\n"):
+        m = _HANG_RE.match(line)
+        hang = len(m.group(1).expandtabs(4)) if m else 0
+        style = f' style="padding-left:{hang}ch;text-indent:-{hang}ch"' if hang else ""
+        out.append(f'<span class="cl"{style}>{html.escape(line, quote=False)}\n</span>')
+    return f'<pre class="code-block">{"".join(out)}</pre>'
 
 
 def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,

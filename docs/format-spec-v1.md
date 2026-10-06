@@ -526,33 +526,45 @@ You are a thoughtful, creative collaborator.
   and shows nothing.
 
 **Present view.** The block is set in the theme's `--font-mono` token,
-left-aligned, whitespace preserved, **not wrapped** while it fits, on a quiet
-plate in the family of the quote plate (`--quote-panel-bg` and its shadow, with
-a hairline edge and an accent rule on the left; backdrop blur over media). The
-text is the list's weight (`1.15em` of the slide's text, in mono, about 37 px at
-1080p), and the slide gives the block the room (tight side padding). The
-lecture theme sets it light on a dark plate; the workshop theme sets it ink on a
-paper plate with an olive-clay rule and no glow.
+left-aligned, whitespace preserved, on a quiet plate in the family of the quote
+plate (`--quote-panel-bg` and its shadow, with a hairline edge and an accent
+rule on the left; backdrop blur over media). The text is the list's weight
+(`1.15em` of the slide's text, in mono, about 37 px at 1080p), and the slide
+gives the block the room (tight side padding). The lecture theme sets it light on
+a dark plate; the workshop theme sets it ink on a paper plate with an olive-clay
+rule and no glow.
 
-**Fitting.** The pager's rule for overflowing slide text applies: a slide whose
-text is too tall, **or whose block has a line wider than the slide**, shrinks
-its text step by step to a floor of 75%. At the floor, a block that is still too
-wide **wraps** its long lines (nothing is cut sideways). A slide still too tall
-at the floor stays at the floor, is marked `data-fit="floor"`, and logs a
-console warning: its top and bottom are clipped by the slide edge, so shorten or
-split the block (a `continue` screen carries on). `fit=hero` changes the
-direction: the title steps down to a heading size (the block is the hero), and
-the block takes the **largest size at which the whole slide fits, from the 75%
-floor up to 300% of its normal size**, never wrapped while a size within the
-range fits; below the floor it wraps and then marks `floor` as above. A short
-block grows to fill the slide; a block of long lines is limited by its widest
-line, so a 100-character line caps the size at about 27 px on a 1920 px stage.
-Without `fit=hero` the block keeps its normal size and only shrinks.
+**Wrapping: width never shrinks the text.** A line longer than the plate wraps
+(`white-space: pre-wrap`, `overflow-wrap: anywhere` as a last resort), at
+whatever size the block is. A source line that begins with a list marker
+(`- `, `* `, `+ `, `1. `, `1) `) or with spaces or tabs **hangs**: its wrapped
+rows align under the text after the marker or indent (tabs count as 4), so a
+wrapped bullet still reads as one bullet. Each source line is a block `<span
+class="cl">` carrying `padding-left` and a negative `text-indent` of the marker
+width in `ch`, and ending in its own newline: the characters, and what a copy
+and paste returns, are exactly the source's; only layout changes. The same
+markup is used in the document view.
+
+**Fitting: only height decides the size.** Without `fit=hero` the block stays at
+its normal size. If the slide's text is too **tall**, it shrinks step by step to
+a floor of 75% (the pager's rule for overflowing slide text); the content must
+also stay inside the slide body's padding. A slide still too tall at the floor
+stays at the floor, is marked `data-fit="floor"`, and logs a console warning:
+its top and bottom are clipped by the slide edge, so shorten or split the block
+(a `continue` screen carries on). Under `fit=hero` the title steps down to a
+heading size (the block is the hero), and the block takes the **largest size at
+which the wrapped block fits the available height, from the 75% floor up to 300%
+of its normal size**; a short block grows to fill the slide, and a long line
+wraps instead of holding the size down. Beyond the floor under hero the
+behaviour is the same as above (clipped, marked `floor`). `reveal=list` on a
+screen whose only block is a fence has no list to step: the builder prints
+`warn      : <cue id>: reveal=list needs a list of 2 or more items on the screen; ignored`
+(a build note, not a numbered check) and the flag does nothing.
 
 **Document view and handout.** A `<pre class="code-block">` with the theme's
 code styling (mono, a tinted callout panel and an accent rule), `white-space:
-pre-wrap` so a long line wraps and nothing is cut off on paper, and not split
-across a page where it fits.
+pre-wrap` so a long line wraps and nothing is cut off on paper, the same hanging
+indent, and not split across a page where it fits.
 
 ### Roles
 

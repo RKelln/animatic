@@ -32,7 +32,15 @@ def _bare(line: str) -> str:
     return MARKER_RE.sub("", line.strip()).strip()
 
 
-PRE_RE = re.compile(r'<pre class="code-block">\n(.*?)</pre>', re.DOTALL)
+PRE_RE = re.compile(r'<pre class="code-block">(.*?)</pre>', re.DOTALL)
+SPAN_RE = re.compile(r'<span class="cl"[^>]*>(.*?)</span>', re.DOTALL)
+
+
+def _pre_text(inner: str) -> str:
+    """The text of a <pre> block: its line spans, each ending in a newline
+    (kept exactly, so copy/paste is the source's lines)."""
+    spans = SPAN_RE.findall(inner)
+    return "".join(html_mod.unescape(x) for x in spans)[:-1]
 
 
 def _fences(source_text: str) -> list:
@@ -95,7 +103,7 @@ def check(fx, errors: list) -> None:
             err(errors, f"{view} view missing")
             continue
         text = path.read_text(encoding="utf-8")
-        pres = [html_mod.unescape(m) for m in PRE_RE.findall(text)]
+        pres = [_pre_text(m) for m in PRE_RE.findall(text)]
         if pres != want:
             err(errors, f"{view} view: <pre> blocks {pres!r} != fences {want!r}")
         for lines in shown:

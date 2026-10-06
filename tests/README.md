@@ -83,6 +83,11 @@ One command, one exit code:
     estimate with it). The countdown itself (start, keep running, pause, reset,
     overtime, presenter sync) is browser behaviour and was verified in headless
     Chromium by driving real key presses, not in this suite.
+  - `code-fences-wrap` - width never shrinks a fenced block: the four-bullet
+    "What's on the page" slide under `fit=hero` (with a `reveal=list` that has no
+    list to step), a 400-character single line, 18 and 25 short lines (shrink to
+    fit; past the 75% floor, clipped and marked), and every hanging-indent shape
+    (`-`, `*`, `+`, `1.`, `2)`, spaces, tab, none).
   - `decks/_media/library.yaml` — the shared library home for deck
     fixtures (sibling of each deck dir, per spec §11).
   - `timing-demo` (T15) — the clock end to end: `dur: ~1 min` sits inside the
