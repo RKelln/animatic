@@ -165,6 +165,27 @@ def check(fx, errors: list) -> None:
                     err(errors, f"cue {cue['id']}: live poster {want!r} missing "
                                 f"from present html")
             continue
+        if media.get("steps"):
+            # stepped-image card: the section is either a stack of one frame
+            # per step (each frame the step slug's published file), or, with
+            # reveal=off or on a continue screen, the one plain image
+            sect = pres_text.split(f'id="{cue["id"]}"', 1)[-1].split("</section>", 1)[0]
+            frames = re.findall(r'<img data-frame="(\d+)"[^>]* src="([^"]+)"', sect)
+            off = any("off" in str(sh.get("flags", {}).get("reveal", "")).split("+")
+                      for sh in cue.get("shots", []))
+            if off and frames:
+                err(errors, f"cue {cue['id']}: reveal=off but the section still steps")
+            if frames:
+                if [int(n) for n, _ in frames] != list(range(1, len(media["steps"]) + 1)):
+                    err(errors, f"cue {cue['id']}: step frames {frames!r} != "
+                                f"{len(media['steps'])} steps")
+                if sect.count('class="on ') != 1 or not frames[0][1].endswith(
+                        tuple(f"{media['steps'][0]}.{e}" for e in
+                              ("png", "jpg", "jpeg", "webp", "gif", "svg"))):
+                    err(errors, f"cue {cue['id']}: frame 1 is not the one shown first")
+            elif "<img " not in sect:
+                err(errors, f"cue {cue['id']}: stepped card renders no image at all")
+            continue
         if media.get("found"):
             want = "../" + media.get("file", "")
             if want not in pres_text:
@@ -343,6 +364,16 @@ def check(fx, errors: list) -> None:
     # every item, so the document view carries no reveal markup at all.
     if "data-reveal" in doc_text or "data-step" in doc_text:
         err(errors, "document view carries reveal markup (reveal is present-only)")
+    # stepped images are present-only too: the document and handout print the
+    # card's one handout image, never the frames
+    if "class=\"step-stack\"" in doc_text or " data-frame=\"" in doc_text:
+        err(errors, "document view carries stepped-image markup (steps are present-only)")
+    for cue in cues["cues"]:
+        m = cue.get("media") or {}
+        if m.get("steps"):
+            for st in m["steps"]:
+                if re.search(rf'<figure class="shot" data-slug="{re.escape(st)}"', doc_text):
+                    err(errors, f"cue {cue['id']}: document prints step frame {st!r} as its own figure")
 
     deck = cues["deck"]
     deck_title = str(deck.get("title") or fx.slug)

@@ -98,6 +98,16 @@ def check(fx, errors: list) -> None:
                 err(errors, f"cue {cid}: media object carries no slug")
             elif cue.get("kind") == "black":
                 err(errors, f"cue {cid}: black beat carries media")
+            elif "steps" in media:
+                # stepped-image card: 2+ frame slugs, and the handout image is
+                # one of them or the card's own
+                st = media["steps"]
+                if not (isinstance(st, list) and len(st) >= 2
+                        and all(isinstance(x, str) and x for x in st)):
+                    err(errors, f"cue {cid}: media.steps must be 2+ slugs, got {st!r}")
+                elif media.get("handout") not in st + [media["slug"]]:
+                    err(errors, f"cue {cid}: media.handout {media.get('handout')!r} is "
+                                f"neither a step nor the card itself")
 
     # movement partition: every screen belongs to exactly one movement, and
     # movement.cue_ids must mirror it (spec: Screens / Outputs).

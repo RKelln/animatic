@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+import dataclasses
 import hashlib
 import os
 import shutil
@@ -102,6 +103,8 @@ class MediaRef:
     origin: Optional[str] = None       # absolute source path; `file` becomes out-root-relative once published
     still: Optional[tuple] = None      # video only: the handout frame (card `still:`, see talkparse.parse_still); None = a quarter in
     doc_file: Optional[str] = None     # out-root-relative small JPEG the handout prints (image) or shows as the still (video)
+    steps: Optional[list] = None       # stepped-image card: the frame slugs, in order (card `steps:`); None = a plain image
+    handout: Optional[str] = None      # stepped-image card: slug of the image the document view and handout print
 
 
 
@@ -134,6 +137,10 @@ class MediaResolver:
     playback_fallback: dict = field(default_factory=dict)   # slug -> "loop"
     doc_files: dict = field(default_factory=dict)           # slug -> out-root-relative handout JPEG
     out_root: Optional[Path] = None                         # set by publish()
+    # check 33: (slug, message) for a card `steps:` / `handout:` that cannot
+    # apply as written; the card then renders as one plain image.
+    steps_issues: list = field(default_factory=list)
+    _steps_cache: dict = field(default_factory=dict)        # slug -> spec dict | None
     # --link-media: symlink published files instead of copying them. For
     # throwaway and test builds only: the output folder is no longer portable.
     link_media: bool = False
@@ -317,7 +324,102 @@ class MediaResolver:
             ref.note = str(brief[0])
         return ref
 
+    # -- stepped images ------------------------------------------------------
+
+    def _steps_source(self, slug: str) -> Optional[dict]:
+        """The card (else the library entry) that may carry `steps:`."""
+        for src in (self.card_for(slug), self.library_entry_for(slug)):
+            if src and "steps" in src:
+                return src
+        return None
+
+    def steps_spec(self, slug: str) -> Optional[dict]:
+        """A card's validated `steps:` (spec: Media, stepped images), or None
+        when it has none or cannot apply (check 33; the card is then one plain
+        image).  `{"steps": [slug, ...], "handout": <frame slug or the card's
+        own slug>}`.  Cached: validation reports each problem once."""
+        if slug in self._steps_cache:
+            return self._steps_cache[slug]
+        spec = self._steps_cache[slug] = None
+        src = self._steps_source(slug)
+        if src is None:
+            return None
+
+        def bad(msg):
+            self.steps_issues.append((slug, f"card '{slug}' {msg}; it renders as one plain image"))
+
+        steps = src.get("steps")
+        if not isinstance(steps, list):
+            return None     # a string or number is a free note (decks already write `steps:` as prose), not a declaration
+        if len(steps) < 2:
+            bad(f"has steps: {steps!r}; a stepped card needs a list of 2 or more image slugs")
+            return None
+        names = [str(x) for x in steps]
+        problems = []
+        for n in names:
+            r = self._resolve_plain(n)
+            ext = Path(r.file).suffix.lower() if r.found and r.file else ""
+            if r.live or (r.found and MEDIA_EXTS.get(ext) == "video") or r.type == "video":
+                problems.append(f"'{n}' is a video (steps are still images)")
+            elif not r.found or MEDIA_EXTS.get(ext) != "image":
+                problems.append(f"'{n}' does not resolve to an image")
+        if problems:
+            bad("has steps that cannot show: " + "; ".join(problems))
+            return None
+        own = self._resolve_plain(slug)
+        own_ok = own.found and not own.live
+        if "handout" in src:
+            h = src["handout"]
+            if h == "first":
+                pick = names[0]
+            elif h == "last":
+                pick = names[-1]
+            elif isinstance(h, int) and not isinstance(h, bool):
+                if not 1 <= h <= len(names):
+                    bad(f"has handout: {h}, but steps has {len(names)} frames (1 to {len(names)})")
+                    return None
+                pick = names[h - 1]
+            elif isinstance(h, str) and h in names:
+                pick = h
+            elif isinstance(h, str) and h.isdigit() and 1 <= int(h) <= len(names):
+                pick = names[int(h) - 1]
+            else:
+                bad(f"has handout: {h!r}, which is not first, last, a number from 1 to "
+                    f"{len(names)}, or one of its steps")
+                return None
+        elif own_ok:
+            pick = slug               # the card's own image is the handout image
+        else:
+            pick = names[-1]
+        spec = self._steps_cache[slug] = {"steps": names, "handout": pick}
+        return spec
+
+    def validate_steps(self) -> None:
+        """Validate every card's (and library entry's) `steps:`, so check 33
+        reports on cards no screen uses, like checks 10 and 29."""
+        for c in list(self.cards) + list(self.library):
+            if isinstance(c, dict) and c.get("slug") and "steps" in c:
+                self.steps_spec(str(c["slug"]))
+
     def _resolve(self, slug: str) -> MediaRef:
+        ref = self._resolve_plain(slug)
+        spec = self.steps_spec(slug)
+        if spec is None:
+            return ref
+        ref.steps = list(spec["steps"])
+        ref.handout = spec["handout"]
+        if spec["handout"] != slug:
+            # the handout image is one of the frames: the card shows that file
+            # wherever a single image is wanted (document view, handout,
+            # `reveal=off`, a continue screen's first frame, the manifest)
+            fr = self._resolve_plain(spec["handout"])
+            ref = dataclasses.replace(
+                fr, slug=slug, alt=ref.alt or fr.alt, credit=ref.credit or fr.credit,
+                licence=ref.licence or fr.licence, note=ref.note or fr.note,
+                steps=ref.steps, handout=ref.handout, live=False, reason="")
+        return ref
+
+    def _resolve_plain(self, slug: str) -> MediaRef:
         card = self.card_for(slug)
         ctype = card.get("type") if card else None
         cstatus = card.get("status") if card else None
@@ -447,6 +549,12 @@ class MediaResolver:
         media_dir = Path(out_root) / "_media"
         media_dir.mkdir(parents=True, exist_ok=True)
         self.out_root = Path(out_root)
+        # a stepped card's frames travel with it
+        slugs = list(slugs)
+        for slug in list(slugs):
+            spec = self.steps_spec(slug)
+            if spec:
+                slugs.extend(n for n in spec["steps"] if n not in slugs)
         for slug in slugs:
             if slug in self.published or (slug + "-poster") in self.published:
                 continue
@@ -556,7 +664,13 @@ class MediaResolver:
         return ref
 
     def unreferenced_cards(self, referenced: set) -> list:
-        """Card slugs never referenced by any shot (authoring info)."""
+        """Card slugs never referenced by any shot (authoring info).  A stepped
+        card's frames count as referenced by it."""
+        referenced = set(referenced)
+        for slug in list(referenced):
+            spec = self.steps_spec(slug)
+            if spec:
+                referenced.update(spec["steps"])
         return [str(c["slug"]) for c in self.cards
                 if isinstance(c, dict) and c.get("slug") not in referenced]
 

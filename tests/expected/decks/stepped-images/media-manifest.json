@@ -1,0 +1,123 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "stepped-images",
+  "referenced": [
+    {
+      "slug": "build-up",
+      "first_cue": "stepped-images-001",
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      }
+    },
+    {
+      "slug": "build-first",
+      "first_cue": "stepped-images-002",
+      "media": {
+        "slug": "build-first",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-first.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps, first frame in the handout",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-1"
+      }
+    },
+    {
+      "slug": "build-two",
+      "first_cue": "stepped-images-003",
+      "media": {
+        "slug": "build-two",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-two.png",
+        "source": "deckdir",
+        "alt": "a two-step build",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2"
+        ],
+        "handout": "frame-1"
+      }
+    },
+    {
+      "slug": "build-named",
+      "first_cue": "stepped-images-004",
+      "media": {
+        "slug": "build-named",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-named.png",
+        "source": "deckdir",
+        "alt": "a build whose handout shows its second frame",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-2"
+      }
+    },
+    {
+      "slug": "build-own",
+      "first_cue": "stepped-images-005",
+      "media": {
+        "slug": "build-own",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-own.png",
+        "source": "cards",
+        "alt": "a build with its own summary image",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "build-own"
+      }
+    }
+  ],
+  "unreferenced_cards": [
+    "frame-4"
+  ]
+}

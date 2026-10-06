@@ -1,0 +1,275 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "stepped-images-warned",
+    "title": "Stepped images, warned",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "stepped-images-warned-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": "More items than frames",
+      "shots": [
+        {
+          "slug": "two-lists",
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": {
+        "slug": "two-lists",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/two-lists.png",
+        "source": "cards",
+        "alt": "three frames",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "two-lists"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "More items than frames"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "one",
+            "two",
+            "three",
+            "four"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "stepped-images-warned-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "two-lists",
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": {
+        "slug": "two-lists",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/two-lists.png",
+        "source": "cards",
+        "alt": "three frames",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "two-lists"
+      },
+      "screen_text": [
+        {
+          "kind": "list",
+          "items": [
+            "fewer items than frames",
+            "two"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "stepped-images-warned-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "one-step",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "one-step",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/one-step.png",
+        "source": "cards",
+        "alt": "too few steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "One step.",
+      "stage": null,
+      "est_seconds": 0.8
+    },
+    {
+      "id": "stepped-images-warned-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "video-step",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "video-step",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/video-step.png",
+        "source": "cards",
+        "alt": "a step is a video",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "A video step.",
+      "stage": null,
+      "est_seconds": 1.2
+    },
+    {
+      "id": "stepped-images-warned-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "missing-step",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "missing-step",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/missing-step.png",
+        "source": "cards",
+        "alt": "a step with no file",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "A missing step.",
+      "stage": null,
+      "est_seconds": 1.2
+    },
+    {
+      "id": "stepped-images-warned-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "bad-handout-name",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "bad-handout-name",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/bad-handout-name.png",
+        "source": "cards",
+        "alt": "handout names no step",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "Handout names no step.",
+      "stage": null,
+      "est_seconds": 1.6
+    },
+    {
+      "id": "stepped-images-warned-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "bad-handout-range",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "bad-handout-range",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/bad-handout-range.png",
+        "source": "cards",
+        "alt": "handout out of range",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "Handout out of range.",
+      "stage": null,
+      "est_seconds": 1.6
+    }
+  ],
+  "warnings": []
+}

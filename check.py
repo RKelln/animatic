@@ -151,6 +151,8 @@ REGISTER = [
     (30, "`dim` on a media screen with no on-screen text",              WARNING, "implemented"),
     (31, "`advance`/`playback=`/`sound` shot flag on a screen whose media is not a video", WARNING, "implemented"),
     (32, "`under=`/`blur=`/`anchor=` shot flag that cannot work: backdrop not a still image, `blur=`/`anchor=` with no `under=`, or a framed layout", WARNING, "implemented"),
+    (33, "card `steps:`/`handout:` that cannot apply: a step that is not an image or is a video, fewer than 2 steps, or a `handout:` outside the steps (the card falls back to one plain image)", WARNING, "implemented: check.py + mediaresolve.py"),
+    (34, "a stepped-image card and a `reveal=list` list of different lengths on one screen (they advance together; the shorter holds)", WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -896,6 +898,22 @@ def check_29_playback(talk, resolver, report: Report) -> None:
                            f"(spec: Media pipeline contract)")
 
 
+def check_33_steps(talk, resolver, report: Report) -> None:
+    """A card `steps:` / `handout:` that cannot apply as written leaves the
+    card a plain single image; the resolver validates every card."""
+    resolver.validate_steps()
+    for slug, msg in resolver.steps_issues:
+        report.add(33, WARNING, f"{msg} (spec: Media, stepped images)")
+
+
+def check_34_step_counts(talk, resolver, report: Report) -> None:
+    """Image steps and `reveal=list` items advance together on one press; a
+    count mismatch leaves the shorter holding on its last, which is probably a
+    slip."""
+    for s, line, msg in render.step_count_notes(talk, resolver):
+        report.add(34, WARNING, msg, line=line, screen=s.idx)
+
+
 def check_30_dim_without_text(talk, resolver, report: Report) -> None:
     """`dim` exists to keep on-screen text readable over a picture. On a screen
     with no text it only darkens the picture: a chart or photo that is too
@@ -1071,6 +1089,8 @@ def run_checks(talk, resolver, source_text: str,
     check_30_dim_without_text(talk, resolver, report)
     check_31_advance_not_video(talk, resolver, report)
     check_32_under_backdrop(talk, resolver, report)
+    check_33_steps(talk, resolver, report)
+    check_34_step_counts(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

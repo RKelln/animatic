@@ -1,0 +1,46 @@
+# Stepped-image fixture cards (spec: Media, stepped images).
+- slug: build-up           # no image of its own: the handout prints the last frame
+  status: approved
+  type: image
+  alt: a diagram built in three steps
+  steps: [frame-1, frame-2, frame-3]
+- slug: build-first        # handout: first (a keyword)
+  status: approved
+  type: image
+  alt: a diagram built in three steps, first frame in the handout
+  steps: [frame-1, frame-2, frame-3]
+  handout: first
+- slug: build-two          # handout: a 1-based integer
+  status: approved
+  type: image
+  alt: a two-step build
+  steps: [frame-1, frame-2]
+  handout: 1
+- slug: build-named        # handout: one of the steps, by slug
+  status: approved
+  type: image
+  alt: a build whose handout shows its second frame
+  steps: [frame-1, frame-2, frame-3]
+  handout: frame-2
+- slug: build-own          # a card of its own image: the handout prints that, not a frame
+  status: approved
+  type: image
+  alt: a build with its own summary image
+  file: media/frame-4.png
+  steps: [frame-1, frame-2, frame-3]
+- slug: frame-1
+  status: approved
+  type: image
+  alt: frame one
+- slug: frame-2
+  status: approved
+  type: image
+  alt: frame two
+- slug: frame-3
+  status: approved
+  type: image
+  alt: frame three
+- slug: frame-4
+  status: approved
+  type: image
+  alt: frame four

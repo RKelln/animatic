@@ -98,6 +98,23 @@
   /* fit=contain: media letterboxed on the stage colour, never cropped */
   .media-zone.fit .slide-media { object-fit: contain; }
 
+  /* stepped images (a card with `steps:`): the frames stack in one box and the
+     pager moves `on` along them one next-press at a time. The frame before the
+     new one stays up under it (`prior`), so the crossfade never dips to the
+     ground. Same fade as the slides' own; reduced motion swaps hard. */
+  .step-stack { position: absolute; inset: 0; }
+  .step-stack .step-frame { opacity: 0; transition: opacity 0.45s ease; z-index: 0; }
+  .step-stack .step-frame.prior { opacity: 1; }
+  .step-stack .step-frame.on { opacity: 1; z-index: 1; }
+  .media-zone.piece .step-stack {
+    position: relative; inset: auto; display: grid;
+    max-width: 100%; max-height: 100%;
+  }
+  .media-zone.piece .step-stack .step-frame { grid-area: 1 / 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .step-stack .step-frame { transition: none; }
+  }
+
   /* kb camera lens: a static clipping viewport. The IMAGE inside is the
      animated layer — oversized 130%, centred, drifting via a compositor
      translate. Its texture (the full overscan) exceeds the lens clip, so

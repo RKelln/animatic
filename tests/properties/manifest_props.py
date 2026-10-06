@@ -131,7 +131,11 @@ def check(fx, errors: list) -> None:
             loaded = []
         card_slugs = [c.get("slug") for c in loaded
                       if isinstance(c, dict) and c.get("slug")]
-    want_unref = [s for s in card_slugs if s not in set(slugs)]
+    # a stepped-image card counts its frames as referenced
+    used = set(slugs)
+    for ent in man.get("referenced", []):
+        used.update((ent.get("media") or {}).get("steps") or [])
+    want_unref = [s for s in card_slugs if s not in used]
     got_unref = man.get("unreferenced_cards", [])
     if got_unref != want_unref:
         err(errors, f"unreferenced_cards {got_unref} != cards.yaml minus "

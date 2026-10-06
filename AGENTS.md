@@ -28,7 +28,7 @@ coding agent. Edit here, never there.
     python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see README: Handout PDF)
     python3 build.py --corpus                      # every deck under corpus.yaml roots
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
-    python3 check.py --register                    # the canonical 1-32 check register
+    python3 check.py --register                    # the canonical 1-34 check register
     python3 check.py --corpus [ROOT] --strict      # warnings become deck failures
     python3 tests/run.py                           # golden suite (profiles: 35, passed: 38)
 

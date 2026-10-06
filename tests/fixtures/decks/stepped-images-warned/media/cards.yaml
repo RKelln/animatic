@@ -1,0 +1,55 @@
+# Stepped-image warning fixture: every card here is wrong in one way (check 33).
+- slug: two-lists
+  status: approved
+  type: image
+  file: media/frame-3.png
+  alt: three frames
+  steps: [frame-1, frame-2, frame-3]
+- slug: one-step
+  status: approved
+  type: image
+  file: media/frame-3.png
+  alt: too few steps
+  steps: [frame-1]
+- slug: video-step
+  status: approved
+  type: image
+  file: media/frame-3.png
+  alt: a step is a video
+  steps: [frame-1, clip]
+- slug: missing-step
+  status: approved
+  type: image
+  file: media/frame-3.png
+  alt: a step with no file
+  steps: [frame-1, no-such-frame]
+- slug: bad-handout-name
+  status: approved
+  type: image
+  file: media/frame-3.png
+  alt: handout names no step
+  steps: [frame-1, frame-2]
+  handout: frame-3
+- slug: bad-handout-range
+  status: approved
+  type: image
+  file: media/frame-3.png
+  alt: handout out of range
+  steps: [frame-1, frame-2]
+  handout: 5
+- slug: frame-1
+  status: approved
+  type: image
+  alt: frame one
+- slug: frame-2
+  status: approved
+  type: image
+  alt: frame two
+- slug: frame-3
+  status: approved
+  type: image
+  alt: frame three
+- slug: clip
+  status: approved
+  type: video
+  alt: a clip

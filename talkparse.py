@@ -89,9 +89,10 @@ LAYOUTS = ("piece", "duo", "titled")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
                "under", "blur", "anchor", "still", "reveal", "live")
-# `reveal=` shows a screen's content one piece per next-press.  `list` is the
-# only form so far (a list's items); the value leaves room for more.
-REVEAL_VALUES = ("list",)
+# `reveal=list` shows a list's items one per next-press (and steps a stepped-
+# image card's frames in lockstep); `reveal=off` turns a card's image stepping
+# off for that screen (spec: The shot directive, `reveal`).
+REVEAL_VALUES = ("list", "off", "list+off")
 # `still=` (and a card's `still:`) picks the frame a video becomes in the
 # handout: start, end, a time in seconds (`3`, `3.5`, `3s`) or a share of the
 # clip (`25%`).  Unset, a quarter of the way in.

@@ -1,0 +1,543 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "stepped-images",
+    "title": "Stepped images",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "stepped-images-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": "Default handout",
+      "shots": [
+        {
+          "slug": "build-up",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Default handout"
+        }
+      ],
+      "script": "The diagram builds in three steps.",
+      "stage": null,
+      "est_seconds": 2.4
+    },
+    {
+      "id": "stepped-images-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "build-first",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "build-first",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-first.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps, first frame in the handout",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-1"
+      },
+      "screen_text": null,
+      "script": "Handout first.",
+      "stage": null,
+      "est_seconds": 0.8
+    },
+    {
+      "id": "stepped-images-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "build-two",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "build-two",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-two.png",
+        "source": "deckdir",
+        "alt": "a two-step build",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2"
+        ],
+        "handout": "frame-1"
+      },
+      "screen_text": null,
+      "script": "Handout by number.",
+      "stage": null,
+      "est_seconds": 1.2
+    },
+    {
+      "id": "stepped-images-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "build-named",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "build-named",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-named.png",
+        "source": "deckdir",
+        "alt": "a build whose handout shows its second frame",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-2"
+      },
+      "screen_text": null,
+      "script": "Handout by slug.",
+      "stage": null,
+      "est_seconds": 1.2
+    },
+    {
+      "id": "stepped-images-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "build-own",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "build-own",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-own.png",
+        "source": "cards",
+        "alt": "a build with its own summary image",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "build-own"
+      },
+      "screen_text": null,
+      "script": "The card's own image prints.",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "stepped-images-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "build-up",
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": [
+        {
+          "kind": "list",
+          "items": [
+            "one",
+            "two",
+            "three"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "stepped-images-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "media",
+      "title": "Title first",
+      "shots": [
+        {
+          "slug": "build-up",
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Title first"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "one",
+            "two",
+            "three"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "stepped-images-008",
+      "ordinal": 8,
+      "movement": 0,
+      "kind": "media",
+      "title": "No reveal flag",
+      "shots": [
+        {
+          "slug": "build-up",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "No reveal flag"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "shown whole",
+            "while the images step"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "stepped-images-009",
+      "ordinal": 9,
+      "movement": 0,
+      "kind": "media",
+      "title": "Stepping off",
+      "shots": [
+        {
+          "slug": "build-up",
+          "role": null,
+          "flags": {
+            "reveal": "off"
+          }
+        }
+      ],
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Stepping off"
+        }
+      ],
+      "script": "Shows only the handout image.",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "stepped-images-010",
+      "ordinal": 10,
+      "movement": 0,
+      "kind": "media",
+      "title": "List only",
+      "shots": [
+        {
+          "slug": "build-up",
+          "role": null,
+          "flags": {
+            "reveal": "list+off"
+          }
+        }
+      ],
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "List only"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "one",
+            "two"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "stepped-images-011",
+      "ordinal": 11,
+      "movement": 0,
+      "kind": "media",
+      "title": "Before a continue",
+      "shots": [
+        {
+          "slug": "build-up",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Before a continue"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "stepped-images-012",
+      "ordinal": 12,
+      "movement": 0,
+      "kind": "media",
+      "title": "After a continue",
+      "shots": [
+        {
+          "slug": "build-up",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "build-up",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/build-up.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "After a continue"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": []
+}

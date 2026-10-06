@@ -495,8 +495,29 @@ def under_blur(flags: dict) -> float:
         return 0.0
 
 
+def reveal_modes(flags: dict) -> set:
+    """The parts of a shot's `reveal=` value: `list`, `off`, or `list+off`."""
+    return set(str(flags.get("reveal") or "").split("+"))
+
+
+def step_frames_html(frames: list, flags: dict, extra_class: str = "") -> str:
+    """A stepped-image card's frames stacked in one `.step-stack`: frame 1 is
+    up (`on`) in the markup, the pager moves `on` along them one next-press at
+    a time.  Every frame is a plain slide image; the shot's `dim` is drawn once
+    over the stack."""
+    flags = {k: v for k, v in flags.items() if k != "dim"}
+    out = []
+    for n, fr in enumerate(frames, 1):
+        el = media_html(fr, flags, css_class=f"slide-media step-frame{extra_class}")
+        out.append(el.replace("<img ", f'<img data-frame="{n}" ', 1) if "<img " in el
+                   else el.replace("<div ", f'<div data-frame="{n}" ', 1))
+    out[0] = out[0].replace('class="', 'class="on ', 1)
+    return f'<div class="step-stack">{"".join(out)}</div>'
+
+
 def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None,
-                    under: MediaRef | None = None) -> str:
+                    under: MediaRef | None = None,
+                    frames: list | None = None) -> str:
     """Full-bleed media zone: media element + kb class + fit/dim + role/layout handling."""
     if under is not None and flags.get("layout") in ("piece", "duo", "titled"):
         under = None          # a framed object has no full-bleed ground to put a backdrop on (check 32)
@@ -553,7 +574,19 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None,
     else:
         media_flags = {k: v for k, v in flags.items() if k != "dim" and k not in ("layout",)} if piece else flags
         kbcls = f" kb-{flags['kb']}" if flags.get("kb") in KB_VALUES else ""
-    media = media_html(ref, media_flags, css_class=f"slide-media{kbcls}", chain=chain)
+    if frames:
+        # stepped images: one stack of frames; camera drift would have to run
+        # on every frame in step, so a stepped screen takes no kb
+        media = step_frames_html(frames, media_flags)
+        if media_flags.get("dim"):
+            try:
+                op = max(0.0, min(1.0, float(media_flags["dim"])))
+            except ValueError:
+                op = 0.0
+            media += DIM_OVERLAY.format(op=f"{op:.2f}")
+        kbcls = ""
+    else:
+        media = media_html(ref, media_flags, css_class=f"slide-media{kbcls}", chain=chain)
     if kbcls and not piece:
         # camera drift: the lens moves over an oversized, already-rasterized
         # picture — the IMAGE is the animated layer (its texture is the
@@ -585,18 +618,29 @@ PAGER_JS = """
   // (the presenter window wants every arrival; the live module owns onChange).
   var listeners = [];
   var stepListeners = [];
-  // `reveal=list` slides: stepAt[i] is how many list items slide i shows.
+  // stepped slides (reveal=list, stepped-image cards): stepAt[i] is slide i's step.
   var stepAt = [];
   totalEl.textContent = String(slides.length);
 
-  // The reveal list on slide i: {start, total}, or null when it has none.
-  // `start` items show on arrival (1 when the list opens the slide, else 0).
+  // The stepping on slide i, or null when it has none.  Two things step, in
+  // lockstep, on one counter k: a stepped-image card's frames (`.step-stack`,
+  // frame min(k, n)) and a `reveal=list` list's items (item count min(k, m)).
+  // `start` is k on arrival: 1 for images alone (frame 1), else the list's own
+  // arrival (1 when it opens the slide, 0 when a title comes first, where frame
+  // 1 is already up and press 1 brings bullet 1).  `total` is the larger count.
   function revealOf(i) {
-    var l = slides[i] && slides[i].querySelector("[data-reveal]");
-    if (!l) return null;
+    var sl = slides[i];
+    if (!sl) return null;
+    var st = sl.querySelector(".step-stack");
+    var l = sl.querySelector("[data-reveal]");
+    if (!st && !l) return null;
+    var imgs = st ? st.querySelectorAll("[data-frame]").length : 0;
+    var items = l ? l.querySelectorAll("li[data-step]").length : 0;
     return {
-      start: parseInt(l.getAttribute("data-reveal"), 10) || 0,
-      total: l.querySelectorAll("li[data-step]").length
+      start: l ? (parseInt(l.getAttribute("data-reveal"), 10) || 0) : 1,
+      total: Math.max(imgs, items),
+      imgs: imgs,
+      items: items
     };
   }
   function getStep(i) {
@@ -611,6 +655,14 @@ PAGER_JS = """
     var lis = slides[i].querySelectorAll("li[data-step]");
     for (var n = 0; n < lis.length; n++) {
       lis[n].classList.toggle("pending", n + 1 > k);
+    }
+    // the frame on top is frame k; the one before it stays up under it, so a
+    // crossfade never dips to the ground
+    var frames = slides[i].querySelectorAll(".step-stack [data-frame]");
+    var f = Math.max(1, Math.min(frames.length, k));
+    for (var j = 0; j < frames.length; j++) {
+      frames[j].classList.toggle("on", j + 1 === f);
+      frames[j].classList.toggle("prior", j + 1 === f - 1);
     }
   }
   function setHash() {
@@ -981,6 +1033,7 @@ PAGER_JS = """
     current: function () { return cur; },
     step: function () { return getStep(cur); },
     steps: function () { var r = revealOf(cur); return r ? r.total : 0; },
+    stepImages: function () { var r = revealOf(cur); return r ? r.imgs : 0; },
     addOnStep: function (fn) {
       if (typeof fn === "function") stepListeners.push(fn);
     },
@@ -1500,6 +1553,7 @@ PRESENTER_JS = r"""
       count: n,
       step: window.animatic.step(),
       steps: window.animatic.steps(),
+      stepImages: window.animatic.stepImages(),
       startedAt: startedAt,
       notes: notesOf(slides[i]),
       nextNotes: i + 1 < n ? notesOf(slides[i + 1]) : null,
@@ -1771,7 +1825,11 @@ PRESENTER_UI_JS = r"""
     if (el.cue) {
       el.cue.textContent = cur
         ? cur.id + (cur.movement_label ? " \u00b7 " + cur.movement_label : "")
-          + (state.steps ? " \u00b7 item " + state.step + " / " + state.steps : "")
+          + (state.steps
+            ? (state.stepImages
+                ? " \u00b7 step " + state.step + " of " + state.steps
+                : " \u00b7 item " + state.step + " / " + state.steps)
+            : "")
         : "";
     }
     if (el.title) el.title.textContent = cueTitle(cur);
@@ -2580,7 +2638,17 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # fit=contain / fit=cover always reach the media; fit=hero is read
         # at slide level (text-fit below) and leaves the media at its default
         under_ref = resolver.resolve(flags["under"]) if flags.get("under") else None
-        inner.append(media_zone_html(ref, dict(flags), chain=mshot.chain, under=under_ref))
+        frames = None
+        if ref.steps and not ref.live:
+            if mshot.cont:
+                # a `continue` screen is the same picture carrying on, so it
+                # opens on the frame the last screen ended on and does not step
+                ref = dataclasses.replace(resolver.resolve(ref.steps[-1]), slug=ref.slug,
+                                          alt=ref.alt)
+            elif "off" not in reveal_modes(flags) and under_ref is None:
+                frames = [resolver.resolve(n) for n in ref.steps]
+        inner.append(media_zone_html(ref, dict(flags), chain=mshot.chain, under=under_ref,
+                                     frames=frames))
 
     if credits_screen:
         # full end-roll: optional title + entries in balanced columns
@@ -2607,7 +2675,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # `reveal=list` (any shot of the screen): the first list's items appear
         # one per next-press.  With nothing on screen before the list, item 1
         # is showing on arrival; with a title first, none are.
-        reveal_list = any(sh.flags.get("reveal") == "list" for sh in screen.shots)
+        reveal_list = any("list" in reveal_modes(sh.flags) for sh in screen.shots)
         if reveal_list and not any(b.kind == "list" and len(b.items) >= 2 for b in blocks):
             print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items on the screen; ignored")
             reveal_list = False
@@ -3090,6 +3158,49 @@ def meta_get(talk: Talk, key: str, default):
     return default if v is None else v
 
 
+def screen_steps(screen: Screen, resolver: MediaResolver) -> MediaRef | None:
+    """The media ref of a screen that steps through images in the present view
+    (a stepped-image card, not `reveal=off`, not a `continue` screen), else None."""
+    shot = screen.media_shot
+    if shot is None or not shot.slug or shot.cont:
+        return None
+    ref = resolver.resolve(shot.slug)
+    if not ref.steps or ref.live or "off" in reveal_modes(shot.flags):
+        return None
+    if shot.flags.get("under"):
+        return None
+    return ref
+
+
+def handout_label(ref: MediaRef) -> str:
+    """How a stepped card's handout image reads in the build summary."""
+    if ref.handout == ref.slug:
+        return "own image"
+    if ref.handout == ref.steps[-1]:
+        return "last"
+    if ref.handout == ref.steps[0]:
+        return "first"
+    return f"step {ref.steps.index(ref.handout) + 1}"
+
+
+def step_count_notes(talk: Talk, resolver: MediaResolver) -> list:
+    """Check 34: a stepped-image card and a `reveal=list` list on one screen
+    advance together, so their counts should match; the shorter one holds at
+    its last item or frame.  [(screen, line, message)]."""
+    notes = []
+    for s in talk.screens:
+        ref = screen_steps(s, resolver)
+        if ref is None or not any("list" in reveal_modes(sh.flags) for sh in s.shots):
+            continue
+        lst = next((b for b in s.blocks if b.kind == "list" and len(b.items) >= 2), None)
+        if lst is not None and len(lst.items) != len(ref.steps):
+            notes.append((s, s.media_shot.line,
+                f"'{ref.slug}' has {len(ref.steps)} image steps and the reveal=list list "
+                f"has {len(lst.items)} items: they advance together, and the shorter one "
+                f"holds on its last until the longer finishes"))
+    return notes
+
+
 def media_ref_dict(ref: MediaRef) -> dict:
     d = {
         "slug": ref.slug,
@@ -3114,6 +3225,10 @@ def media_ref_dict(ref: MediaRef) -> dict:
         d["playback"] = ref.playback
     if ref.sound:
         d["sound"] = True
+    # a stepped-image card names its frames and the image the handout prints
+    if ref.steps:
+        d["steps"] = list(ref.steps)
+        d["handout"] = ref.handout
     return d
 
 

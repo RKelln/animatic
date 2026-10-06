@@ -1,0 +1,117 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "stepped-images-warned",
+  "referenced": [
+    {
+      "slug": "two-lists",
+      "first_cue": "stepped-images-warned-001",
+      "media": {
+        "slug": "two-lists",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/two-lists.png",
+        "source": "cards",
+        "alt": "three frames",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "two-lists"
+      }
+    },
+    {
+      "slug": "one-step",
+      "first_cue": "stepped-images-warned-003",
+      "media": {
+        "slug": "one-step",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/one-step.png",
+        "source": "cards",
+        "alt": "too few steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "video-step",
+      "first_cue": "stepped-images-warned-004",
+      "media": {
+        "slug": "video-step",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/video-step.png",
+        "source": "cards",
+        "alt": "a step is a video",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "missing-step",
+      "first_cue": "stepped-images-warned-005",
+      "media": {
+        "slug": "missing-step",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/missing-step.png",
+        "source": "cards",
+        "alt": "a step with no file",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "bad-handout-name",
+      "first_cue": "stepped-images-warned-006",
+      "media": {
+        "slug": "bad-handout-name",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/bad-handout-name.png",
+        "source": "cards",
+        "alt": "handout names no step",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "bad-handout-range",
+      "first_cue": "stepped-images-warned-007",
+      "media": {
+        "slug": "bad-handout-range",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/bad-handout-range.png",
+        "source": "cards",
+        "alt": "handout out of range",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      }
+    }
+  ],
+  "unreferenced_cards": [
+    "clip"
+  ]
+}

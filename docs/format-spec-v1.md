@@ -249,7 +249,7 @@ Flags are the per-shot knobs. The top-level namespace is fixed:
 | `under` | an image slug | a still backdrop drawn beneath the shot's own media, left sharp and fitted like any slide media (contain by default, `fit=cover` to fill). For a video with a transparent ground (a credits roll, a lower-third loop) that should sit over a picture the deck already has. Backdrop and media share a 16:9 stage, so they stay registered in any window shape. The media takes the share of the stage its pixel size gives it against 1920x1080 (a 1270x880 video is 66% wide, 81% tall; with no ffprobe it takes the whole stage) and sits where `anchor` says. It takes no kb drift; `dim` darkens the backdrop, never the media. Ignored under a framed layout (`piece`, `duo`, `titled`), and the backdrop has to be a still image: both are check 32's warning |
 | `blur` | `0`–`100` | frosts a panel behind the `under` media: a blur radius in pixels over the media's box plus a margin, all edges feathered. With no `under` it has nothing to frost: check 32's warning |
 | `anchor` | `top` / `center` / `bottom` | where an `under` media smaller than the stage sits; `center` by default. A credits roll 200 px shorter than the frame and `anchor=bottom` leaves a title at the top of the picture clear. With no `under` it is check 32's warning |
-| `reveal` | `list` | the screen's first list appears one item per next-press (previous steps back). A list that opens the screen shows item 1 on arrival; with a title or paragraph before it, none show. Hidden items keep their space, so nothing moves. Going back into the slide from the next one lands with every item shown; jumping in lands at the start. The hash carries the step (`#5.3`). **Presentation only:** the document view and the handout PDF show every item. Needs a list of 2+ items; without one, or with another value, it warns and is ignored. More forms (`reveal=image`) may follow |
+| `reveal` | `list` / `off` / `list+off` | `list`: the screen's first list appears one item per next-press (previous steps back). A list that opens the screen shows item 1 on arrival; with a title or paragraph before it, none show. Hidden items keep their space, so nothing moves. Going back into the slide from the next one lands with every item shown; jumping in lands at the start. The hash carries the step (`#5.3`). **Presentation only:** the document view and the handout PDF show every item. Needs a list of 2+ items; without one, or with another value, it warns and is ignored. On a screen whose media is a stepped-image card (a card with `steps:`, see Media, "Stepped images"), the list and the images step together. `off`: this screen's media does not step although its card has `steps:`; it shows the card's handout image alone. `list+off` is both: the list reveals, the images do not (a shot carries one `reveal` value, so the pair is spelled out). On a screen with no stepped card `off` does nothing |
 | `role` | a `roles.yaml` name | the screen's text role (see "Roles") |
 | `layout` | a `layouts.yaml` name | the screen's config-driven layout |
 
@@ -508,6 +508,80 @@ The indirection exists for two reasons:
   still — or an entirely different image — in the PDF. The slides and the
   handout need not carry the same art.
 
+### Stepped images
+
+A card may carry a **`steps:`** list: a diagram built in frames, say, that the
+presenter walks through on one screen. It is declared on the card (a
+`library.yaml` entry may carry it the same way), so any screen whose media slug
+is that card steps, with no shot flag.
+
+```yaml
+- slug: text-to-action
+  type: image
+  steps: [tta-1, tta-2, tta-3, tta-4, tta-5, tta-6]   # image slugs or card slugs, in order; 2 or more
+  handout: last                                        # optional: last | first | <a slug from steps> | a 1-based integer
+```
+
+- **Frames.** Each entry resolves like any media slug (cards, deck media dir,
+  library) and has to be a still image. Each is published with the card. A frame
+  that is itself a stepped card contributes its own image, not its steps.
+- **The one image (document view and handout).** A stepped screen prints
+  exactly one image, never the frames, and shows no stepping control. The rule:
+  `handout:`, when written, names it (`last`, `first`, a slug from `steps`, or
+  a 1-based number). When it is not written, the card's own image (`approved:`,
+  `file:`, `outputs[]` or a deck-dir file) is that image, so a card that has
+  its own summary picture keeps it; a card with no image of its own prints its
+  **last** frame. So `last` is the default for a card with no image of its own,
+  and `handout:` is only needed to override. This one image is what the card
+  resolves to wherever a single image is wanted: the document view, the
+  manifest and `cues.json` `file`, and a `reveal=off` screen.
+- **Present view.** Arriving shows frame 1. Each next-press shows the next frame
+  (a short crossfade with the previous frame held beneath it so nothing dips to
+  the ground; a hard swap under `prefers-reduced-motion`); after the last frame,
+  next goes on to the next slide. Previous steps back; going back into the slide
+  from the next one lands on the **last** frame; jumping in lands on frame 1. The
+  hash carries the step like `reveal=list`: `#5.3` is slide 5, frame 3 (frame 1
+  is just `#5`). The presenter view reads `step N of M` where it reads
+  `item N / M` for a list. A stepped screen takes no `kb` drift, and with `under=`
+  it does not step (it shows the handout image).
+- **`reveal=off`** on the shot turns the stepping off for that screen: it shows
+  the handout image alone. The `still` flag was considered and not reused: it
+  picks a frame of a *video* for the handout, a different job.
+- **With `reveal=list` (lockstep).** When one screen has a stepped card and a
+  `reveal=list` list, one next-press moves both: item N goes with frame N. The
+  steps number the larger of the frame count and the item count; if the counts
+  differ the shorter holds on its last until the longer finishes (it never
+  wraps) and check 34 warns, since it is probably a slip. Arrival: frame 1 shows,
+  and the list keeps its own arrival rule (item 1 if the list opens the screen;
+  none if a title or paragraph comes first). Where the two disagree, press 1 is
+  bullet 1 with frame 1: with a title first, frame 1 is already up on arrival and
+  press 1 only brings bullet 1. The hash is one number for both (`#5.2`). Going
+  back in lands with every item and the last frame. A list **without**
+  `reveal=list` on a stepped screen shows whole while the images step, and nothing
+  warns. `reveal=list` on a screen whose media is not a stepped card is
+  unchanged. `reveal=off` stops only the images.
+- **`continue`.** A `continue` screen is the same picture carrying on, so on a
+  stepped card it opens on the **last** frame and does not step (starting over
+  at frame 1 would look like the diagram being undone). To step the card again,
+  name its slug in a new shot.
+- **Handout.** A repeated figure is still printed once (a `continue`, or the
+  slug just before), as for any media.
+- **Outputs.** The build summary prints a `steps` line for every stepped screen
+  (`steps     : text-to-action: 6 steps (handout: last) [deck-014]`). The
+  card's media object in `cues.json` and the manifest carries `steps` (the frame
+  slugs) and `handout` (the slug of the image the handout prints; the card's own
+  slug when its own image is used), on stepped cards only. A frame counts as
+  referenced by its card in `unreferenced_cards`.
+- **Free-text `steps:`.** Only a YAML list declares stepping. A card whose
+  `steps:` is prose (decks have used it as a free note) is left alone, with no
+  warning.
+- **Check 33** (warning): `steps:` is a list of fewer than 2; a step is not a
+  resolvable still image (it resolves to nothing, or to a video or live capture);
+  `handout:` is not `first`, `last`, a step's slug, or a number from 1 to the
+  step count. The card falls back to a single plain image (its own, or a
+  placeholder). **Check 34** (warning): a stepped screen and its `reveal=list`
+  list have different lengths.
+
 ### Resolution order (frozen)
 
 1. deck `media/cards.yaml` — `approved:`, then `file:`, then `outputs[]`
@@ -612,7 +686,7 @@ screen boundaries).
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written.
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths.
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 
@@ -661,6 +735,8 @@ poster: <path>          # live only: the still the document view prints
 live_group: <name>      # live only: hosts sharing one capture session
 playback: loop | once | pingpong   # video only; default loop
 sound: true | false     # video only; default false (muted)
+steps: [slug, slug, ...]  # image only: frames the present view steps through (Media: Stepped images)
+handout: last | first | <slug> | <n>   # with steps: the frame the handout prints (default: the card's own image, else the last frame)
 alt / credit / licence / brief / prompts.{image,video}
 
 # FREE — never read, never validated

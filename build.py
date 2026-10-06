@@ -37,6 +37,7 @@ from pathlib import Path
 
 import yaml
 
+import render
 import talkparse
 from mediaresolve import MediaResolver
 from render import (cited_sources, render_cues, render_document, render_manifest, render_nav,
@@ -126,9 +127,14 @@ def build(talk_path: Path, args) -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     media_refs = referenced_media(talk, resolver)
+    resolver.validate_steps()
     resolver.publish(out, [r.slug for r in media_refs])
     for _slug, msg in resolver.playback_issues:
         print(f"warn      : check 29: {msg}")
+    for _slug, msg in resolver.steps_issues:
+        print(f"warn      : check 33: {msg}")
+    for scr, _line, msg in render.step_count_notes(talk, resolver):
+        print(f"warn      : check 34: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
 
     cites = talk.meta.get("cites")
     if isinstance(cites, dict):
@@ -169,6 +175,11 @@ def build(talk_path: Path, args) -> int:
     missing = [r for r in media_refs if not r.found]
     print(f"media     : {len(media_refs)} referenced slugs; "
           f"found={len(found)} placeholder={len(missing)}")
+    for scr in talk.screens:
+        sref = render.screen_steps(scr, resolver)
+        if sref is not None:
+            print(f"steps     : {sref.slug}: {len(sref.steps)} steps "
+                  f"(handout: {render.handout_label(sref)}) [{render.deck_slug(talk)}-{scr.idx:03d}]")
     if talk.warnings:
         print("warnings  :")
         for w in talk.warnings:
