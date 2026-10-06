@@ -539,7 +539,8 @@ def main(argv: list[str] | None = None) -> int:
     for p in planned:
         slug, rec = p["slug"], p["rec"]
         alt = falrec.alt_from_expanded(rec) if rec and not _is_embedded(rec) else ""
-        if p["how"] in ("new", "shot") and not (cards_path.read_text().count(f"- slug: {slug}\n")):
+        body = cards_path.read_text() if cards_path.is_file() else ""
+        if p["how"] in ("new", "shot") and not (body.count(f"- slug: {slug}\n")):
             origin = ("matched to its shot in talk.md" if p["how"] == "shot"
                       else "name derived")
             brief = [f"filed by ingest.py {dt.date.today().isoformat()}; {origin} from "
