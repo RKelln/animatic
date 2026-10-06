@@ -20,7 +20,7 @@ EM_DASH = "\u2014"
 COMMENT_SPAN_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 KINDS = ("black", "media", "stat", "lower", "credits", "card")
-TEXT_ENTRY_KINDS = ("heading", "quote", "source", "list", "table", "code", "stat",
+TEXT_ENTRY_KINDS = ("heading", "quote", "source", "list", "table", "code", "timer", "stat",
                     "lower", "credits", "paraphrase")
 
 

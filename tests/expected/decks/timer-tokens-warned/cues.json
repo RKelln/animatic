@@ -1,0 +1,285 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "timer-tokens-warned",
+    "title": "Timer tokens, warned",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "timer-tokens-warned-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Spoken",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Spoken"
+        }
+      ],
+      "script": "Take five minutes and write.",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "timer-tokens-warned-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Bad value",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Bad value"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: soon]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "timer-tokens-warned-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "Zero",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Zero"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 0:00]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "timer-tokens-warned-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "Typo",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Typo"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 8mins]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "timer-tokens-warned-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "card",
+      "title": "Unknown word",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Unknown word"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 8m bottom]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "timer-tokens-warned-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "card",
+      "title": "Two on one screen",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Two on one screen"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 5m]"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 6m]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 300.0,
+      "timer": 300,
+      "timer_in": 1
+    },
+    {
+      "id": "timer-tokens-warned-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "card",
+      "title": "Long",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Long"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 4h]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 14400.0,
+      "timer": 14400,
+      "timer_in": 1
+    },
+    {
+      "id": "timer-tokens-warned-008",
+      "ordinal": 8,
+      "movement": 0,
+      "kind": "card",
+      "title": "Ordinary brackets",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Ordinary brackets"
+        }
+      ],
+      "script": "[Not a timer: just a note] and [Timer] alone are plain text.",
+      "stage": null,
+      "est_seconds": 4.8
+    },
+    {
+      "id": "timer-tokens-warned-009",
+      "ordinal": 9,
+      "movement": 0,
+      "kind": "card",
+      "title": "The old flag is not a flag",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "The old flag is not a flag"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": [
+    "line 15: check 39: a [Timer: ...] token in a spoken paragraph would be read aloud, so it is dropped and starts nothing; put it on its own line, or in a heading, list, quote or stat",
+    "line 19: check 37: '[Timer: soon]' is not a timer: write a duration like 90s, 8m, 1h30m or 5:00 (not zero), then optionally 'corner' — left as text",
+    "line 23: check 37: '[Timer: 0:00]' is not a timer: write a duration like 90s, 8m, 1h30m or 5:00 (not zero), then optionally 'corner' — left as text",
+    "line 27: check 37: '[Timer: 8mins]' is not a timer: write a duration like 90s, 8m, 1h30m or 5:00 (not zero), then optionally 'corner' — left as text",
+    "line 31: check 37: '[Timer: 8m bottom]' is not a timer: write a duration like 90s, 8m, 1h30m or 5:00 (not zero), then optionally 'corner' — left as text",
+    "line 37: check 37: more than one timer on a screen — '[Timer: 6m]' ignored, the first stays",
+    "line 41: check 38: '[Timer: 4h]' is a timer over 3 hours; probably a slip (kept as written)",
+    "line 47: check 25: unknown flag 'timer=5m'; known flags: kb, dim, fit, text, advance, playback, sound, silent, under, blur, anchor, still, reveal, live — token ignored"
+  ]
+}

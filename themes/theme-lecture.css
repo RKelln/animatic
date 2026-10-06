@@ -14,6 +14,7 @@
     --stage-accent: #d8a95c;
     --stage-accent-contrast: #17130b;
     --stage-overlay-bg: rgba(8, 7, 5, 0.55);
+    --stage-alert: #f0884a;                        /* timer at zero / overtime: ember, apart from the brass accent */
     --quote-panel-bg: rgba(16, 13, 9, 0.62);       /* frosted plate behind quotes over media */
     --quote-panel-shadow: 0 22px 70px rgba(0, 0, 0, 0.4);
     --stage-text-glow: 0 2px 26px rgba(0, 0, 0, 0.72), 0 1px 4px rgba(0, 0, 0, 0.5);

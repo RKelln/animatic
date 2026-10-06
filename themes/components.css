@@ -393,6 +393,80 @@
   }
   .animatic-slide .md-table th { font-weight: 600; }
 
+  /* timer (the `[Timer: 8:00]` token in screen text): a countdown that starts
+     when the presenter arrives. Sized in em of the slide (3vh on the stage), so
+     the presenter previews scale it like everything else. Digits sit in
+     fixed-width cells (.d, .c, .sg) so the figures never jiggle whatever the
+     display face's numerals are. Three shapes: .timer-block, a token alone on
+     its line, large digits in the text flow (fit=hero grows them as far as the
+     slide allows); .timer-inline, a token inside a heading, list item, quote or
+     stat, at that text's own size; .timer-corner (`[Timer: 8:00 corner]`), a
+     quiet plate in the lower-right of the frame (the code and quote plates'
+     family) for a screen whose picture must stay uncovered. At 0:00 the digits
+     take the alert colour and count up with a leading + (overtime); paused dims
+     them and says so (inline: dims only). */
+  .timer-plate {
+    box-sizing: border-box;
+    font-family: var(--font-display);
+    color: var(--stage-ink);
+    text-align: center; line-height: 1;
+    text-shadow: none;
+    pointer-events: none;
+  }
+  .timer-digits {
+    display: inline-flex; justify-content: center; align-items: baseline;
+    white-space: nowrap;
+    font-weight: 400;
+    font-variant-numeric: lining-nums tabular-nums;
+    transition: opacity 0.2s ease;
+  }
+  .timer-digits .d { display: inline-block; width: 0.55em; text-align: center; }
+  .timer-digits .c { display: inline-block; width: 0.3em; text-align: center; }
+  .timer-digits .sg { display: inline-block; width: 0.5em; text-align: center; }
+  .timer-state {
+    display: block; min-height: 1.3em; margin-top: 0.15em;
+    font-family: var(--font-ui); font-size: 0.72em; font-weight: 600;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--stage-muted);
+  }
+  .timer-plate.is-zero .timer-digits { color: var(--stage-alert); }
+  .timer-plate.is-zero .timer-state { color: var(--stage-alert); }
+  .timer-plate.is-paused .timer-digits { opacity: 0.4; }
+  .timer-block { margin: 0.2em 0 0; }
+  .timer-block .timer-digits { font-size: 7.4em; }
+  .animatic-slide.text-fit .timer-block .timer-digits { font-size: clamp(7.4em, 26vmin, 14em); }
+  .timer-inline { display: inline-block; }
+  .timer-inline .timer-state { display: none; }
+  .timer-inline .timer-digits { font-size: 1em; }
+  .timer-literal { margin: 0.4em 0 0; font-size: 1em; color: var(--stage-muted); }
+  .animatic-slide.over-media .timer-block .timer-digits,
+  .animatic-slide.over-media .timer-inline .timer-digits { text-shadow: var(--stage-text-glow); }
+  .timer-corner {
+    position: absolute; right: 2.2em; bottom: 2.6em; z-index: 3;
+    padding: 0.35em 0.8em 0.3em;
+    /* mostly opaque stage colour (not the quote plate's thin alpha): the room
+       reads this from the back, over any picture, in either theme */
+    background: color-mix(in srgb, var(--stage-bg) 90%, transparent);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 22%, transparent);
+    border-radius: min(0.6em, 18px);
+    box-shadow: var(--quote-panel-shadow);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+  .timer-corner .timer-digits { font-size: 4.4em; }
+  /* a credits line or paper lower third shares the lower-right corner: lift
+     them clear of the plate */
+  .animatic-slide.timer-has-corner .credits-line,
+  .animatic-slide.timer-has-corner .lower-third { bottom: 15em; }
+  @media (prefers-reduced-motion: no-preference) {
+    .timer-plate.pulse { animation: timer-pulse 1.4s ease-out 1; }
+  }
+  @keyframes timer-pulse {
+    0%   { transform: scale(1); }
+    18%  { transform: scale(1.07); }
+    100% { transform: scale(1); }
+  }
+
   /* lower third — transient attribution / caption over media */
   .lower-third {
     position: absolute; left: 6vw; bottom: 13vh; z-index: 3;
@@ -834,6 +908,23 @@
   }
   .presenter-nav button:hover { color: var(--stage-accent); }
   .presenter-pos { color: var(--stage-muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+  /* the current screen's countdown, beside the clock and step info */
+  .presenter-timer {
+    margin: 0; display: flex; align-items: baseline; gap: 0.8rem;
+    font-size: 0.8rem; color: var(--stage-muted);
+  }
+  .presenter-timer[hidden] { display: none; }
+  .presenter-timer-label { letter-spacing: 0.18em; text-transform: uppercase; }
+  .presenter-timer-digits {
+    font-family: var(--font-display); font-size: 2.4rem; line-height: 1;
+    font-variant-numeric: lining-nums tabular-nums; color: var(--stage-ink);
+    min-width: 5ch;
+  }
+  .presenter-timer.is-paused .presenter-timer-digits { opacity: 0.45; }
+  .presenter-timer.is-zero .presenter-timer-digits,
+  .presenter-timer.is-zero .presenter-timer-state { color: var(--stage-alert); }
+  .presenter-timer-state { letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; min-width: 6em; }
+  .presenter-timer-keys { font-size: 0.72rem; }
   .presenter-cue { margin: 0; color: var(--stage-muted); font-size: 0.8rem; letter-spacing: 0.05em; }
 
   .presenter-panes { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.2rem; min-height: 0; }
@@ -969,6 +1060,9 @@
 
   figure.shot { margin: 1.6em 0; text-align: center; }
   figure.shot img, figure.shot video { max-width: 100%; border-radius: 4px; margin: 0 auto; }
+  /* the timer's one quiet line (the clock itself is present-view only) */
+  .timer-note-inline { font-style: italic; color: var(--doc-muted); }
+  .timer-note { margin: 0.5em 0; color: var(--doc-muted); font-size: 0.85rem; font-style: italic; }
   figure.shot figcaption, .screen-caption {
     color: var(--doc-muted); font-size: 0.85rem; margin-top: 0.5rem;
   }

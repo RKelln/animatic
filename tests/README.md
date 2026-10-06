@@ -66,6 +66,23 @@ One command, one exit code:
     holds the invariants: no fenced text in script or est_seconds, each fence
     once as a `<pre>` in both views, nothing inside became a list, heading or
     comment node.
+  - `timer-tokens` / `timer-tokens-warned` — countdown tokens (spec: Timer screens): a
+    block on its own line (with a spoken paragraph beside it), inline in a heading, a
+    list item, a quote and a stat payload, a `corner` plate over a picture, a
+    `continue` screen that carries no timer, a `fit=hero` block, spellings in any case
+    and spacing (`[ TIMER :90S ]`, `[timer:3M CORNER]`, `[TIMER:   45]`), and a token
+    inside a fence and inside a parenthetical staying inert. The warned deck pins
+    check 39 (a token in a spoken paragraph, dropped from the voice-over), check 37
+    (bad value, zero, a typo, an unknown trailing word, a second timer; all left as
+    literal text) and check 38 (over 3 hours), and that the `timer=` shot flag is an
+    unknown flag. `timer_props` holds the invariants: `cues.json` `timer` is an
+    integer equal to the first valid token, `timer_in` / `timer_corner` agree with the
+    token, no token in `script`, one `.timer-plate` of the right shape per timer cue,
+    no plate or clock in the document view, which prints `<duration> timer`, and
+    `est_seconds` follows the rule (timer seconds with no voice-over, the words' own
+    estimate with it). The countdown itself (start, keep running, pause, reset,
+    overtime, presenter sync) is browser behaviour and was verified in headless
+    Chromium by driving real key presses, not in this suite.
   - `decks/_media/library.yaml` — the shared library home for deck
     fixtures (sibling of each deck dir, per spec §11).
   - `timing-demo` (T15) — the clock end to end: `dur: ~1 min` sits inside the

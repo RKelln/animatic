@@ -28,9 +28,9 @@ coding agent. Edit here, never there.
     python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see README: Handout PDF)
     python3 build.py --corpus                      # every deck under corpus.yaml roots
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
-    python3 check.py --register                    # the canonical 1-36 check register
+    python3 check.py --register                    # the canonical 1-39 check register
     python3 check.py --corpus [ROOT] --strict      # warnings become deck failures
-    python3 tests/run.py                           # golden suite (profiles: 35, passed: 38)
+    python3 tests/run.py                           # golden suite (profiles: 44, passed: 48)
 
 `check.py` exits 0 on a clean deck, 1 on a fatal (or, under `--strict`, a warning),
 2 on usage errors. Corpus mode is read-only: it parses and checks, never writes into

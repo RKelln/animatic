@@ -16,6 +16,7 @@ second.
 | --- | --- |
 | deck | arrows / space / PageUp / PageDown / Home / End to move, `s` presenter window, `n` in-page notes, `d` demo hookup panel, `Escape` closes a panel |
 | presenter window | arrows / space to move the deck, `s` closes the window |
+| timer screens (either window) | `p` pause / resume, `0` reset and run, `+` / `=` add a minute, `-` take a minute off (spec: Timer screens) |
 
 ## Why two windows and not a bigger panel
 
@@ -173,6 +174,17 @@ by `html_props`:
   pane's notes ran long, so the two previews came out different heights and the
   slide inside was squashed. `.preview { flex: 0 0 auto }` is the fix; measure
   the two boxes and they must match.
+
+## The timer readout
+
+A screen with a `[Timer: ...]` token (spec: Timer screens) shows its countdown in the
+presenter header, beside the deck name: large digits, `paused` or `over time`, and the
+keys. The deck owns the timer and pushes `timer: {mode, endAt, left, duration}` in the
+usual state message on every change (arrival, pause, reset, +/- a minute); the presenter
+repaints four times a second from the same wall clock, so the readout stays live between
+pushes. `p`, `0`, `+`, `-` in the presenter window post `animatic-timer` requests to the
+deck, which applies them to the current screen. The preview thumbnails show the plate at
+its full duration: a preview never runs a timer.
 
 ## Limits, stated plainly
 

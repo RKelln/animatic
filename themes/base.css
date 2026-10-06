@@ -13,6 +13,7 @@
     --stage-accent: #d8a95c;
     --stage-accent-contrast: #17130b;   /* readable ink on top of accent */
     --stage-overlay-bg: rgba(0, 0, 0, 0.45);  /* lower-third / chip backing */
+    --stage-alert: #ff9a5a;             /* timer at zero and in overtime */
     --stage-text-glow: 0 2px 24px rgba(0, 0, 0, 0.55);
     /* document view (paper handout + web) */
     --doc-bg: #fff;

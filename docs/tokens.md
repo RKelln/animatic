@@ -35,7 +35,8 @@ reminder, not a theme). Two token groups, one per surface:
   `--stage-accent-contrast`, `--stage-overlay-bg` (chip/lower backing),
   `--quote-panel-bg`, `--quote-panel-shadow` (frosted plate behind quotes
   over media), `--stage-text-glow`, `--stage-dim` (solid scrim tint; the
-  dim=N flag supplies opacity)
+  dim=N flag supplies opacity), `--stage-alert` (a countdown at zero and in
+  overtime: lecture ember `#f0884a`, workshop deep ember `#b23c14`)
 - document (paper): `--doc-bg`, `--doc-ink`, `--doc-muted`, `--doc-accent`,
   `--doc-line`, `--doc-callout-bg`
 - shared type: `--font-display` (headings, stat), `--font-body` (reading),
@@ -52,6 +53,7 @@ No look value lives outside a token or a theme layer.
 | `kb=in/out` | slow single drift (22 s), reduced-motion off | static |
 | `dim=N` | solid `--stage-dim` at opacity N | none |
 | fenced code | `.code-block` `<pre>`: `--font-mono`, left-aligned, a plate from `--quote-panel-bg` + `--quote-panel-shadow` with a hairline edge and an accent rule; shrinks to 75%, `fit=hero` grows it | `pre.code-block`: tinted `--doc-callout-bg` panel, accent rule, wraps |
+| timer token (`[Timer: 8:00]`) | `.timer-plate`: `--font-display` digits in fixed cells (block: large in the flow; inline: at its text's size; `corner`: a plate from `--stage-bg` at 90%, hairline edge, `--quote-panel-shadow`, lower right); `--stage-alert` at zero and overtime | one quiet line, `8 minute timer` (`.timer-note`, `--doc-muted`) |
 | heading card | `.slide-title`, display serif | `.screen-heading` |
 | quote card | centered pull quote with accent rule | bordered blockquote |
 | `stat` | one huge line, accent rule under; overlay-merges onto an unvoiced media shot like lower/credits | `.stat-callout` box |

@@ -44,9 +44,12 @@ from talkparse import (
     Block,
     Screen,
     Talk,
+    TIMER_TOKEN_RE,
     inline_md,
+    parse_timer_token,
     plain_md,
     slugify,
+    strip_timer_tokens,
 )
 from mediaresolve import VIDEO_EXTS, MediaResolver, MediaRef
 
@@ -191,7 +194,10 @@ def screen_script(screen: Screen) -> str:
         if b.kind == "vo" and b.text.strip():
             parts.append(plain_md(b.text))
         elif b.spoken and b.text.strip():
-            parts.append(plain_md(b.text))
+            # a timer token in a spoken payload (a stat) is shown, never read
+            t = strip_timer_tokens(b.text) if b.timer is not None else b.text
+            if t.strip():
+                parts.append(plain_md(t))
     return "\n\n".join(parts)
 
 
@@ -226,11 +232,13 @@ def cue_estimate(screen: Screen, resolver: MediaResolver,
             suffix = Path(ref.file).suffix.lower()
             if ref.type == "video" or suffix in VIDEO_EXTS:
                 video_seconds = timing.probe_video_seconds(ref.origin or ref.file)
+    tm = screen.timer
     return timing.estimate_seconds(
         words, screen_kind(screen),
         video_seconds=video_seconds, wpm=wpm,
         credits_read=is_credits_screen(screen),
-        beat=has_beat_note(screen))
+        beat=has_beat_note(screen),
+        timer_seconds=tm[0] if tm else None)
 
 
 def cited_sources(talk: Talk) -> list[dict]:
@@ -1156,6 +1164,166 @@ PAGER_JS = """
 """
 
 
+TIMER_JS = r"""
+(function () {
+  "use strict";
+  // Countdown timers (`[Timer: 8:00]` in screen text; spec: Timer screens).
+  // A timer starts the first time its slide is shown in THIS window, then runs
+  // on a wall-clock end time (Date.now), never a tick counter, so a throttled
+  // tab or a slow frame cannot drift. It keeps running while the presenter is
+  // on another slide. Nothing is persisted: a reload starts every timer over.
+  // The presenter window gets the state ({mode, endAt, left, duration}) and
+  // does its own arithmetic from the same wall clock.
+  var A = window.animatic;
+  if (!A) return;
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".animatic-slide"));
+  var st = {};            // slide index -> timer state, once started
+  var listeners = [];
+  var MIN = 60000;
+
+  function plateOf(i) {
+    return slides[i] ? slides[i].querySelector(".timer-plate") : null;
+  }
+  function dur(i) {
+    var p = plateOf(i);
+    return p ? (parseInt(p.getAttribute("data-timer"), 10) || 0) * 1000 : 0;
+  }
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+  function fmt(sec) {
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return h ? h + ":" + two(m) + ":" + two(s) : m + ":" + two(s);
+  }
+  // ms left (negative once over); paused and idle states hold their own value
+  function leftOf(t, now) { return t.mode === "running" ? t.endAt - now : t.left; }
+  // what the digits say: whole seconds rounded up while time remains, then
+  // "0:00" for the first second after zero, then "+m:ss" counting up
+  function textOf(rem) {
+    if (rem > 0) return fmt(Math.ceil(rem / 1000));
+    var over = Math.floor(-rem / 1000);
+    return over === 0 ? "0:00" : "+" + fmt(over);
+  }
+  function setDigits(el, text) {
+    if (el.getAttribute("data-text") === text) return;
+    el.setAttribute("data-text", text);
+    el.textContent = "";
+    for (var k = 0; k < text.length; k++) {
+      var c = document.createElement("span");
+      var ch = text.charAt(k);
+      c.className = ch === ":" ? "c" : ch === "+" ? "sg" : "d";
+      c.textContent = ch;
+      el.appendChild(c);
+    }
+  }
+  function paintPlate(p, text, mode, zero) {
+    var d = p.querySelector(".timer-digits");
+    if (d) setDigits(d, text);
+    p.classList.toggle("is-paused", mode === "paused");
+    p.classList.toggle("is-zero", !!zero);
+    var lab = p.querySelector(".timer-state");
+    var want = mode === "paused" ? "paused" : zero ? "over time" : "";
+    if (lab && lab.textContent !== want) lab.textContent = want;
+  }
+  function pulse(p) {
+    p.classList.remove("pulse");
+    void p.offsetWidth;
+    p.classList.add("pulse");
+    p.addEventListener("animationend", function () { p.classList.remove("pulse"); }, { once: true });
+  }
+  function paint(i, now) {
+    var t = st[i], p = plateOf(i);
+    if (!t || !p) return;
+    var rem = leftOf(t, now);
+    paintPlate(p, textOf(rem), t.mode, rem <= 0);
+  }
+  function emit() {
+    for (var k = 0; k < listeners.length; k++) {
+      try { listeners[k](); } catch (err) { /* never break the timer */ }
+    }
+  }
+
+  function arrive(i) {
+    if (!plateOf(i) || st[i]) { paint(i, Date.now()); return; }
+    var d = dur(i);
+    st[i] = { mode: "running", endAt: Date.now() + d, left: d, dur: d, zeroed: false };
+    paint(i, Date.now());
+    emit();
+  }
+
+  // the repaint loop only reads the clock: the time is never counted here
+  function tick() {
+    var now = Date.now(), cur = A.current();
+    for (var key in st) {
+      var t = st[key], rem = leftOf(t, now);
+      if (rem > 0) { t.zeroed = false; }
+      else if (!t.zeroed) {
+        t.zeroed = true;
+        // the soft pulse is for a zero the room can see
+        if (t.mode === "running" && Number(key) === cur && plateOf(cur)) {
+          paint(cur, now); pulse(plateOf(cur));
+        }
+      }
+    }
+    paint(cur, now);
+  }
+
+  function command(cmd) {
+    var i = A.current(), t = st[i];
+    if (!t) return false;
+    var now = Date.now();
+    if (cmd === "pause") {
+      if (t.mode === "running") { t.left = t.endAt - now; t.mode = "paused"; }
+      else { t.endAt = now + t.left; t.mode = "running"; }
+    } else if (cmd === "reset") {
+      t.mode = "running"; t.endAt = now + t.dur; t.left = t.dur; t.zeroed = false;
+    } else if (cmd === "add" || cmd === "sub") {
+      var dlt = cmd === "add" ? MIN : -MIN;
+      if (t.mode === "running") t.endAt += dlt; else t.left += dlt;
+    } else return false;
+    paint(i, now);
+    emit();
+    return true;
+  }
+
+  function state() {
+    var i = A.current(), t = st[i];
+    if (!t) return null;
+    return { mode: t.mode, endAt: t.endAt, left: t.left, duration: t.dur };
+  }
+
+  // A preview (the presenter's clone of a slide) never runs: put its plate
+  // back to the full duration, whatever the deck's own copy says right now.
+  function freshen(root) {
+    var ps = root.querySelectorAll(".timer-plate");
+    for (var k = 0; k < ps.length; k++) {
+      var d = (parseInt(ps[k].getAttribute("data-timer"), 10) || 0);
+      paintPlate(ps[k], fmt(d), "idle", false);
+      ps[k].classList.remove("pulse");
+    }
+  }
+
+  A.timer = {
+    state: state, command: command, freshen: freshen,
+    addOnChange: function (fn) { if (typeof fn === "function") listeners.push(fn); }
+  };
+  A.addOnChange(arrive);
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var cmd = null;
+    switch (e.key) {
+      case "p": case "P": cmd = "pause"; break;
+      case "0": cmd = "reset"; break;
+      case "+": case "=": cmd = "add"; break;
+      case "-": case "_": cmd = "sub"; break;
+    }
+    if (cmd && command(cmd)) e.preventDefault();
+  });
+  window.setInterval(tick, 200);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) tick(); });
+  arrive(A.current());
+})();
+"""
+
+
 LIVE_JS = r"""
 (function () {
   "use strict";
@@ -1552,6 +1720,7 @@ PRESENTER_JS = r"""
     // the presenter shows a plain label instead.
     if (sec.querySelector("[data-live-surface]")) return null;
     var clone = sec.cloneNode(true);
+    if (window.animatic.timer) window.animatic.timer.freshen(clone);
     var notes = clone.querySelector(".notes");
     if (notes && notes.parentNode) notes.parentNode.removeChild(notes);
     clone.classList.add("active");
@@ -1638,7 +1807,8 @@ PRESENTER_JS = r"""
       nextNotes: i + 1 < n ? notesOf(slides[i + 1]) : null,
       preview: previewOf(i),
       nextPreview: previewOf(i + 1),
-      liveCue: liveCueOf(i)
+      liveCue: liveCueOf(i),
+      timer: window.animatic.timer ? window.animatic.timer.state() : null
     };
   }
 
@@ -1710,6 +1880,9 @@ PRESENTER_JS = r"""
     else if (d.type === "animatic-go" && typeof d.index === "number") {
       window.animatic.go(d.index);
     }
+    else if (d.type === "animatic-timer" && window.animatic.timer) {
+      window.animatic.timer.command(d.cmd);
+    }
     else if (d.type === "animatic-live" && d.action === "stop" && d.slug) {
       stopLive(d.slug);
     }
@@ -1723,6 +1896,7 @@ PRESENTER_JS = r"""
   // Every arrival, including the ones the live module drives.
   window.animatic.addOnChange(push);
   window.animatic.addOnStep(push);
+  if (window.animatic.timer) window.animatic.timer.addOnChange(push);
 
   // Read-only surface for the diagnostics dump: whether a presenter window is
   // actually open right now. Nothing here drives the presenter.
@@ -1858,6 +2032,33 @@ PRESENTER_UI_JS = r"""
     }
   }
 
+  // The current screen's countdown (state comes from the deck: mode, end time,
+  // time left, duration). The arithmetic is local, from the same wall clock,
+  // so it stays live between pushes; the deck pushes again on every change.
+  function timerText(rem) {
+    function fmtT(sec) {
+      var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+      return h ? h + ":" + two(m) + ":" + two(s) : m + ":" + two(s);
+    }
+    if (rem > 0) return fmtT(Math.ceil(rem / 1000));
+    var over = Math.floor(-rem / 1000);
+    return over === 0 ? "0:00" : "+" + fmtT(over);
+  }
+  function paintTimer() {
+    var box = document.getElementById("presenter-timer");
+    if (!box) return;
+    var t = state && state.timer;
+    box.hidden = !t;
+    if (!t) return;
+    var rem = t.mode === "running" ? t.endAt - Date.now() : t.left;
+    var digits = document.getElementById("presenter-timer-digits");
+    var lab = document.getElementById("presenter-timer-state");
+    if (digits) digits.textContent = timerText(rem);
+    if (lab) lab.textContent = t.mode === "paused" ? "paused" : rem <= 0 ? "over time" : "";
+    box.classList.toggle("is-paused", t.mode === "paused");
+    box.classList.toggle("is-zero", rem <= 0);
+  }
+
   function fitNotes() {
     // Fit ladder for the pane being read from. The notes are why this window
     // exists, so a scroll mid-sentence is the LAST resort, not the default.
@@ -1918,6 +2119,7 @@ PRESENTER_UI_JS = r"""
     fillNotes(el.notes, state.notes);
     fillNotes(el["next-notes"], state.nextNotes);
     fillLive(state.liveCue);
+    paintTimer();
     fitNotes();
     say("");
   }
@@ -2001,10 +2203,15 @@ PRESENTER_UI_JS = r"""
         window.setTimeout(function () { say(""); }, 1800);
         break;
       case "s": case "S": e.preventDefault(); window.close(); break;
+      case "p": case "P": post({ type: "animatic-timer", cmd: "pause" }); break;
+      case "0": post({ type: "animatic-timer", cmd: "reset" }); break;
+      case "+": case "=": post({ type: "animatic-timer", cmd: "add" }); break;
+      case "-": case "_": post({ type: "animatic-timer", cmd: "sub" }); break;
     }
   });
 
   window.setInterval(tick, 1000);
+  window.setInterval(paintTimer, 250);
   hello();
   tick();
   if (window.opener && !state) say("Waiting for the deck to send its state.");
@@ -2480,6 +2687,10 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
         if s.media_shot and s.media_shot.slug
     )
     live_script = f"<script>\n{LIVE_JS}\n</script>\n" if has_live else ""
+    # the timer module ships only to decks that have a timer, so a deck with
+    # none keeps byte-identical HTML
+    timer_script = (f"<script>\n{TIMER_JS}\n</script>\n"
+                    if any(s.timer is not None for s in talk.screens) else "")
     hookup = (
         '<aside class="hookup-panel" id="hookup-panel" aria-label="demo hookup">\n'
         '<h2 class="hookup-title">Demo hookup</h2>\n'
@@ -2521,7 +2732,7 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 {hookup}<script>
 {PAGER_JS}
 </script>
-<script>
+{timer_script}<script>
 {PRESENTER_JS}
 </script>
 <script>
@@ -2597,6 +2808,10 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 <div class="presenter">
 <header class="presenter-head">
 <p class="presenter-deck">{title}</p>
+<p class="presenter-timer" id="presenter-timer" hidden><span class="presenter-timer-label">timer</span>
+<span class="presenter-timer-digits" id="presenter-timer-digits">0:00</span>
+<span class="presenter-timer-state" id="presenter-timer-state"></span>
+<span class="presenter-timer-keys">p pause &middot; 0 reset &middot; + / - one minute</span></p>
 <p class="presenter-clock"><span id="presenter-wall">--:--:--</span>
 <span class="presenter-elapsed">elapsed <span id="presenter-elapsed">0:00</span></span></p>
 <nav class="presenter-nav" aria-label="deck navigation">
@@ -2655,6 +2870,58 @@ def quote_size_class(text: str) -> str:
     if n >= QUOTE_LONG_MIN or text.count("\n\n") >= 2:
         return " quote-long"
     return ""
+
+
+def timer_clock(seconds: int) -> str:
+    """`m:ss`, or `h:mm:ss` from an hour up (the same rule the pager script uses)."""
+    h, rem = divmod(int(seconds), 3600)
+    m, sec = divmod(rem, 60)
+    return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
+
+
+def timer_digits_html(text: str) -> str:
+    """The digits as fixed-width cells, so the figures never jiggle whatever
+    the display face's numerals are (the pager script builds the same markup)."""
+    cls = {":": "c", "+": "sg"}
+    return "".join(f'<span class="{cls.get(ch, "d")}">{ch}</span>' for ch in text)
+
+
+def timer_plate_html(timer: tuple, shape: str) -> str:
+    """The present view's countdown for a screen's timer (seconds, phrase,
+    corner).  `shape`: `inline` (in a line of text), `block` (a token alone on
+    its line) or `corner` (a plate in the lower-right of the frame).  The pager's
+    timer module (TIMER_JS) animates it; built as it is on arrival, it reads the
+    full duration."""
+    seconds, phrase, _corner = timer
+    tag = "span" if shape == "inline" else "div"
+    return (
+        f'<{tag} class="timer-plate timer-{shape}" role="timer" data-timer="{seconds}" '
+        f'aria-label="{html.escape(phrase)} timer">'
+        f'<span class="timer-digits" aria-hidden="true">{timer_digits_html(timer_clock(seconds))}</span>'
+        f'<span class="timer-state"></span></{tag}>'
+    )
+
+
+def timer_sub(text_html: str, b, mode: str = "present") -> str:
+    """Replace the block's live `[Timer: ...]` token (the first valid one, which
+    the parser accepted) inside already-rendered HTML.  Present view: the
+    countdown in place, or nothing for `corner` (the plate goes to the corner).
+    Document view: the quiet words `8 minute timer`, or nothing for `corner`.
+    Any other token (invalid, a second one) stays literal text."""
+    if b.timer is None:
+        return text_html
+    for m in TIMER_TOKEN_RE.finditer(text_html):
+        got = parse_timer_token(m.group(1))
+        if got is None:
+            continue
+        if got[2]:
+            rep_ = ""
+        elif mode == "present":
+            rep_ = timer_plate_html(b.timer, "inline")
+        else:
+            rep_ = f'<span class="timer-note-inline">{html.escape(b.timer[1])} timer</span>'
+        return text_html[:m.start()] + rep_ + text_html[m.end():]
+    return text_html
 
 
 def list_html(b, reveal: bool = False, start: int = 0) -> str:
@@ -2719,7 +2986,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     sflags = screen.shots[0].flags if screen.shots else {}
     has_body = any(b.kind in ("heading", "stat", "quote", "list", "table")
                    or (b.kind == "code" and b.text.strip())
+                   or (b.kind == "timer" and not (b.timer and b.timer[2]))
                    for b in screen.blocks)
+    tm = screen.timer
 
     inner = []
     if ref is not None:
@@ -2776,7 +3045,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 continue
             if b.kind == "heading":
                 lvl = min(b.level or 2, 3)
-                body.append(f"<h{lvl} class='slide-title'>{inline_md(b.text)}</h{lvl}>")
+                body.append(f"<h{lvl} class='slide-title'>{timer_sub(inline_md(b.text), b)}</h{lvl}>")
             elif b.kind == "quote":
                 # quote + its attribution share one centered block, with the
                 # credit line hugging the block's right edge
@@ -2789,22 +3058,22 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 body.append(
                     f'<div class="quote-block{quote_size_class(b.text)}">'
                     f'<div class="quote-plate" aria-hidden="true"></div>'
-                    f"<blockquote>{quote_paras_html(b.text)}</blockquote>"
+                    f"<blockquote>{timer_sub(quote_paras_html(b.text), b)}</blockquote>"
                     f"{src}</div>"
                 )
             elif b.kind == "list":
                 if reveal_list:
-                    body.append(list_html(b, True, 0 if body else 1))
+                    body.append(timer_sub(list_html(b, True, 0 if body else 1), b))
                     reveal_list = False   # only the first list reveals
                 else:
-                    body.append(list_html(b))
+                    body.append(timer_sub(list_html(b), b))
             elif b.kind == "table":
                 body.append(table_html(b))
             elif b.kind == "code":
                 if b.text.strip():
                     body.append(code_html(b))
             elif b.kind == "stat":
-                body.append(f'<div class="stat">{inline_md(b.text)}</div>')
+                body.append(f'<div class="stat">{timer_sub(inline_md(b.text), b)}</div>')
             elif b.kind == "paraphrase":
                 # Our words, not the source's: no quotation styling. The block
                 # rides alongside the quote above it on the same screen (the
@@ -2812,8 +3081,16 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 if b.text.strip():
                     body.append(
                         f'<div class="paraphrase-block">'
-                        f'<p class="paraphrase-text">{inline_md(b.text)}</p></div>'
+                        f'<p class="paraphrase-text">{timer_sub(inline_md(b.text), b)}</p></div>'
                     )
+            elif b.kind == "timer":
+                # a token alone on its line: the countdown as a block of large
+                # digits in the flow (a `corner` token draws nothing here); an
+                # invalid or second token is left as literal text
+                if b.timer is None:
+                    body.append(f'<p class="timer-literal">{html.escape(b.text)}</p>')
+                elif not b.timer[2]:
+                    body.append(timer_plate_html(b.timer, "block"))
             # lower / credits overlays are positioned (below); credits entries
             # on a credits screen were rendered above.
             i += 1
@@ -2826,6 +3103,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 inner.append(f'<div class="lower-third">{html.escape(b.text)}</div>')
             elif b.kind == "credits" and b.text.strip():
                 inner.append(f'<div class="credits-line">{html.escape(b.text)}</div>')
+
+    if tm is not None and tm[2]:
+        inner.append(timer_plate_html(tm, "corner"))
 
     # speaker notes: VO + stage directions (never on the slide body). The
     # stage-note class is deliberately NOT "stage": `.stage` is the present
@@ -2850,6 +3130,8 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         cls += " text-fit"
     if any(b.kind == "code" and b.text.strip() for b in screen.blocks):
         cls += " has-code"
+    if tm is not None:
+        cls += " has-timer" + (" timer-has-corner" if tm[2] else "")
     layout_name = sflags.get("layout")
     if layout_name == "duo" and screen.media_shot is not None:
         cls += " duo"
@@ -3097,21 +3379,28 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             if b.text.strip() == skip_deck_h1 and screen.movement == 0:
                 continue  # deck title already in the header
             lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
-            out.append(f"<h{lvl} class='screen-heading'>{_cite_links(inline_md(_with_cites(b, cite_no)))}</h{lvl}>")
+            out.append(f"<h{lvl} class='screen-heading'>{timer_sub(_cite_links(inline_md(_with_cites(b, cite_no))), b, 'doc')}</h{lvl}>")
         elif b.kind == "quote":
-            out.append(f"<blockquote>{_cite_links(quote_paras_html(_with_cites(b, cite_no)))}</blockquote>")
+            out.append(f"<blockquote>{timer_sub(_cite_links(quote_paras_html(_with_cites(b, cite_no))), b, 'doc')}</blockquote>")
         elif b.kind == "quote-source":
             out.append(f'<p class="doc-quote-source">{inline_md(b.text)}</p>')
         elif b.kind == "list":
-            out.append(list_html(b))
+            out.append(timer_sub(list_html(b), b, "doc"))
         elif b.kind == "table":
             out.append(table_html(b))
         elif b.kind == "code":
             if b.text.strip():
                 out.append(code_html(b))
+        elif b.kind == "timer":
+            # the clock never prints: one quiet line (a `corner` timer's line
+            # comes last, below the screen's content)
+            if b.timer is None:
+                out.append(f'<p class="vo">{html.escape(b.text)}</p>')
+            elif not b.timer[2]:
+                out.append(f'<p class="timer-note">{html.escape(b.timer[1])} timer</p>')
         elif b.kind == "stat":
             if b.text.strip():
-                out.append(f'<div class="stat-callout"><p>{_cite_links(inline_md(_with_cites(b, cite_no)))}</p></div>')
+                out.append(f'<div class="stat-callout"><p>{timer_sub(_cite_links(inline_md(_with_cites(b, cite_no))), b, "doc")}</p></div>')
         elif b.kind == "paraphrase":
             # Callout-level object in the prose flow (the stat-callout
             # treatment is the model), never a figure: our words beside the
@@ -3119,7 +3408,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             if b.text.strip():
                 out.append(
                     f'<div class="paraphrase-block">'
-                    f'<p class="paraphrase-text">{_cite_links(inline_md(_with_cites(b, cite_no)))}</p></div>'
+                    f'<p class="paraphrase-text">{timer_sub(_cite_links(inline_md(_with_cites(b, cite_no))), b, "doc")}</p></div>'
                 )
         elif b.kind in ("lower", "credits") and not is_credits:
             if b.text.strip():
@@ -3131,6 +3420,9 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             for b in credits_entries_
         )
         out.append(f'<div class="doc-credits">{items}</div>')
+    tm = screen.timer
+    if tm is not None and tm[2]:
+        out.append(f'<p class="timer-note">{html.escape(tm[1])} timer</p>')
     return "".join(out)
 
 
@@ -3160,6 +3452,7 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 
         screen_obj = {"kind": "screen"}
         text = []
+        timer_at = None
         for b in screen.blocks:
             if b.kind == "heading":
                 text.append({"kind": "heading", "level": b.level, "text": b.text})
@@ -3177,9 +3470,11 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             elif b.kind == "table":
                 text.append({"kind": "table", "header": b.header,
                              "rows": [list(r) for r in b.rows]})
-            elif b.kind in ("stat", "lower", "credits", "paraphrase", "code"):
+            elif b.kind in ("stat", "lower", "credits", "paraphrase", "code", "timer"):
                 if b.text.strip():
                     text.append({"kind": b.kind, "text": b.text})
+            if b.timer is not None and text and text[-1]["kind"] == b.kind:
+                timer_at = len(text) - 1
         screen_text = text if text else None
 
         media = None
@@ -3208,6 +3503,11 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             # live-only: shown in the live deck, never in a recorded video or
             # the handout.  A video renderer must skip cues where this is true.
             **({"live_only": True} if screen.live_only else {}),
+            # a countdown (spec: Timer screens): integer seconds, the index of
+            # the `screen_text` entry whose text holds the token, and `corner`
+            **({"timer": screen.timer[0], "timer_in": timer_at,
+                **({"timer_corner": True} if screen.timer[2] else {})}
+               if screen.timer is not None else {}),
         })
 
     movements_out = []

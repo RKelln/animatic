@@ -1,0 +1,24 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "timer-tokens",
+  "referenced": [
+    {
+      "slug": "diagram",
+      "first_cue": "timer-tokens-006",
+      "media": {
+        "slug": "diagram",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/diagram.png",
+        "source": "deckdir",
+        "alt": "a diagram that stays on screen during the break",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      }
+    }
+  ],
+  "unreferenced_cards": []
+}

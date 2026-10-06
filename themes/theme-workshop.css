@@ -15,6 +15,7 @@
     --stage-accent: #7d5f2e;
     --stage-accent-contrast: #f7f2e8;
     --stage-overlay-bg: rgba(247, 242, 232, 0.72);
+    --stage-alert: #b23c14;                        /* timer at zero / overtime: deep ember on paper */
     --quote-panel-bg: rgba(247, 242, 232, 0.55);   /* warm paper plate; blur does the legibility, keep the image visible */
     --quote-panel-shadow: 0 22px 60px rgba(38, 32, 25, 0.2);
     --stage-text-glow: none;

@@ -364,6 +364,120 @@ written:
 
 ````
 <!-- shot: fit=hero -->
+### Timer screens
+
+`[Timer: 8:00]` in screen text puts a **countdown** on the screen. It exists for
+a break while a picture stays up, a group activity, a question window, a short
+paper exercise. The token is written as part of the screen's own text, so it
+appears wherever it sits among the other text; there is no shot flag (`timer=`
+is an unknown flag like any other).
+
+```
+<!-- shot -->
+### Break
+[Timer: 8:00]
+
+<!-- shot -->
+### Back in [Timer: 8:00]
+
+<!-- shot: w02-agent-anatomy -->
+### Break
+[Timer: 8:00 corner]
+```
+
+- **The token.** Square brackets, the keyword `Timer`, a colon, a duration, and
+  optionally the word `corner`. Everything is **case-insensitive and forgiving
+  about spacing**: `[Timer: 8:00]`, `[timer:8:00]`, `[TIMER : 8:00]`, `[ Timer:  8m ]`
+  and `[Timer: 3M CORNER]` all match (one or more spaces before `corner`).
+  Durations: `90s`, `8m`, `1h`, `1h30m`, `1m30s`, `5:00` and `12:30` (mm:ss, the
+  seconds two digits under 60), and a bare integer (seconds); units in either case.
+  Zero is not a duration.
+- **Where it works.** In screen text: alone on its line (a **block**), or inline in
+  a heading, a list item, a quote, or a `stat` / `paraphrase` payload. Elsewhere
+  (table cells, a quote's attribution, `lower` / `credits` lines) it is plain text.
+  **At most one timer per screen**: the first valid token is the timer.
+- **Where it does not.** In a **plain paragraph** (voice-over) the token would be
+  read aloud, so it is dropped from the voice-over, starts nothing, and warns
+  (check 39). Inside a **fenced code block** it stays literal text. Inside a
+  **parenthetical** `( ... )` it stays inert stage-note text: parentheticals never
+  have behaviour (see "Directions"), and this is not an exception. A bracketed
+  phrase that does not start with `timer:` is ordinary text. A `continue` screen
+  does not inherit a timer (text never carries); write a new token on it for a new
+  countdown, which starts when that screen is shown.
+- **Anything that starts `[Timer:` and does not parse** (a typo in the duration, zero,
+  an unknown trailing word) warns (check 37) and is **left as literal text** on the
+  screen, so the mistake is visible. A second timer on one screen warns (check 37),
+  is ignored and stays literal. Over 3 hours warns (check 38) and is kept.
+
+**Present view.** The digits replace the token in place, in the text flow, in the
+theme's display face with fixed-width cells (so they never jiggle): `m:ss`, or
+`h:mm:ss` from an hour.
+
+- A token **alone on its line** is a block: large digits (7.4em of the slide's
+  text, about 16% of the frame height at 1080p) centred like other screen text;
+  with `fit=hero` they grow with the slide (up to 14em).
+- A token **inside** a heading, list item, quote or stat is inline, at that text's
+  own size.
+- With the word **`corner`** the token is not in the flow: the countdown is a plate
+  in the lower-right of the frame (4.4em digits, a mostly opaque plate in the stage
+  colour with a hairline edge), for a screen whose picture must stay uncovered.
+  The token's own text is removed from the flow. A credits line or a paper-theme
+  lower third on the same screen is lifted clear of the plate.
+- Lecture uses the dark stage tokens, workshop the paper tokens. The one new token
+  is `--stage-alert` (see docs/tokens.md).
+
+**Run rules.**
+
+- **Start.** The countdown starts the first time the screen is shown in the present
+  view (next, previous, a jump, a button, or arriving from the hash). It runs on a
+  wall-clock end time (`Date.now`), never a tick count, so a throttled tab or a slow
+  frame cannot drift. It **keeps running** while the presenter is on another screen,
+  so coming back shows the true remaining time. State is **not persisted**: reloading
+  the page restarts every timer. Presenter-view previews and the document view never
+  start or run a timer (a preview shows the full duration).
+- **End.** At 0:00 the digits take the alert colour and a one-second `0:00` shows;
+  then it **counts up with a leading `+`** (`+0:42`) and the label reads `over time`.
+  One soft pulse at zero (a one-shot animation, none under `prefers-reduced-motion`).
+  No sound. The slide never advances by itself.
+- **Controls** (deck window, and the presenter window sends the same commands; they
+  act on the current screen's timer and do nothing on a screen without one):
+
+  | Key | Does |
+  |---|---|
+  | `p` | pause / resume (paused: digits dim and the label reads `paused`; inline timers only dim) |
+  | `0` | reset to the full duration and **run** (a reset restarts it, from paused or from overtime) |
+  | `+` or `=` | add one minute |
+  | `-` | take one minute off (may put it into overtime) |
+
+  The pager's keys (`n`, `s`, `r`, `d`, `i`, `m`, arrows, space, Home, End, PageUp,
+  PageDown, Escape) are untouched.
+- **Presenter view.** The header shows the current screen's countdown (large digits,
+  `paused` / `over time`) and the keys. The deck pushes `{mode, endAt, left,
+  duration}` on every change and the presenter counts from the same wall clock, so it
+  stays live; it reuses the existing postMessage channel and adds one request type,
+  `animatic-timer`, from the presenter to the deck.
+
+**Document view and handout.** No clock. A token alone on its line (or a `corner`
+one, below the screen's content) prints one quiet line, `<duration> timer`; an inline
+token prints inline as the same words (`Back in 8 minute timer`). The words use the
+duration as written, singular: `8 minute`, `90 second`, `1 hour 30 minute`, `5:00` is
+`5 minute`, `12:30` is `12 minute 30 second`.
+
+**`cues.json`.** A screen with a timer carries `timer` (integer seconds), `timer_in`
+(the index of the `screen_text` entry whose text holds the token) and, with `corner`,
+`timer_corner: true`. A block token is a `screen_text` entry `{"kind": "timer", "text":
+"[Timer: 8:00]"}`. The media manifest is unaffected. The token stays in `screen_text`
+as written; it is never in `script`.
+
+**Timing.** A screen with a timer and **no voice-over** has `est_seconds` equal to the
+timer's seconds (a video's real duration still floors it). A screen **with** voice-over
+keeps the word-count estimate; the timer adds nothing, so nothing is counted twice.
+(For a stat whose payload is only the token, the token is not spoken, so the screen
+has no voice-over.)
+
+**Checks.** 37 (a token that is not a timer, or a second one), 38 (over 3 hours),
+39 (a token in a spoken paragraph).
+
 ### SOUL.md
 ```text
 You are a thoughtful, creative collaborator.
@@ -561,7 +675,9 @@ A prefix is an authorial convention, never behaviour:
 | `(Note: …)` | note-to-self about the argument |
 
 Recognising a prefix never changes what happens to the parenthetical — it
-still strips and still travels.
+still strips and still travels. The same holds for anything written inside one: a
+`[Timer: 8:00]` token inside a parenthetical is stage-note text and starts nothing
+(see "Timer screens").
 
 ### Receipts
 
@@ -775,7 +891,7 @@ screen boundaries).
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36).
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39).
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 

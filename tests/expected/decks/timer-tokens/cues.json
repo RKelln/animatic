@@ -1,0 +1,362 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "timer-tokens",
+    "title": "Timer tokens",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "lecture",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "timer-tokens-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Break",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Break"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 8:00]"
+        }
+      ],
+      "script": "A spoken sentence that stays voice-over while the break runs.",
+      "stage": null,
+      "est_seconds": 4.0,
+      "timer": 480,
+      "timer_in": 1
+    },
+    {
+      "id": "timer-tokens-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Back in [ TIMER :90S ]",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Back in [ TIMER :90S ]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 90.0,
+      "timer": 90,
+      "timer_in": 0
+    },
+    {
+      "id": "timer-tokens-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "list",
+          "items": [
+            "Write for [timer: 5m]",
+            "Then share"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 300.0,
+      "timer": 300,
+      "timer_in": 0
+    },
+    {
+      "id": "timer-tokens-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "Stop when the bell rings [TIMER:1h30m]."
+        },
+        {
+          "kind": "source",
+          "text": "A teacher"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 5400.0,
+      "timer": 5400,
+      "timer_in": 0
+    },
+    {
+      "id": "timer-tokens-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "stat",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "stat",
+          "flags": {
+            "role": "stat"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "stat",
+          "text": "[Timer: 12:30]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 750.0,
+      "timer": 750,
+      "timer_in": 0
+    },
+    {
+      "id": "timer-tokens-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "media",
+      "title": "Break, with the picture clear",
+      "shots": [
+        {
+          "slug": "diagram",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "diagram",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/diagram.png",
+        "source": "deckdir",
+        "alt": "a diagram that stays on screen during the break",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Break, with the picture clear"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 8m corner]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 480.0,
+      "timer": 480,
+      "timer_in": 1,
+      "timer_corner": true
+    },
+    {
+      "id": "timer-tokens-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "media",
+      "title": "Same picture, no timer carried",
+      "shots": [
+        {
+          "slug": "diagram",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "diagram",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/diagram.png",
+        "source": "deckdir",
+        "alt": "a diagram that stays on screen during the break",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Same picture, no timer carried"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "timer-tokens-008",
+      "ordinal": 8,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "timer",
+          "text": "[ Timer: 2:00 ]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 120.0,
+      "timer": 120,
+      "timer_in": 0
+    },
+    {
+      "id": "timer-tokens-009",
+      "ordinal": 9,
+      "movement": 0,
+      "kind": "card",
+      "title": "Spellings",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Spellings"
+        },
+        {
+          "kind": "timer",
+          "text": "[TIMER: 45]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 45.0,
+      "timer": 45,
+      "timer_in": 1
+    },
+    {
+      "id": "timer-tokens-010",
+      "ordinal": 10,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "timer",
+          "text": "[timer:3M CORNER]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 180.0,
+      "timer": 180,
+      "timer_in": 0,
+      "timer_corner": true
+    },
+    {
+      "id": "timer-tokens-011",
+      "ordinal": 11,
+      "movement": 0,
+      "kind": "card",
+      "title": "Inert places",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Inert places"
+        },
+        {
+          "kind": "code",
+          "text": "[Timer: 5:00]"
+        }
+      ],
+      "script": "",
+      "stage": [
+        "Stage note: start the [Timer: 5:00] when they sit."
+      ],
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": []
+}

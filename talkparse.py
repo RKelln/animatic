@@ -111,6 +111,70 @@ def parse_still(spec) -> Optional[tuple]:
         return ("frac", pct / 100.0) if pct <= 100 else None
     return ("sec", float(spec.rstrip("s")))
 
+# `[Timer: 8:00]` in screen text: a countdown that starts when the presenter
+# arrives at the screen (spec: Timer screens).  Durations: a bare integer
+# (seconds), `90s`, `8m`, `1h`, `1h30m`, `1m30s`, `mm:ss` (`5:00`, `12:30`),
+# any case.  An optional trailing word `corner` (any case) puts the plate in the
+# lower-right corner instead of the text flow.
+TIMER_UNITS_RE = re.compile(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?")
+TIMER_CLOCK_RE = re.compile(r"(\d+):([0-5]\d)")
+TIMER_MAX_SECONDS = 3 * 3600
+# Anything bracketed that starts with `timer` and a colon is meant as a timer;
+# whether it parses is decided by parse_timer_token.  Other bracketed text is
+# ordinary text.
+TIMER_TOKEN_RE = re.compile(r"\[\s*timer\s*:([^\]]*)\]", re.IGNORECASE)
+
+
+def parse_timer(spec) -> Optional[tuple]:
+    """(seconds, phrase) for a valid, non-zero duration, else None.
+
+    `phrase` is the duration as the author wrote it, in words and singular
+    (`8 minute`, `90 second`, `1 hour 30 minute`), for the document view.
+    Zero (`0`, `0m`, `0:00`) is invalid.
+    """
+    spec = str(spec).strip().lower()
+    parts = None          # [(count, unit)] in the order written
+    if re.fullmatch(r"\d+", spec):
+        parts = [(int(spec), "second")]
+    elif TIMER_CLOCK_RE.fullmatch(spec):
+        mm, ss = TIMER_CLOCK_RE.fullmatch(spec).groups()
+        parts = [(int(mm), "minute"), (int(ss), "second")]
+    else:
+        m = TIMER_UNITS_RE.fullmatch(spec)
+        if m and spec:
+            parts = [(int(v), u) for v, u in zip(m.groups(), ("hour", "minute", "second"))
+                     if v is not None]
+    if not parts:
+        return None
+    unit_s = {"hour": 3600, "minute": 60, "second": 1}
+    seconds = sum(n * unit_s[u] for n, u in parts)
+    if seconds <= 0:
+        return None
+    phrase = " ".join(f"{n} {u}" for n, u in parts if n > 0)
+    return seconds, phrase
+
+
+def parse_timer_token(inner: str) -> Optional[tuple]:
+    """(seconds, phrase, corner) for the inside of a `[Timer: ...]` token (what
+    follows the colon), or None when it is not a valid timer."""
+    words = inner.split()
+    if not words or len(words) > 2:
+        return None
+    parsed = parse_timer(words[0])
+    if parsed is None:
+        return None
+    if len(words) == 2 and words[1].lower() != "corner":
+        return None
+    return parsed[0], parsed[1], len(words) == 2
+
+
+def strip_timer_tokens(text: str) -> str:
+    """The text with every `[Timer: ...]` token removed and the gap closed."""
+    out = TIMER_TOKEN_RE.sub(" ", text)
+    out = re.sub(r"[ \t]+", " ", out).strip()
+    return re.sub(r"\s+([.,;:!?])", r"\1", out)
+
+
 FIT_VALUES = ("cover", "contain", "hero")
 # `playback=` on a shot overrides the card's `playback:` for that screen.
 # `advance` is stored as the `advance` flag; `pingpong` is card-only (a baked
@@ -343,6 +407,10 @@ class Block:
                                   # multi-line quote / list occupies every line
                                   # in between, so the screen's range must too
     refs: list = field(default_factory=list)    # handout only: (source id, the text just before the `[^id]`)
+    # The screen's one live timer lives in this block: (seconds, phrase, corner).
+    # kind "timer" is a token alone on its line; in a heading, list item, quote
+    # or stat/paraphrase payload the token sits inside the text.
+    timer: Optional[tuple] = None
 
 
 @dataclass
@@ -380,6 +448,18 @@ class Screen:
         / handout leaves it out and cues.json marks it, so a video render
         skips it."""
         return any("live" in s.flags for s in self.shots)
+
+    @property
+    def timer_block(self) -> Optional["Block"]:
+        """The block that hosts the screen's `[Timer: ...]` token, if any."""
+        return next((b for b in self.blocks if b.timer is not None), None)
+
+    @property
+    def timer(self) -> Optional[tuple]:
+        """(seconds, phrase, corner) of the screen's timer, or None.  A
+        `continue` screen starts clean: text never carries, so a timer does not."""
+        b = self.timer_block
+        return b.timer if b is not None else None
 
     @property
     def media_shot(self) -> Optional[Shot]:
@@ -1322,6 +1402,30 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             cur.blocks[0:0] = pending_handout
             pending_handout = []
 
+    def scan_timer(block: Block, text: str, line: int) -> None:
+        """Look for a `[Timer: ...]` token in screen text.  The first valid
+        token on a screen becomes its live timer (`block.timer`); an invalid
+        one, or a second, warns and stays as literal text so the mistake shows."""
+        for m in TIMER_TOKEN_RE.finditer(text):
+            tok = m.group(0)
+            got = parse_timer_token(m.group(1))
+            if got is None:
+                talk.warnings.append(
+                    f"line {line}: check 37: {tok!r} is not a timer: write a duration "
+                    f"like 90s, 8m, 1h30m or 5:00 (not zero), then optionally "
+                    f"'corner' — left as text")
+                continue
+            if cur is not None and cur.timer_block is not None or block.timer is not None:
+                talk.warnings.append(
+                    f"line {line}: check 37: more than one timer on a screen — "
+                    f"{tok!r} ignored, the first stays")
+                continue
+            if got[0] > TIMER_MAX_SECONDS:
+                talk.warnings.append(
+                    f"line {line}: check 38: {tok!r} is a timer over 3 hours; "
+                    f"probably a slip (kept as written)")
+            block.timer = got
+
     for i_rb, rb in enumerate(raw_blocks):
         kind = rb["kind"]
 
@@ -1468,13 +1572,13 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             if pending_role is not None and rb["level"] == 2:
                 pass  # handled above; defensive
             hmarks: list = []
-            cur.blocks.append(
-                Block(kind="heading", refs=hmarks,
-                      text=strip_footnote_refs(rb["text"], talk.footnote_ids, hmarks),
-                      level=rb["level"],
-                      line=rb.get("line", 0),
-                      line_end=rb.get("line_end", 0) or rb.get("line", 0))
-            )
+            hb = Block(kind="heading", refs=hmarks,
+                       text=strip_footnote_refs(rb["text"], talk.footnote_ids, hmarks),
+                       level=rb["level"],
+                       line=rb.get("line", 0),
+                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
+            scan_timer(hb, hb.text, hb.line)
+            cur.blocks.append(hb)
             continue
 
         if kind == "code":
@@ -1498,12 +1602,12 @@ def assemble(meta: dict, raw_blocks: list, source: str,
 
         if kind == "quote":
             qmarks: list = []
-            cur.blocks.append(
-                Block(kind="quote", refs=qmarks,
-                      text=strip_footnote_refs(rb["text"], talk.footnote_ids, qmarks),
-                      line=rb.get("line", 0),
-                      line_end=rb.get("line_end", 0) or rb.get("line", 0))
-            )
+            qb = Block(kind="quote", refs=qmarks,
+                       text=strip_footnote_refs(rb["text"], talk.footnote_ids, qmarks),
+                       line=rb.get("line", 0),
+                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
+            scan_timer(qb, qb.text, qb.line)
+            cur.blocks.append(qb)
             continue
 
         if kind == "list":
@@ -1527,15 +1631,15 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                     )
                 pending_role = None
                 continue
-            cur.blocks.append(
-                Block(kind="list",
-                      items=[strip_footnote_refs(i, talk.footnote_ids)
-                             for i in rb["items"]],
-                      ordered=rb.get("ordered", False),
-                      depths=(rb["depths"] if any(rb.get("depths", ())) else []),
-                      line=rb.get("line", 0),
-                      line_end=rb.get("line_end", 0) or rb.get("line", 0))
-            )
+            lb = Block(kind="list",
+                       items=[strip_footnote_refs(i, talk.footnote_ids)
+                              for i in rb["items"]],
+                       ordered=rb.get("ordered", False),
+                       depths=(rb["depths"] if any(rb.get("depths", ())) else []),
+                       line=rb.get("line", 0),
+                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
+            scan_timer(lb, "\n".join(lb.items), lb.line)
+            cur.blocks.append(lb)
             continue
 
         if kind == "table":
@@ -1606,11 +1710,24 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                     f"'~ ' on its own paragraph directly under a quote "
                     f"(spec: Text)"
                 )
-            cur.blocks.append(
-                Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0),
-                      line_end=rb.get("line_end", 0) or rb.get("line", 0),
-                      spoken=is_spoken, refs=pmarks)
-            )
+            pb = Block(kind=bkind, text=spoken, stage=stage, line=rb.get("line", 0),
+                       line_end=rb.get("line_end", 0) or rb.get("line", 0),
+                       spoken=is_spoken, refs=pmarks)
+            if bkind == "vo" and TIMER_TOKEN_RE.search(spoken):
+                if TIMER_TOKEN_RE.fullmatch(spoken):
+                    # a token alone on its line is a timer block, not speech
+                    pb.kind, pb.text, pb.spoken = "timer", spoken, False
+                    scan_timer(pb, spoken, pb.line)
+                else:
+                    talk.warnings.append(
+                        f"line {pb.line}: check 39: a [Timer: ...] token in a spoken "
+                        f"paragraph would be read aloud, so it is dropped and starts "
+                        f"nothing; put it on its own line, or in a heading, list, "
+                        f"quote or stat")
+                    pb.text = strip_timer_tokens(spoken)
+            elif bkind in ("stat", "paraphrase"):
+                scan_timer(pb, spoken, pb.line)
+            cur.blocks.append(pb)
             continue
 
         talk.warnings.append(f"line {rb.get('line', 0)}: unhandled block kind {kind}")

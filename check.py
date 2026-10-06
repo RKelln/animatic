@@ -155,6 +155,9 @@ REGISTER = [
     (34, "a stepped-image card and a `reveal=list` list of different lengths on one screen (they advance together; the shorter holds)", WARNING, "implemented"),
     (35, "a fenced block (```) that never closes: it ends at the end of its screen", WARNING, "enforced: talkparse.py"),
     (36, "an empty fenced block (nothing to show)", WARNING, "enforced: talkparse.py"),
+    (37, "a `[Timer: ...]` token that is not a timer (bad or zero duration, unknown trailing word) or a second timer on one screen; it stays as literal text", WARNING, "enforced: talkparse.py"),
+    (38, "a `[Timer: ...]` over 3 hours (sanity; the timer is kept)", WARNING, "enforced: talkparse.py"),
+    (39, "a `[Timer: ...]` token in a spoken paragraph: dropped from the voice-over, starts nothing", WARNING, "enforced: talkparse.py"),
 ]
 
 DEFERRED = {

@@ -78,7 +78,8 @@ def check(fx, errors: list) -> None:
                         err(errors, f"cue {c['id']}: fenced line became a list item: {it[:50]!r}")
         # the clock: media-free cards with no stage notes are timed by the
         # script alone, so fenced words never add to the estimate
-        if c.get("media") is None and not c.get("stage") and c["kind"] in ("card", "stat"):
+        if (c.get("media") is None and not c.get("stage") and c["kind"] in ("card", "stat")
+                and "timer" not in c):   # a timer screen's clock is timer_props' rule
             want_s = round(timing.estimate_seconds(
                 timing.word_count(script), c["kind"]), 3)
             if abs(c["est_seconds"] - want_s) > 5e-4:
