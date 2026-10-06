@@ -763,6 +763,34 @@ PAGER_JS = """
   // data-fit="floor" (with a console warning) for the author to shorten. A
   // slide that fits is never touched. Hero text (text-fit) sizes itself.
   var FIT_FLOOR = 0.75, FIT_STEP = 0.02;
+  // A fenced block (.code-block) is never cut: a line wider than the slide
+  // counts as overflow too. At the floor, a block that is still too wide
+  // wraps its long lines (.wrap) instead of running off the slide.
+  function codeBlocks(sl) { return sl.querySelectorAll(".code-block"); }
+  // The natural width (padding included) is measured with the width limits
+  // lifted, then compared with the room the slide body leaves it.
+  function codeWide(sl) {
+    var c = codeBlocks(sl);
+    for (var k = 0; k < c.length; k++) {
+      var pre = c[k];
+      if (pre.classList.contains("wrap")) continue;
+      var w0 = pre.style.width, m0 = pre.style.maxWidth;
+      pre.style.width = "max-content"; pre.style.maxWidth = "none";
+      var natural = pre.getBoundingClientRect().width;
+      pre.style.width = w0; pre.style.maxWidth = m0;
+      var host = getComputedStyle(pre.parentNode);
+      var room = pre.parentNode.clientWidth - parseFloat(host.paddingLeft) - parseFloat(host.paddingRight);
+      if (natural > room + 1) return true;
+    }
+    return false;
+  }
+  function overflows(sl, body) {
+    return body.scrollHeight > body.clientHeight + 1 || codeWide(sl);
+  }
+  function wrapCode(sl) {
+    var c = codeBlocks(sl);
+    for (var k = 0; k < c.length; k++) c[k].classList.add("wrap");
+  }
   function fitBodies() {
     for (var i = 0; i < slides.length; i++) {
       var sl = slides[i];
@@ -770,13 +798,16 @@ PAGER_JS = """
       if (!body || sl.classList.contains("text-fit")) continue;
       body.style.fontSize = "";
       sl.removeAttribute("data-fit");
-      if (body.scrollHeight <= body.clientHeight + 1) continue;
+      var cb = codeBlocks(sl);
+      for (var k = 0; k < cb.length; k++) cb[k].classList.remove("wrap");
+      if (!overflows(sl, body)) continue;
       var scale = 1;
-      while (body.scrollHeight > body.clientHeight + 1 && scale > FIT_FLOOR + 1e-6) {
+      while (overflows(sl, body) && scale > FIT_FLOOR + 1e-6) {
         scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
         body.style.fontSize = scale.toFixed(2) + "em";
       }
-      if (body.scrollHeight > body.clientHeight + 1) {
+      if (overflows(sl, body) && cb.length) wrapCode(sl);
+      if (overflows(sl, body)) {
         sl.setAttribute("data-fit", "floor");
         if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
       } else {
@@ -784,7 +815,55 @@ PAGER_JS = """
       }
     }
   }
-  function fitAll() { fitQuotes(); fitBodies(); }
+  // fit=hero with a fenced block: the block takes the biggest size at which
+  // the whole slide still fits, between the 75% floor and 300% of its normal
+  // size. The title sizes itself (hero text), and only the block scales. Below
+  // the floor its long lines wrap; a slide still too tall there is marked
+  // data-fit="floor", as above.
+  var HERO_CODE_MAX = 3;
+  function fitHeroCode() {
+    for (var i = 0; i < slides.length; i++) {
+      var sl = slides[i];
+      var body = sl.querySelector(".screen-body");
+      var pre = body && sl.classList.contains("text-fit") && body.querySelector(".code-block");
+      if (!pre) continue;
+      pre.style.fontSize = "";
+      pre.classList.remove("wrap");
+      sl.removeAttribute("data-fit");
+      var base = parseFloat(getComputedStyle(pre).fontSize);
+      var parent = parseFloat(getComputedStyle(pre.parentNode).fontSize) || 1;
+      var set = function (sc) { pre.style.fontSize = (base * sc / parent).toFixed(3) + "em"; };
+      var fits = function () { return !overflows(sl, body); };
+      var scale = 1;
+      if (fits()) {
+        var lo = 1, hi = HERO_CODE_MAX;
+        set(hi);
+        if (fits()) { lo = hi; }
+        else {
+          for (var n = 0; n < 12; n++) {
+            var mid = (lo + hi) / 2;
+            set(mid);
+            if (fits()) lo = mid; else hi = mid;
+          }
+        }
+        scale = lo;
+        set(scale);
+      } else {
+        while (!fits() && scale > FIT_FLOOR + 1e-6) {
+          scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
+          set(scale);
+        }
+        if (!fits()) wrapCode(sl);
+        if (!fits()) {
+          sl.setAttribute("data-fit", "floor");
+          if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
+          continue;
+        }
+      }
+      sl.setAttribute("data-fit", scale.toFixed(2));
+    }
+  }
+  function fitAll() { fitQuotes(); fitBodies(); fitHeroCode(); }
   fitAll();
   window.addEventListener("resize", fitAll);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
@@ -2619,6 +2698,14 @@ def table_html(b) -> str:
     return f'<table class="md-table">{head}<tbody>{body}</tbody></table>'
 
 
+def code_html(b) -> str:
+    """A fenced block (spec: Text, fenced code): the lines exactly as written,
+    HTML-escaped, in a <pre>.  No markdown, no inline code, no cites.  A
+    newline straight after <pre> is dropped by the HTML parser, so one is
+    written first: a block whose first line is blank keeps it."""
+    return f'<pre class="code-block">\n{html.escape(b.text, quote=False)}</pre>'
+
+
 def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                      first: str = "") -> str:
     mshot = screen.media_shot
@@ -2631,6 +2718,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     # slide-level flags come from the screen's first shot (`fit` hero cards)
     sflags = screen.shots[0].flags if screen.shots else {}
     has_body = any(b.kind in ("heading", "stat", "quote", "list", "table")
+                   or (b.kind == "code" and b.text.strip())
                    for b in screen.blocks)
 
     inner = []
@@ -2712,6 +2800,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                     body.append(list_html(b))
             elif b.kind == "table":
                 body.append(table_html(b))
+            elif b.kind == "code":
+                if b.text.strip():
+                    body.append(code_html(b))
             elif b.kind == "stat":
                 body.append(f'<div class="stat">{inline_md(b.text)}</div>')
             elif b.kind == "paraphrase":
@@ -2757,6 +2848,8 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # before 2026-09-28 any fit on a screen with a heading also turned on
         # hero text and dropped the contain (bots-traffic, mania-vs-ai)
         cls += " text-fit"
+    if any(b.kind == "code" and b.text.strip() for b in screen.blocks):
+        cls += " has-code"
     layout_name = sflags.get("layout")
     if layout_name == "duo" and screen.media_shot is not None:
         cls += " duo"
@@ -3013,6 +3106,9 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             out.append(list_html(b))
         elif b.kind == "table":
             out.append(table_html(b))
+        elif b.kind == "code":
+            if b.text.strip():
+                out.append(code_html(b))
         elif b.kind == "stat":
             if b.text.strip():
                 out.append(f'<div class="stat-callout"><p>{_cite_links(inline_md(_with_cites(b, cite_no)))}</p></div>')
@@ -3081,7 +3177,7 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             elif b.kind == "table":
                 text.append({"kind": "table", "header": b.header,
                              "rows": [list(r) for r in b.rows]})
-            elif b.kind in ("stat", "lower", "credits", "paraphrase"):
+            elif b.kind in ("stat", "lower", "credits", "paraphrase", "code"):
                 if b.text.strip():
                     text.append({"kind": b.kind, "text": b.text})
         screen_text = text if text else None

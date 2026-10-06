@@ -31,6 +31,7 @@
     --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
     --font-body: Georgia, 'Times New Roman', serif;
     --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace;   /* fenced code */
     --piece-border: rgba(38, 32, 25, 0.25);
     --piece-shadow: 0 24px 70px rgba(38, 32, 25, 0.35);
   }
@@ -96,6 +97,20 @@
     max-width: 92%;
     color: var(--stage-ink);
     text-shadow: none;
+  }
+
+  /* fenced code (daylight room): a paper plate with a hairline edge and an
+     olive-clay rule, ink on paper, no glow. Left-aligned inside a centred body. */
+  .animatic-slide .code-block {
+    border-left: 4px solid var(--stage-accent);
+    color: var(--stage-ink);
+    text-shadow: none;
+  }
+  /* fit=hero with a fenced block: the block is the hero, so the title steps
+     down to a heading size and leaves the slide to the text */
+  .animatic-slide.has-code.text-fit .slide-title {
+    font-size: 2em;
+    line-height: 1.15;
   }
 
   /* per-slide text mode (shot flag `text=light|dark`): the author picks the

@@ -153,6 +153,8 @@ REGISTER = [
     (32, "`under=`/`blur=`/`anchor=` shot flag that cannot work: backdrop not a still image, `blur=`/`anchor=` with no `under=`, or a framed layout", WARNING, "implemented"),
     (33, "card `steps:`/`handout:` that cannot apply: a step that is not an image or is a video, fewer than 2 steps, or a `handout:` outside the steps (the card falls back to one plain image)", WARNING, "implemented: check.py + mediaresolve.py"),
     (34, "a stepped-image card and a `reveal=list` list of different lengths on one screen (they advance together; the shorter holds)", WARNING, "implemented"),
+    (35, "a fenced block (```) that never closes: it ends at the end of its screen", WARNING, "enforced: talkparse.py"),
+    (36, "an empty fenced block (nothing to show)", WARNING, "enforced: talkparse.py"),
 ]
 
 DEFERRED = {
@@ -281,11 +283,14 @@ def _fm_slug(path: Path) -> Optional[str]:
 
 def iter_footnote_refs(body_lines: list) -> list:
     """[(line_no, ref_id), ...] for `[^id]` refs in body text, skipping
-    comment spans (shot directives and inert comments) and `[^id]:`
+    fenced code blocks (verbatim text), comment spans (shot directives and inert comments) and `[^id]:`
     definition shapes (receipts have no body-level definition form, Text)."""
     out = []
     in_comment = False
+    fenced = talkparse.fenced_line_indexes(body_lines)   # fenced text is literal
     for lineno, raw in enumerate(body_lines, start=1):
+        if lineno - 1 in fenced:
+            continue
         line = raw
         # mask comment spans (may cross lines)
         if in_comment:

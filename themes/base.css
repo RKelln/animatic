@@ -25,6 +25,7 @@
     --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
     --font-body: Georgia, 'Times New Roman', serif;
     --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace;   /* fenced code */
   }
 
   html { height: 100%; }

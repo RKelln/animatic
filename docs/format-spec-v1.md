@@ -36,12 +36,13 @@ view.
   present view has no divider slides; to make one, put a shot before the
   heading.
 
-Every piece of text in a talkfile is exactly one of three kinds:
+Every piece of text in a talkfile is exactly one of these kinds:
 
 | Kind | Spoken? | On screen? | In the handout? |
 |---|---|---|---|
 | **Voice-over** — a plain paragraph | yes | no | yes, as prose |
 | **Screen text** — a role payload, heading, quote, or list after a shot | role-dependent | yes | yes, at its level |
+| **Fenced code** — a block between ``` fences (see "Fenced code") | no | yes, verbatim | yes, verbatim, as a `<pre>` |
 | **Handout heading** — a heading directly before a shot | no | no | yes, leading the next screen |
 | **Stage note** — a parenthetical `(…)` | no | no | no (speaker notes only) |
 
@@ -56,7 +57,8 @@ its **position**.
    switch between the two starts a new list. A pipe table (rows starting
    `|`, with an optional `|---|` delimiter row marking the row above it as
    the header) is screen text too. A pipe in the middle of a paragraph
-   stays prose.
+   stays prose. A fenced block (a line of three or more backticks or tildes opens
+   it, see "Fenced code") is screen text too, shown verbatim.
 2. **Position overrides a paragraph's default.** A paragraph directly after a
    `role=` shot becomes that role's payload (on screen; `stat` is also spoken,
    `lower` and `credits` are not). A paragraph on a credits screen becomes a
@@ -350,6 +352,93 @@ The parser tolerates a fixed set of authoring shapes, each as written here:
 A plain paragraph is spoken. It belongs to the screen open before it. A screen
 with no paragraphs has no voice-over (a "beat screen") — that is the default
 and needs no marker.
+
+### Fenced code
+
+A line of three or more backticks (or tildes, `~~~`) opens a **fenced block**;
+it closes on a line of the same character with at least as many, with nothing
+after it. Both fence lines may be indented up to three spaces. Whatever follows
+the opening fence on its line (an info string) is allowed and ignored; the
+documented spelling is `text`. Use it to put a whole file on screen exactly as
+written:
+
+````
+<!-- shot: fit=hero -->
+### SOUL.md
+```text
+You are a thoughtful, creative collaborator.
+
+* Explore possibilities without pretending certainty
+- Avoid sycophancy
+```
+````
+
+- **Nothing inside is parsed.** No shot directive or other `<!-- -->` comment,
+  no heading, list, quote, table, parenthetical, footnote marker, include or
+  role handling, no markdown, and no text lint (check 23, em dashes) reads it.
+  Lines are kept exactly as written: blank lines, indentation (the fence's own
+  indent is not removed from its lines), tabs, `*` and `-` bullets, `<!--`. The
+  text is HTML-escaped for output, never interpreted. A longer opener is
+  closed only by an equally long (or longer) fence line, so a fence can hold
+  shorter fence lines (four backticks around three, `~~~` around backticks).
+- **Kind and fate: screen text.** On screen, never spoken, never counted in the
+  voice-over word count or the timing estimate (`script` and `est_seconds` are
+  what the paragraphs alone give). In the document view and the handout it
+  appears at its level as a verbatim `<pre>`. It sits where it is written: a
+  heading directly after a shot is still the screen's title, and the block is
+  drawn beneath it, in file order with the screen's other blocks. A fence
+  interrupts a paragraph or list that runs straight into it, and may follow a
+  heading on the very next line.
+- **Not a role payload.** The `role=` payload rule applies only to a paragraph.
+  A `role=` shot followed by a fence behaves as it does for a list or quote:
+  the fence is a screen object that rides ahead of the payload, is still drawn,
+  and the role keeps waiting for its paragraph (no warning is added).
+- **Not stepped.** It takes no part in `reveal=list` or stepped images: it is
+  shown whole from arrival. Several fences on one screen are all shown.
+- **`cues.json`.** The block is a `screen_text` entry `{"kind": "code",
+  "text": "<the lines, joined with \n, no trailing newline>"}`, kept verbatim
+  (the em-dash and parenthetical hygiene rules that apply to other screen text
+  do not apply to it). An empty fence emits nothing.
+- **Unclosed fence (check 35).** A fence that never closes is treated as
+  closing at the end of its screen: just before the next `<!-- shot` line or
+  `## Movement` heading, else at the end of the file (trailing blank lines are
+  not content). It warns. Beware that a fence is closed by the *next* matching
+  fence line anywhere later in the file, shot lines and movement headings
+  included, so a forgotten closer can swallow the screens after it up to the next
+  fence line of that kind (the same as markdown). Check 35 fires only when no
+  such line exists; if a screen after a fence goes missing, look for a missing
+  closer.
+- **Empty fence (check 36).** A fence with no lines, or only blank ones, warns
+  and shows nothing.
+
+**Present view.** The block is set in the theme's `--font-mono` token,
+left-aligned, whitespace preserved, **not wrapped** while it fits, on a quiet
+plate in the family of the quote plate (`--quote-panel-bg` and its shadow, with
+a hairline edge and an accent rule on the left; backdrop blur over media). The
+text is the list's weight (`1.15em` of the slide's text, in mono, about 37 px at
+1080p), and the slide gives the block the room (tight side padding). The
+lecture theme sets it light on a dark plate; the workshop theme sets it ink on a
+paper plate with an olive-clay rule and no glow.
+
+**Fitting.** The pager's rule for overflowing slide text applies: a slide whose
+text is too tall, **or whose block has a line wider than the slide**, shrinks
+its text step by step to a floor of 75%. At the floor, a block that is still too
+wide **wraps** its long lines (nothing is cut sideways). A slide still too tall
+at the floor stays at the floor, is marked `data-fit="floor"`, and logs a
+console warning: its top and bottom are clipped by the slide edge, so shorten or
+split the block (a `continue` screen carries on). `fit=hero` changes the
+direction: the title steps down to a heading size (the block is the hero), and
+the block takes the **largest size at which the whole slide fits, from the 75%
+floor up to 300% of its normal size**, never wrapped while a size within the
+range fits; below the floor it wraps and then marks `floor` as above. A short
+block grows to fill the slide; a block of long lines is limited by its widest
+line, so a 100-character line caps the size at about 27 px on a 1920 px stage.
+Without `fit=hero` the block keeps its normal size and only shrinks.
+
+**Document view and handout.** A `<pre class="code-block">` with the theme's
+code styling (mono, a tinted callout panel and an accent rule), `white-space:
+pre-wrap` so a long line wraps and nothing is cut off on paper, and not split
+across a page where it fits.
 
 ### Roles
 
@@ -686,7 +775,7 @@ screen boundaries).
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths.
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36).
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 

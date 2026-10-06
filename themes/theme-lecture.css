@@ -29,6 +29,7 @@
     --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
     --font-body: Georgia, 'Times New Roman', serif;
     --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace;   /* fenced code */
     --piece-border: rgba(242, 236, 223, 0.22);
     --piece-shadow: 0 26px 80px rgba(0, 0, 0, 0.6);
   }
@@ -37,6 +38,9 @@
   .lower-third { border-left: 2px solid var(--stage-accent); }
   .animatic-slide blockquote { border-left: 3px solid var(--stage-accent); padding-left: 1em; }
   .animatic-slide .stat { font-variant-numeric: lining-nums; }
+
+  /* fenced code (lamp light): the text sits on a dark plate with a brass rule */
+  .animatic-slide .code-block { border-left: 3px solid var(--stage-accent); }
 
   /* over full-bleed media, text always pops: the lecture glow does the
      work — this group makes the guarantee structural, not inherited */
@@ -82,5 +86,11 @@
     font-size: clamp(3.6em, 15vmin, 10em);
     line-height: 1.04;
     max-width: 92%;
+  }
+  /* fit=hero with a fenced block: the block is the hero, so the title steps
+     down to a heading size and leaves the slide to the text */
+  .animatic-slide.has-code.text-fit .slide-title {
+    font-size: 2em;
+    line-height: 1.15;
   }
 }

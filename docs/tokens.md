@@ -39,7 +39,8 @@ reminder, not a theme). Two token groups, one per surface:
 - document (paper): `--doc-bg`, `--doc-ink`, `--doc-muted`, `--doc-accent`,
   `--doc-line`, `--doc-callout-bg`
 - shared type: `--font-display` (headings, stat), `--font-body` (reading),
-  `--font-ui` (lower thirds, credits, placeholders)
+  `--font-ui` (lower thirds, credits, placeholders), `--font-mono` (fenced
+  code, diagnostics)
 
 No look value lives outside a token or a theme layer.
 
@@ -50,6 +51,7 @@ No look value lives outside a token or a theme layer.
 | media shot (full bleed) | `.media-zone` + `.slide-media`, object-fit cover; `fit` = contain on a media-only slide, HERO text (max-size) when the slide carries text; `piece` = the media floats as a framed object (natural size, border + shadow on the image itself, never a container box) | `figure.shot` |
 | `kb=in/out` | slow single drift (22 s), reduced-motion off | static |
 | `dim=N` | solid `--stage-dim` at opacity N | none |
+| fenced code | `.code-block` `<pre>`: `--font-mono`, left-aligned, a plate from `--quote-panel-bg` + `--quote-panel-shadow` with a hairline edge and an accent rule; shrinks to 75%, `fit=hero` grows it | `pre.code-block`: tinted `--doc-callout-bg` panel, accent rule, wraps |
 | heading card | `.slide-title`, display serif | `.screen-heading` |
 | quote card | centered pull quote with accent rule | bordered blockquote |
 | `stat` | one huge line, accent rule under; overlay-merges onto an unvoiced media shot like lower/credits | `.stat-callout` box |

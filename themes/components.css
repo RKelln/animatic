@@ -342,6 +342,43 @@
     text-shadow: var(--stage-text-glow);
     max-width: 24em;
   }
+  /* fenced code (a ```text block): shown exactly as written, in the theme's
+     mono, left-aligned, whitespace kept, on a quiet plate in the quote plate's
+     family (--quote-panel-bg, its shadow and blur) with a hairline edge so it
+     reads on plain ground as well as over media. The size is the list's weight
+     in mono; the pager's fitBodies() shrinks an overflowing slide to 75% and,
+     under fit=hero, fitHeroCode() grows the block to fill the slide. A line
+     still too wide at the floor wraps (.wrap) rather than being cut. */
+  .animatic-slide .code-block {
+    box-sizing: border-box;
+    width: fit-content; max-width: 100%;
+    margin: 0;
+    padding: 0.8em 1.2em;
+    font-family: var(--font-mono);
+    font-size: 1.15em;
+    line-height: 1.42;
+    text-align: left;
+    white-space: pre;
+    tab-size: 4;
+    color: var(--stage-ink);
+    text-shadow: none;
+    background:
+      linear-gradient(color-mix(in srgb, var(--stage-ink) 6%, transparent),
+                      color-mix(in srgb, var(--stage-ink) 6%, transparent)),
+      var(--quote-panel-bg);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 18%, transparent);
+    border-radius: min(0.6em, 18px);
+    box-shadow: var(--quote-panel-shadow);
+  }
+  .animatic-slide.over-media .code-block {
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+  /* a slide with a fenced block gives the block the room: tighter side
+     padding (under fit=hero the theme also sizes the title modestly) */
+  .animatic-slide.has-code .screen-body { padding: 4vh 4vw; }
+  .animatic-slide .code-block.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .animatic-slide .slide-title + .code-block { margin-top: 0.5em; }
   .animatic-slide li { margin: 0.3em 0; line-height: 1.25; }
   /* reveal=list: items not yet shown keep their space (nothing jumps) */
   .animatic-slide li.pending { visibility: hidden; }
@@ -942,6 +979,17 @@
     font-style: italic;
     color: color-mix(in srgb, var(--doc-ink) 82%, var(--doc-muted));
   }
+  /* fenced code in the handout: the lines as written, long ones wrapped so
+     nothing is cut off on paper */
+  body.view-document pre.code-block {
+    margin: 1.2em 0; padding: 0.8em 1.1em;
+    font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.5;
+    white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4;
+    color: var(--doc-ink);
+    background: var(--doc-callout-bg);
+    border-left: 3px solid var(--doc-accent);
+    border-radius: 2px;
+  }
   body.view-document ul { margin: 1em 0; padding-left: 1.4em; }
   body.view-document ol:not(.doc-sources) { margin: 1em 0; padding-left: 1.4em; }
   body.view-document .md-table { margin: 1.2em 0; border-collapse: collapse; }
@@ -1017,7 +1065,7 @@
     @page { size: letter; margin: 16mm 15mm; }
     body.view-document { max-width: none; padding: 0; }
     h2.movement { page-break-before: always; }
-    figure.shot, .stat-callout, .paraphrase-block, blockquote, .doc-credits { page-break-inside: avoid; }
+    figure.shot, .stat-callout, .paraphrase-block, blockquote, .doc-credits, pre.code-block { page-break-inside: avoid; }
     ol.doc-sources li { page-break-inside: avoid; }
     /* a figure and its paragraph share a page: smaller type, pictures capped
        in height so a long talk does not print one picture per page */

@@ -20,8 +20,8 @@ EM_DASH = "\u2014"
 COMMENT_SPAN_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 KINDS = ("black", "media", "stat", "lower", "credits", "card")
-TEXT_ENTRY_KINDS = ("heading", "quote", "source", "list", "table", "stat", "lower",
-                    "credits", "paraphrase")
+TEXT_ENTRY_KINDS = ("heading", "quote", "source", "list", "table", "code", "stat",
+                    "lower", "credits", "paraphrase")
 
 
 @dataclass
@@ -114,6 +114,11 @@ def derive_sources(meta: dict, source_text: str) -> list:
         end = source_text.find("\n---", 3)
         if end != -1:
             body = source_text[end + 4:]
+    # fenced code is verbatim, so a `[^id]` inside one is not a citation
+    from talkparse import fenced_line_indexes
+    blines = body.split("\n")
+    fenced = fenced_line_indexes(blines)
+    body = "\n".join("" if k in fenced else l for k, l in enumerate(blines))
     body = COMMENT_SPAN_RE.sub(" ", body)
     out = []
     seen = set()
@@ -168,6 +173,8 @@ def text_entries(cue: dict) -> list:
     scans): list items count as their own text pieces."""
     out = []
     for t in cue.get("screen_text") or []:
+        if t.get("kind") == "code":
+            continue   # verbatim: the hygiene rules (parens, em dash) do not apply
         if "text" in t:
             out.append(t["text"])
         for it in t.get("items") or []:

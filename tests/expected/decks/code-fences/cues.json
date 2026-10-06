@@ -1,0 +1,269 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "code-fences",
+    "title": "Code fences",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "lecture",
+    "media_dir": "media",
+    "bank": "",
+    "sources": [
+      {
+        "id": "real",
+        "source": "A real source, cited outside the fence."
+      }
+    ]
+  },
+  "movements": [
+    {
+      "index": 1,
+      "label": "Movement 1 · After the fence",
+      "title": "After the fence",
+      "cue_ids": [
+        "code-fences-008"
+      ]
+    }
+  ],
+  "cues": [
+    {
+      "id": "code-fences-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "SOUL.md",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "SOUL.md"
+        },
+        {
+          "kind": "code",
+          "text": "You are a thoughtful, creative collaborator.\nYou are curious, honest, wise and fair.\nA generous expert in all things who understands their own limits.\n\n* Explore possibilities without pretending certainty\n* Say when something is a bad idea\n- Avoid sycophancy\n- Avoid hype, marketing, diplomatic and academic language"
+        }
+      ],
+      "script": "This is the whole file, as the agent reads it.",
+      "stage": null,
+      "est_seconds": 4.0
+    },
+    {
+      "id": "code-fences-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "SOUL.md, normal size",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "SOUL.md, normal size"
+        },
+        {
+          "kind": "code",
+          "text": "You are a thoughtful, creative collaborator.\nYou are curious, honest, wise and fair.\nA generous expert in all things who understands their own limits.\n\n* Explore possibilities without pretending certainty\n* Say when something is a bad idea\n- Avoid sycophancy\n- Avoid hype, marketing, diplomatic and academic language"
+        }
+      ],
+      "script": "Spoken once, shown once.",
+      "stage": null,
+      "est_seconds": 1.6
+    },
+    {
+      "id": "code-fences-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "Nothing inside is parsed",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Nothing inside is parsed"
+        },
+        {
+          "kind": "code",
+          "text": "<!-- shot: not-a-shot role=stat -->\n## Movement 9 · Not a movement\n# Not a heading\n- not a list item\n1. not a numbered one\n> not a quote\n| not | a table |\n(not a stage note (nor a nested one))\nThis is not [^spoken] and not a footnote.\ntext <!-- not a comment --> after\n    indented four spaces\n\ttab then text\none em dash — here, and <b>tags</b> & \"quotes\"\n**not bold** and `not code`\n<!-- include: nothing.md -->"
+        }
+      ],
+      "script": "Said aloud: the box above is a file, not a slide script.",
+      "stage": null,
+      "est_seconds": 4.8
+    },
+    {
+      "id": "code-fences-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "A longer block",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A longer block"
+        },
+        {
+          "kind": "code",
+          "text": "name: soul\nversion: 3\nrules:\n  - be kind\n  - be brief\n```\nthis fence line is literal, it is shorter than the opener\nnotes: |\n  the opener was tildes, so only a tilde line closes it\n  and the closer may be longer than the opener"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "code-fences-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "card",
+      "title": "Indented fence, longer closer",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Indented fence, longer closer"
+        },
+        {
+          "kind": "code",
+          "text": "  two spaces of indent stay as written\n  a longer closer (four ticks) closes it"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "code-fences-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "code",
+          "text": "the fence interrupts the paragraph run"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "a list"
+          ]
+        },
+        {
+          "kind": "code",
+          "text": "and the fence interrupts the list"
+        }
+      ],
+      "script": "Before the fence is a paragraph.\n\nAfter it, more spoken words.",
+      "stage": null,
+      "est_seconds": 4.4
+    },
+    {
+      "id": "code-fences-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "stat",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "stat",
+          "flags": {
+            "role": "stat"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "code",
+          "text": "a role shot keeps its normal behaviour: the fence is still drawn"
+        },
+        {
+          "kind": "stat",
+          "text": "57.5% of web traffic is bots."
+        }
+      ],
+      "script": "57.5% of web traffic is bots.",
+      "stage": null,
+      "est_seconds": 2.8
+    },
+    {
+      "id": "code-fences-008",
+      "ordinal": 8,
+      "movement": 1,
+      "kind": "card",
+      "title": "Real structure resumes",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Real structure resumes"
+        }
+      ],
+      "script": "A real movement closes the screen, and the one inside the fence did not.",
+      "stage": null,
+      "est_seconds": 5.6
+    }
+  ],
+  "warnings": []
+}

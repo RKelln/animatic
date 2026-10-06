@@ -234,7 +234,7 @@ CALLOUT = re.compile(r"^\s*callout cards?:", re.I)
 TAKE_NAMED = re.compile(r"\btake (a\d+)\b", re.I)
 SETTLED = IN_HAND | {"live"}
 TEXT_KINDS = {"heading", "quote", "quote-source", "stat", "lower", "credits", "list",
-              "table", "paraphrase"}
+              "table", "paraphrase", "code"}
 STOP = set("""need find build generate record decide wire line same still rows right back
 image test screen take takes
 the a an and or of to in on at for with from by as is are be it its this that

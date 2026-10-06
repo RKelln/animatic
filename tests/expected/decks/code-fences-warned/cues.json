@@ -1,0 +1,196 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "code-fences-warned",
+    "title": "Code fences, warned",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [
+    {
+      "index": 1,
+      "label": "Movement 1 · The end",
+      "title": "The end",
+      "cue_ids": [
+        "code-fences-warned-006"
+      ]
+    }
+  ],
+  "cues": [
+    {
+      "id": "code-fences-warned-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Never closed, then a shot",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Never closed, then a shot"
+        },
+        {
+          "kind": "code",
+          "text": "this fence has no closer"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "code-fences-warned-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "The shot ends it",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "The shot ends it"
+        }
+      ],
+      "script": "The words after the shot are spoken.",
+      "stage": null,
+      "est_seconds": 2.8
+    },
+    {
+      "id": "code-fences-warned-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "Empty",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Empty"
+        }
+      ],
+      "script": "Spoken after an empty fence.",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "code-fences-warned-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "Blank only",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Blank only"
+        }
+      ],
+      "script": "Spoken after a blank fence.",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "code-fences-warned-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "card",
+      "title": "Never closed, then a movement",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Never closed, then a movement"
+        },
+        {
+          "kind": "code",
+          "text": "still open at the movement heading"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "code-fences-warned-006",
+      "ordinal": 6,
+      "movement": 1,
+      "kind": "card",
+      "title": "Never closed, end of file",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Never closed, end of file"
+        },
+        {
+          "kind": "code",
+          "text": "last lines of the file\nare inside the fence"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": [
+    "line 16: check 35: fenced block never closes; it ends at line 17, the end of its screen (spec: Text, fenced code)",
+    "line 26: check 36: empty fenced block; nothing is shown for it (spec: Text, fenced code)",
+    "line 34: check 36: empty fenced block; nothing is shown for it (spec: Text, fenced code)",
+    "line 44: check 35: fenced block never closes; it ends at line 45, the end of its screen (spec: Text, fenced code)",
+    "line 52: check 35: fenced block never closes; it ends at line 54, the end of its screen (spec: Text, fenced code)"
+  ]
+}

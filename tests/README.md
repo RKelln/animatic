@@ -54,6 +54,18 @@ One command, one exit code:
     build profile (`standin`) whose goldens live in
     `expected/decks/media-resolution/standin/`. The remap decoys prove real
     art beats a stand-in: only `standin-only` changes between profiles.
+  - `code-fences` / `code-fences-warned` — fenced code (spec: Text, "Fenced code"):
+    the SOUL file under a heading with the fence on the next line and `fit=hero`,
+    the same file at normal size, a fence holding a shot directive, headings, a
+    list, a quote, a table, a parenthetical, a footnote marker, a comment and an
+    em dash that all stay literal, a `~~~` fence holding a ``` line, an indented
+    opener with a longer closer, fences straight after a paragraph and a list, a
+    role shot followed by a fence, and a real movement after a fenced fake one.
+    The warned deck pins check 35 (unclosed before a shot, before a movement
+    heading, at end of file) and check 36 (empty, blank-only). `code_props`
+    holds the invariants: no fenced text in script or est_seconds, each fence
+    once as a `<pre>` in both views, nothing inside became a list, heading or
+    comment node.
   - `decks/_media/library.yaml` — the shared library home for deck
     fixtures (sibling of each deck dir, per spec §11).
   - `timing-demo` (T15) — the clock end to end: `dur: ~1 min` sits inside the

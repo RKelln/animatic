@@ -328,8 +328,8 @@ class Shot:
 class Block:
     """One content block on a screen, in document order."""
 
-    kind: str                     # vo|heading|handout-heading|quote|quote-source|list|table|stat|lower|credits|paraphrase
-    text: str = ""                # for vo/heading/quote/stat/lower/credits/paraphrase
+    kind: str                     # vo|heading|handout-heading|quote|quote-source|list|table|code|stat|lower|credits|paraphrase
+    text: str = ""                # for vo/heading/quote/stat/lower/credits/paraphrase; code: the verbatim lines
     level: Optional[int] = None   # heading depth (1..6)
     items: list = field(default_factory=list)   # list items
     ordered: bool = False         # numbered list (`1.` items)
@@ -605,6 +605,75 @@ def _lex_frontmatter(body: str, source: str) -> tuple[dict, list]:
     return meta, rest
 
 
+# Fenced code blocks (spec: Text, "Fenced code"): a line of 3+ backticks or
+# tildes opens a block that shows its lines verbatim; it closes on a line of
+# the same character, at least as long, with nothing after it.  Up to three
+# spaces of indent are allowed on the fence lines.  An info string after the
+# opening fence is allowed and ignored (a backtick fence's cannot hold a
+# backtick, so inline "```code```" is not a fence).
+FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+FENCE_SHOT_RE = re.compile(r"^\s*<!--\s*shot\b")
+FENCE_MOVEMENT_RE = re.compile(r"^##\s+movement\b", re.IGNORECASE)
+
+
+def find_fences(lines: list) -> dict:
+    """Locate every fenced block in `lines` (as lexed: frontmatter already
+    removed, newlines optional).  Returns {open_index: info} with
+    `end` (index of the last line the fence owns), `body` (index range
+    start, stop of its content lines), `closed`.
+
+    A fence that never closes ends just before the next `<!-- shot` line or
+    movement heading, else at the end of the file; trailing blank lines are
+    not content.  Lines inside a multi-line comment are never fences.
+    """
+    out: dict = {}
+    n = len(lines)
+    i = 0
+    in_comment = False
+    while i < n:
+        line = lines[i].rstrip("\n")
+        if in_comment:
+            if "-->" in line:
+                in_comment = False
+            i += 1
+            continue
+        if line.lstrip().startswith("<!--"):
+            if "-->" not in line:
+                in_comment = True
+            i += 1
+            continue
+        m = FENCE_OPEN_RE.match(line)
+        if not m or (m.group(1)[0] == "`" and "`" in m.group(2)):
+            i += 1
+            continue
+        ch, size = m.group(1)[0], len(m.group(1))
+        close_re = re.compile(r"^ {0,3}" + re.escape(ch) + "{" + str(size) + r",}[ \t]*$")
+        close = next((j for j in range(i + 1, n)
+                      if close_re.match(lines[j].rstrip("\n"))), None)
+        if close is not None:
+            out[i] = {"end": close, "body": (i + 1, close), "closed": True}
+        else:
+            stop = n
+            for j in range(i + 1, n):
+                t = lines[j].rstrip("\n")
+                if FENCE_SHOT_RE.match(t) or FENCE_MOVEMENT_RE.match(t):
+                    stop = j
+                    break
+            while stop > i + 1 and not lines[stop - 1].strip():
+                stop -= 1
+            out[i] = {"end": stop - 1, "body": (i + 1, stop), "closed": False}
+        i = out[i]["end"] + 1
+    return out
+
+
+def fenced_line_indexes(lines: list) -> set:
+    """0-based indexes of every line a fenced block owns (fence lines too)."""
+    out: set = set()
+    for i, f in find_fences(lines).items():
+        out.update(range(i, f["end"] + 1))
+    return out
+
+
 # A non-shot comment that trails prose on its own line (`text. <!-- note -->`,
 # possibly running over several lines).  Comments that start a line are handled
 # by the lexer; these would otherwise be read as spoken text (spec principle 4:
@@ -612,14 +681,19 @@ def _lex_frontmatter(body: str, source: str) -> tuple[dict, list]:
 _TRAILING_COMMENT_RE = re.compile(r"(?<=\S)[ \t]*<!--(?!\s*shot\b).*?-->", re.S)
 
 
-def _strip_trailing_comments(lines: list) -> list:
+def _strip_trailing_comments(lines: list, fenced=frozenset()) -> list:
     """Drop trailing comments, keeping every newline so later lines keep
-    their numbers."""
-    text = "".join(l if l.endswith("\n") else l + "\n" for l in lines)
+    their numbers.  Lines in `fenced` (a fenced block) are left untouched:
+    nothing inside a fence is parsed."""
+    text = "".join(("\n" if k in fenced else (l if l.endswith("\n") else l + "\n"))
+                   for k, l in enumerate(lines))
     if "<!--" not in text:
         return lines
     text = _TRAILING_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
-    return text.splitlines(keepends=True)
+    out = text.splitlines(keepends=True)
+    if len(out) != len(lines):
+        return out
+    return [lines[k] if k in fenced else out[k] for k in range(len(out))]
 
 
 def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
@@ -635,7 +709,13 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
     (deck -> shared -> built-in); they decide which `role=` / `layout=`
     tokens are known.
     """
-    lines = _strip_trailing_comments(lines)
+    fences = find_fences(lines)
+    fenced = set()
+    for fi, f in fences.items():
+        fenced.update(range(fi, f["end"] + 1))
+    raw_lines = list(lines)
+    lines = _strip_trailing_comments(lines, fenced)
+    skip_to = -1
     blocks: list[dict] = []
     para_buf: list[str] = []
     para_line = 0
@@ -655,8 +735,23 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
 
     # line numbers are the talkfile's own (an editor's), so the frontmatter
     # lines stripped before this point are counted back in via line_offset
-    for lineno, raw in enumerate(lines, start=1 + line_offset):
+    for idx, raw in enumerate(lines):
+        lineno = idx + 1 + line_offset
+        if idx <= skip_to:
+            continue
         line = raw.rstrip("\n")
+
+        # --- fenced block: verbatim, nothing inside is parsed ---------------
+        if idx in fences and comment_buf is None:
+            f = fences[idx]
+            flush_para()
+            b0, b1 = f["body"]
+            text = "\n".join(raw_lines[k].rstrip("\n") for k in range(b0, b1))
+            blocks.append({"kind": "code", "text": text, "closed": f["closed"],
+                           "line": lineno,
+                           "line_end": f["end"] + 1 + line_offset})
+            skip_to = f["end"]
+            continue
 
         # --- multi-line comment accumulation --------------------------------
         if comment_buf is not None:
@@ -1333,7 +1428,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         # On a credits SCREEN (credits_open), paragraphs, list items, and
         # headings are screen content, consumed until the next shot.
         if (pending_role is not None and not credits_open
-                and kind not in ("para", "vo", "quote", "list", "table")):
+                and kind not in ("para", "vo", "quote", "list", "table", "code")):
             # role shot expects a payload paragraph; a non-paragraph arrived
             talk.warnings.append(
                 f"line {role_line}: '{pending_role}' shot not followed by a "
@@ -1380,6 +1475,25 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                       line=rb.get("line", 0),
                       line_end=rb.get("line_end", 0) or rb.get("line", 0))
             )
+            continue
+
+        if kind == "code":
+            # a fenced block: screen text, shown verbatim, never spoken.  Not a
+            # role payload (the payload rule is for a paragraph), so a pending
+            # role keeps waiting past it like past a list.
+            ln = rb.get("line", 0)
+            if not rb.get("closed", True):
+                talk.warnings.append(
+                    f"line {ln}: check 35: fenced block never closes; it ends "
+                    f"at line {rb.get('line_end', ln)}, the end of its screen "
+                    f"(spec: Text, fenced code)")
+            if not rb["text"].strip():
+                talk.warnings.append(
+                    f"line {ln}: check 36: empty fenced block; nothing is "
+                    f"shown for it (spec: Text, fenced code)")
+            cur.blocks.append(
+                Block(kind="code", text=rb["text"], line=ln,
+                      line_end=rb.get("line_end", 0) or ln))
             continue
 
         if kind == "quote":
