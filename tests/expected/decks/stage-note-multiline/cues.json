@@ -1,0 +1,122 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "talk",
+    "title": "Multi-line stage note",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [
+    {
+      "index": 1,
+      "label": "Movement 1",
+      "title": "Movement 1",
+      "cue_ids": [
+        "talk-001",
+        "talk-002",
+        "talk-003"
+      ]
+    }
+  ],
+  "cues": [
+    {
+      "id": "talk-001",
+      "ordinal": 1,
+      "movement": 1,
+      "kind": "card",
+      "title": "Asking",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "layout": "piece"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Asking"
+        }
+      ],
+      "script": "Spoken after the note.",
+      "stage": [
+        "Ask every time; Ask for anything risky"
+      ],
+      "est_seconds": 1.6
+    },
+    {
+      "id": "talk-002",
+      "ordinal": 2,
+      "movement": 1,
+      "kind": "card",
+      "title": "Unclosed",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "layout": "piece"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Unclosed"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Stays a list",
+            "No closing paren"
+          ]
+        }
+      ],
+      "script": "Spoken.",
+      "stage": null,
+      "est_seconds": 0.4
+    },
+    {
+      "id": "talk-003",
+      "ordinal": 3,
+      "movement": 1,
+      "kind": "card",
+      "title": "Under prose",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "layout": "piece"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Under prose"
+        }
+      ],
+      "script": "Spoken before the note.\n\nSpoken after the note.",
+      "stage": [
+        "First; Second"
+      ],
+      "est_seconds": 3.2
+    }
+  ],
+  "warnings": []
+}

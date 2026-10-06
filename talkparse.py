@@ -980,6 +980,34 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
             flush_para()
             continue
 
+        # --- multi-line direction ----------------------------------------------
+        # A line that opens a `(` it does not close starts a stage note that
+        # runs to the line where the parens balance, over any lines between
+        # (list items included).  One block: the note, never screen text.
+        if line.lstrip().startswith("(") and not (cont and cont[0] in ("list", "olist", "quote", "table")):
+            end = _direction_end(lines, idx, fenced)
+            # directly under a prose line it only takes over when it holds list
+            # items; plain prose parentheticals merge into the paragraph as before
+            if end is not None and end > idx and (not para_buf or any(
+                    LIST_ITEM_RE.match(lines[k].strip()) or ORDERED_ITEM_RE.match(lines[k].strip())
+                    for k in range(idx, end + 1))):
+                flush_para()
+                pieces = []
+                for k in range(idx, end + 1):
+                    s = lines[k].strip()
+                    s = LIST_ITEM_RE.match(s).group(1).strip() if LIST_ITEM_RE.match(s) \
+                        else ORDERED_ITEM_RE.match(s).group(1).strip() if ORDERED_ITEM_RE.match(s) else s
+                    pieces.append(s)
+                text = pieces[0]
+                for s in pieces[1:]:
+                    sep = "" if text == "(" or s.startswith(")") else ("; " if not text.endswith((".", ":", ";", "?", "!")) else " ")
+                    text += sep + s
+                blocks.append({"kind": "para", "text": text, "line": lineno,
+                               "line_end": end + 1 + line_offset})
+                cont = None
+                skip_to = end
+                continue
+
         # --- prose ------------------------------------------------------------
         cont = None
         if not para_buf:
@@ -989,6 +1017,26 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
 
     flush_para()
     return blocks
+
+
+def _direction_end(lines: list, start: int, fenced: set) -> Optional[int]:
+    """Index of the line where a `(` opened on `lines[start]` closes, scanning
+    non-blank lines only; None if the parens never balance before a blank
+    line, a shot or include comment, a heading or a fence."""
+    depth = 0
+    for k in range(start, len(lines)):
+        line = lines[k].rstrip("\n")
+        if k > start and (not line.strip() or k in fenced or HEADING_RE.match(line)
+                          or line.lstrip().startswith("<!--")):
+            return None
+        for ch in line:
+            if ch == "(":
+                depth += 1
+            elif ch == ")" and depth:
+                depth -= 1
+                if depth == 0:
+                    return k
+    return None
 
 
 def _apply_role_flag(shot: Shot, value: str, token: str, vocab=None) -> None:

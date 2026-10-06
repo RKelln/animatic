@@ -676,6 +676,22 @@ Parentheses are never spoken and never on screen. Every parenthetical is
 stripped identically and travels as a stage note (speaker notes in the present
 view, `stage` in cues.json). Parentheticals do not nest — a nested `(` warns.
 
+A parenthetical may span lines. When a line starts with `(` and the parens do not
+balance until a later line, everything up to the closing `)` is one stage note,
+list items included (their markers dropped, items joined with `; `). This is the
+way to keep a list in the speaker notes without drawing it on the slide:
+
+```
+(
+- Ask every time
+- Ask for anything risky
+)
+```
+
+It runs over consecutive non-blank lines only. A blank line, heading, shot
+comment or fence before the closing `)` cancels it, and the lines parse as they
+would without the `(`.
+
 A prefix is an authorial convention, never behaviour:
 
 | Prefix | Convention |
