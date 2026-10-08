@@ -168,6 +168,29 @@ def parse_timer_token(inner: str) -> Optional[tuple]:
     return parsed[0], parsed[1], len(words) == 2
 
 
+# `[n]` / `[next]` in a spoken paragraph: where the presenter presses next.  It is
+# a cue for the presenter, never speech, so the parser takes it out of the text
+# (timing, captions, the document view and the handout never see it) and keeps
+# only where it stood, as Block.nexts.
+NEXT_TOKEN_RE = re.compile(r"\[\s*(?:n|next)\s*\]", re.IGNORECASE)
+
+
+def split_next_tokens(text: str) -> tuple:
+    """(clean text, offsets): the text without its `[n]` / `[next]` tokens, and
+    the character offset in the clean text where each one stood."""
+    pieces = NEXT_TOKEN_RE.split(text)
+    clean, offsets = pieces[0], []
+    for piece in pieces[1:]:
+        clean = clean.rstrip()
+        offsets.append(len(clean))
+        piece = piece.lstrip()
+        if clean and piece and piece[0] not in ".,;:!?)":
+            clean += " "
+        clean += piece
+    clean = clean.rstrip()
+    return clean, [min(o, len(clean)) for o in offsets]
+
+
 def strip_timer_tokens(text: str) -> str:
     """The text with every `[Timer: ...]` token removed and the gap closed."""
     out = TIMER_TOKEN_RE.sub(" ", text)
@@ -411,6 +434,9 @@ class Block:
     # kind "timer" is a token alone on its line; in a heading, list item, quote
     # or stat/paraphrase payload the token sits inside the text.
     timer: Optional[tuple] = None
+    # vo only: offsets in `text` where the author wrote `[n]` / `[next]`, the
+    # point the presenter presses next.  Speaker notes show them; nothing else does.
+    nexts: list = field(default_factory=list)
 
 
 @dataclass
@@ -1007,6 +1033,13 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
                 cont = None
                 skip_to = end
                 continue
+
+        # --- next mark alone on a line: a paragraph break of its own ----------
+        if NEXT_TOKEN_RE.fullmatch(line.strip()):
+            flush_para()
+            blocks.append({"kind": "para", "text": line.strip(),
+                           "line": lineno, "line_end": lineno})
+            continue
 
         # --- prose ------------------------------------------------------------
         cont = None
@@ -1775,6 +1808,8 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                     pb.text = strip_timer_tokens(spoken)
             elif bkind in ("stat", "paraphrase"):
                 scan_timer(pb, spoken, pb.line)
+            if pb.kind == "vo" and NEXT_TOKEN_RE.search(pb.text):
+                pb.text, pb.nexts = split_next_tokens(pb.text)
             cur.blocks.append(pb)
             continue
 

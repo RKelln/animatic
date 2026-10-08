@@ -195,3 +195,17 @@ its full duration: a preview never runs a timer.
 - The presenter does not touch the projection, the capture, or the audio: it
   reads. Nothing about the built deck's determinism changes, and no CSS token was
   added (the layout reuses the stage/document tokens every theme already sets).
+
+## NEXT marks
+
+Write `[next]` (or `[n]`, any case) in a spoken paragraph where you press next, or alone on
+its own line (a lone mark also ends the paragraph, so the text after it starts a new one). The parser takes the token out of the text and keeps only its position
+(`Block.nexts`), so timing, captions, `cues.json`, the document view and the handout never
+see it. The notes panel and the presenter window show an amber `▶ NEXT` pill at that spot
+(`.next-mark`). It follows the same bracket convention as `[Timer: ...]`. `-->` was
+rejected: arrows turn up in spoken text ("input --> output"), and `-->` also closes an HTML
+comment. The marks track the stepping: pressed ones fade and strike through, the next one is solid and glowing, later ones stay hollow (the deck pushes `pressesDone` in its state message). Limits: bold or italic that spans a mark loses its styling in the notes.
+
+Check 40 (warning) compares a screen's mark count with the next-presses that stay on it:
+stepped-image frames and `reveal=list` items, less the one showing on arrival. A screen
+with marks and nothing that steps warns too.

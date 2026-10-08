@@ -158,6 +158,7 @@ REGISTER = [
     (37, "a `[Timer: ...]` token that is not a timer (bad or zero duration, unknown trailing word) or a second timer on one screen; it stays as literal text", WARNING, "enforced: talkparse.py"),
     (38, "a `[Timer: ...]` over 3 hours (sanity; the timer is kept)", WARNING, "enforced: talkparse.py"),
     (39, "a `[Timer: ...]` token in a spoken paragraph: dropped from the voice-over, starts nothing", WARNING, "enforced: talkparse.py"),
+    (40, "a screen's `[next]` / `[n]` marks differ in number from its next-presses (stepped images, `reveal=list` items)", WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -922,6 +923,12 @@ def check_34_step_counts(talk, resolver, report: Report) -> None:
         report.add(34, WARNING, msg, line=line, screen=s.idx)
 
 
+def check_40_next_marks(talk, resolver, report: Report) -> None:
+    """`[next]` marks in the script should match the presses the screen takes."""
+    for s, line, msg in render.next_mark_notes(talk, resolver):
+        report.add(40, WARNING, msg, line=line, screen=s.idx)
+
+
 def check_30_dim_without_text(talk, resolver, report: Report) -> None:
     """`dim` exists to keep on-screen text readable over a picture. On a screen
     with no text it only darkens the picture: a chart or photo that is too
@@ -1099,6 +1106,7 @@ def run_checks(talk, resolver, source_text: str,
     check_32_under_backdrop(talk, resolver, report)
     check_33_steps(talk, resolver, report)
     check_34_step_counts(talk, resolver, report)
+    check_40_next_marks(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

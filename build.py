@@ -135,6 +135,8 @@ def build(talk_path: Path, args) -> int:
         print(f"warn      : check 33: {msg}")
     for scr, _line, msg in render.step_count_notes(talk, resolver):
         print(f"warn      : check 34: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
+    for scr, _line, msg in render.next_mark_notes(talk, resolver):
+        print(f"warn      : check 40: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
 
     cites = talk.meta.get("cites")
     if isinstance(cites, dict):

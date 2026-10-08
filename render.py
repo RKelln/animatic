@@ -144,6 +144,23 @@ def vo_paragraphs(screen: Screen) -> list[Block]:
     return [b for b in screen.blocks if b.kind == "vo" and b.text.strip()]
 
 
+NEXT_MARK_HTML = ('<span class="next-mark" role="img" aria-label="press next">'
+                  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l12 8-12 8z"/></svg>'
+                  'NEXT</span>')
+
+
+def notes_vo_html(b: Block) -> str:
+    """A VO paragraph for the speaker notes, with a NEXT mark wherever the author
+    wrote `[n]` / `[next]` (the presenter presses next there)."""
+    out, pos = [], 0
+    for off in b.nexts:
+        out.append(inline_md(b.text[pos:off]))
+        out.append(NEXT_MARK_HTML)
+        pos = off
+    out.append(inline_md(b.text[pos:]))
+    return "".join(out)
+
+
 def stage_of(screen: Screen) -> list:
     out = []
     for b in screen.blocks:
@@ -679,6 +696,20 @@ PAGER_JS = """
     history.replaceState(null, "", "#" + (cur + 1) + (r && k > r.start ? "." + k : ""));
   }
 
+  // NEXT marks in a notes container: `done` presses are behind us, so mark j is
+  // "done" (j < done), "up" (the very next press) or untouched (still to come).
+  function markNexts(root, done) {
+    var m = root.querySelectorAll(".next-mark");
+    for (var j = 0; j < m.length; j++) {
+      m[j].classList.toggle("done", j < done);
+      m[j].classList.toggle("up", j === done);
+    }
+  }
+  function pressesDone(i) {
+    var r = revealOf(i);
+    return r ? Math.max(0, getStep(i) - r.start) : 0;
+  }
+
   function notesFor(i) {
     var aside = slides[i].querySelector(".notes");
     // notes HTML is builder-escaped (inline_md) static local output, safe
@@ -720,7 +751,7 @@ PAGER_JS = """
     }
     if (fill) fill.style.width = ((cur + 1) / slides.length * 100) + "%";
     if (curEl) curEl.textContent = String(cur + 1);
-    if (panel && panel.classList.contains("open")) panel.innerHTML = notesFor(cur);
+    if (panel && panel.classList.contains("open")) { panel.innerHTML = notesFor(cur); markNexts(panel, pressesDone(cur)); }
     if (window.animatic && typeof window.animatic.onChange === "function") {
       try { window.animatic.onChange(cur); } catch (err) { /* never break nav */ }
     }
@@ -1054,6 +1085,7 @@ PAGER_JS = """
   function stepped() {
     applyStep(cur);
     setHash();
+    if (panel.classList.contains("open")) { panel.innerHTML = notesFor(cur); markNexts(panel, pressesDone(cur)); }
     for (var si = 0; si < stepListeners.length; si++) {
       try { stepListeners[si](cur, getStep(cur)); } catch (err) { /* never break nav */ }
     }
@@ -1073,7 +1105,7 @@ PAGER_JS = """
   function toggleNotes() {
     if (!panel) return;
     panel.classList.toggle("open");
-    if (panel.classList.contains("open")) panel.innerHTML = notesFor(cur);
+    if (panel.classList.contains("open")) { panel.innerHTML = notesFor(cur); markNexts(panel, pressesDone(cur)); }
   }
 
   function fromHash() {
@@ -1102,6 +1134,7 @@ PAGER_JS = """
     count: function () { return slides.length; },
     current: function () { return cur; },
     step: function () { return getStep(cur); },
+    pressesDone: function () { return pressesDone(cur); },
     steps: function () { var r = revealOf(cur); return r ? r.total : 0; },
     stepImages: function () { var r = revealOf(cur); return r ? r.imgs : 0; },
     addOnStep: function (fn) {
@@ -1783,6 +1816,7 @@ PRESENTER_JS = r"""
       index: i,
       count: n,
       step: window.animatic.step(),
+      pressesDone: window.animatic.pressesDone(),
       steps: window.animatic.steps(),
       stepImages: window.animatic.stepImages(),
       startedAt: startedAt,
@@ -2101,6 +2135,13 @@ PRESENTER_UI_JS = r"""
     fillPreview(el["next-preview"], state.nextPreview, nxt);
     fillNotes(el.notes, state.notes);
     fillNotes(el["next-notes"], state.nextNotes);
+    if (el.notes) {
+      var nm = el.notes.querySelectorAll(".next-mark");
+      for (var mj = 0; mj < nm.length; mj++) {
+        nm[mj].classList.toggle("done", mj < (state.pressesDone || 0));
+        nm[mj].classList.toggle("up", mj === (state.pressesDone || 0));
+      }
+    }
     fillLive(state.liveCue);
     paintTimer();
     fitNotes();
@@ -3109,8 +3150,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     # `class="stage"` inside the notes panel resolved to `position: fixed;
     # inset: 0` and covered the whole screen instead of sitting in the panel.
     notes = []
-    for b in vo_paragraphs(screen):
-        notes.append(f"<p>{inline_md(b.text)}</p>")
+    for b in screen.blocks:
+        if b.kind == "vo" and (b.text.strip() or b.nexts):
+            notes.append(f"<p>{notes_vo_html(b)}</p>")
     for b in screen.blocks:
         for st in b.stage:
             notes.append(f'<p class="stage-note">({html.escape(st)})</p>')
@@ -3590,6 +3632,38 @@ def step_count_notes(talk: Talk, resolver: MediaResolver) -> list:
                 f"'{ref.slug}' has {len(ref.steps)} image steps and the reveal=list list "
                 f"has {len(lst.items)} items: they advance together, and the shorter one "
                 f"holds on its last until the longer finishes"))
+    return notes
+
+
+def next_mark_notes(talk: Talk, resolver: MediaResolver) -> list:
+    """Check 40: a screen's `[n]` / `[next]` marks should equal its next-presses
+    that stay on the screen (the steps after the one showing on arrival).
+    [(screen, line, message)]."""
+    notes = []
+    for s in talk.screens:
+        marks = sum(len(b.nexts) for b in s.blocks if b.kind == "vo")
+        if not marks:
+            continue
+        ref = screen_steps(s, resolver)
+        imgs = len(ref.steps) if ref is not None else 0
+        lst = next((b for b in s.blocks if b.kind == "list" and len(b.items) >= 2), None)
+        if lst is not None and not any("list" in reveal_modes(sh.flags) for sh in s.shots):
+            lst = None
+        items = len(lst.items) if lst is not None else 0
+        if lst is None and not imgs:
+            presses, how = 0, "nothing on it steps"
+        else:
+            # the list's own arrival: item 1 showing when nothing precedes it,
+            # none when a title comes first; images alone open on frame 1
+            first = next((b for b in s.blocks if b.kind != "vo"), None)
+            start = (1 if first is lst else 0) if lst is not None else 1
+            presses = max(imgs, items) - start
+            how = f"{max(imgs, items)} steps"
+        if marks != presses:
+            line = next((b.line for b in s.blocks if b.kind == "vo" and b.nexts), s.line_range[0])
+            notes.append((s, line,
+                f"{marks} [next] mark(s) in the script but {presses} next-press(es) "
+                f"stay on this screen ({how}): the marks and the presses drift apart"))
     return notes
 
 
