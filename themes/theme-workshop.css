@@ -128,6 +128,19 @@
       0 0 3px rgba(0, 0, 0, 0.5);
   }
   .animatic-slide.text-light .quote-source { color: rgba(247, 242, 232, 0.85); }
+  /* a [Timer: ...] in the flow is screen text too: it follows the text mode.
+     (.timer-corner keeps its own opaque plate and the theme colours.) The ember
+     alert is the lighter one so it still reads on a dark ground. */
+  .animatic-slide.text-light :is(.timer-block, .timer-inline) {
+    color: #f7f2e8;
+    --stage-alert: #ff9a5a;
+  }
+  .animatic-slide.text-light :is(.timer-block, .timer-inline) .timer-digits {
+    text-shadow:
+      0 2px 22px rgba(0, 0, 0, 0.65),
+      0 0 3px rgba(0, 0, 0, 0.5);
+  }
+  .animatic-slide.text-light .timer-block .timer-state { color: rgba(247, 242, 232, 0.85); }
   .animatic-slide.text-dark .slide-title,
   .animatic-slide.text-dark blockquote,
   .animatic-slide.text-dark .stat,
