@@ -85,7 +85,7 @@ def check(fx, errors: list) -> None:
                                     f"'{slug}-poster.'")
             continue
         if found:
-            if src not in ("cards", "deckdir", "library", "standin"):
+            if src not in ("cards", "deckdir", "library", "standin", "pool"):
                 err(errors, f"slug {slug!r}: found but source {src!r} not in "
                             f"cards/deckdir/library/standin")
             if md.get("live"):
@@ -133,6 +133,7 @@ def check(fx, errors: list) -> None:
                       if isinstance(c, dict) and c.get("slug")]
     # a stepped-image card counts its frames as referenced
     used = set(slugs)
+    used.update(s.rsplit("--", 1)[0] for s in slugs if "--" in s)   # a pool use counts for its pool
     for ent in man.get("referenced", []):
         used.update((ent.get("media") or {}).get("steps") or [])
     want_unref = [s for s in card_slugs if s not in used]

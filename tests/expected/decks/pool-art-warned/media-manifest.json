@@ -1,0 +1,109 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "pool-art-warned",
+  "referenced": [
+    {
+      "slug": "pool-art--01",
+      "first_cue": "pool-art-warned-001",
+      "media": {
+        "slug": "pool-art--01",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--01.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "pool-art--02",
+      "first_cue": "pool-art-warned-003",
+      "media": {
+        "slug": "pool-art--02",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--02.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "pool-art--03",
+      "first_cue": "pool-art-warned-004",
+      "media": {
+        "slug": "pool-art--03",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--03.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "pool-art--04",
+      "first_cue": "pool-art-warned-005",
+      "media": {
+        "slug": "pool-art--04",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--04.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "pinned-blue",
+      "first_cue": "pool-art-warned-006",
+      "media": {
+        "slug": "pinned-blue",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pinned-blue.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "pinned-gone",
+      "first_cue": "pool-art-warned-007",
+      "media": {
+        "slug": "pinned-gone",
+        "type": "image",
+        "status": "missing",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": "pin 'pinned-gone': 'gone.svg' is not in pool folder 'art'"
+      }
+    }
+  ],
+  "unreferenced_cards": []
+}

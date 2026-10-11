@@ -824,6 +824,48 @@ is that card steps, with no shot flag.
 5. `--media-remap` stand-in (deliberately last — real art always wins)
 6. placeholder (a grey box carrying slug, status, and reason)
 
+### Pool cards (one slug, a folder of art)
+
+A card with `pool: <folder>` stands for every media file in that folder
+(deck-relative or absolute; images and video, hidden files and sidecar yaml
+skipped). Each use of the slug in a shot gets the next file of a seeded
+shuffle of the folder, in document order, with no repeats until every file has
+been used; the next cycle is reshuffled and never opens on the file that ended
+the last.
+
+```yaml
+- slug: ryan-art
+  type: image
+  status: have
+  pool: ../_media/ryan/kaleido
+  seed: 2          # optional; change it to re-roll the whole deck
+  text: light      # optional; default text= for every shot using the pool
+  pins:            # optional; ids that always resolve to one file
+    title-ink: ink_03889_2259_01.png
+  alt: Abstract art by Ryan Kelln
+  credit: Ryan Kelln
+  licence: CC BY-SA
+```
+
+- The pick is made at build time, so it cannot change on navigation, and a
+  rebuild gives identical bytes. Adding or removing a file in the folder, or
+  changing `seed:`, re-rolls the picks.
+- A `continue` screen keeps its head's file. `under=<pool-slug>` takes its own pick.
+- Each use becomes a virtual slug `<slug>--NN` (NN = use number) in the
+  manifest and `_media/`; the build prints a `pool` line per use with the
+  chosen file name. The manifest source is `pool`.
+- An empty or missing folder renders a placeholder that says so.
+- **Pins.** `pins:` maps an id to a file name in the folder. `<!-- shot: title-ink -->`
+  then needs no card of its own and shows that file every time. Pinned files
+  are left out of the random draw, so a pinned image appears only where it is
+  pinned. A pin id follows the slug rules and must not repeat a card or another pin.
+- **Text.** `text: light|dark` on the card is the default `text=` flag for every
+  shot that uses the pool (draws, pins, `continue` screens). A shot's own
+  `text=` wins. Any other value is ignored with a check 41 warning.
+- **Check 41** (warning): the pool folder is missing or has no unpinned files; a
+  pin names a file that is not in the folder (the screen is a placeholder); a pin
+  id breaks the slug rule or repeats a card (the pin is ignored).
+
 ### Slug scope and uniqueness
 
 - Charset `[a-z0-9-]`, 3–40 chars, no leading/trailing `-`.

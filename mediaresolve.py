@@ -23,6 +23,18 @@ Resolution order (docs/media-pipeline.md):
      metadata (credit/licence/alt) is untouched; refs carry source
      "standin" so the manifest audit stays honest.
 
+Pool cards (card `pool: <folder>`, deck-relative): one slug stands for a
+folder of art.  `expand_pools()` runs after the parse and gives every use of
+the slug its own concrete virtual slug (`<slug>--NN`, NN = use number in
+document order); the resolver maps NN to a file by a seeded shuffle of the
+folder that never repeats until every file has been used (then reshuffles,
+never starting a cycle on the file that ended the last).  A `continue` screen
+keeps its head's file.  Chosen at build time, so navigation cannot change it
+and a rebuild gives identical bytes; `seed:` on the card re-rolls.
+`pins: {id: file name}` on a pool card makes each id a slug that always
+resolves to that file; pinned files are left out of the random draw.  `text: light|dark` on a pool
+card is the default `text=` flag of every shot using the pool.
+
 When nothing resolves, the slug becomes a PLACEHOLDER (found=False) with the
 card's type/status carried through for the renderer.  The script never knows
 about file formats; the resolver is the only place extensions exist.
@@ -119,6 +131,97 @@ def _place(src, dst: Path, link: bool = False) -> None:
     else:
         shutil.copyfile(src, dst)
 
+POOL_RE = re.compile(r"^(.+)--(\d{2,})$")
+PIN_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$")
+
+
+def _pins(card: dict) -> dict:
+    """A pool card's `pins:` as {id: file name}; non-string entries are skipped."""
+    raw = card.get("pins")
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k): v for k, v in raw.items() if isinstance(v, str) and v}
+
+
+def pool_files(card: dict, talk_dir: Path) -> list:
+    """The media files of a pool card's folder, sorted by name (hidden files,
+    sidecar yaml and sub-folders are not media)."""
+    folder = card.get("pool")
+    if not isinstance(folder, str) or not folder.strip():
+        return []
+    d = (Path(talk_dir) / folder).resolve()
+    if not d.is_dir():
+        return []
+    pinned = set(_pins(card).values())      # a pinned file is used only where it is pinned
+    return sorted(p for p in d.iterdir()
+                  if p.is_file() and not p.name.startswith(".")
+                  and p.suffix.lower() in MEDIA_EXTS and p.name not in pinned)
+
+
+def pool_pick(slug: str, card: dict, files: list, n: int):
+    """The file for use number `n` (1-based) of pool `slug`: cycle k is a
+    shuffle seeded by (seed|slug|k); a cycle never opens on the file that
+    closed the one before."""
+    import random
+
+    if not files:
+        return None
+    seed = str(card.get("seed", ""))
+    order, k, prev_last = [], 0, None
+    while len(order) < n:
+        cyc = list(files)
+        random.Random(f"{seed}|{slug}|{k}").shuffle(cyc)
+        if len(cyc) > 1 and cyc[0] == prev_last:
+            cyc[0], cyc[1] = cyc[1], cyc[0]
+        order.extend(cyc)
+        prev_last = cyc[-1]
+        k += 1
+    return order[n - 1]
+
+
+def expand_pools(talk, resolver) -> None:
+    """Give every use of a pool slug its own virtual slug (`<slug>--NN`),
+    in document order.  Call once, right after the resolver is made."""
+    pools = {str(c["slug"]) for c in resolver.cards
+             if isinstance(c, dict) and c.get("slug") and c.get("pool")}
+    if not pools:
+        return
+    count = {s: 0 for s in pools}
+    prev_media = None
+    for scr in talk.screens:
+        for shot in scr.shots:
+            if shot.cont and prev_media is not None:
+                # a continuation keeps the head's file (and its `under`)
+                if shot.slug in pools:
+                    shot.slug = prev_media.slug
+                if shot.flags.get("under") in pools and prev_media.flags.get("under"):
+                    shot.flags["under"] = prev_media.flags["under"]
+                continue
+            for name in ("slug", "under"):
+                cur = shot.slug if name == "slug" else shot.flags.get("under")
+                if cur not in pools:
+                    continue
+                count[cur] += 1
+                virtual = f"{cur}--{count[cur]:02d}"
+                if name == "slug":
+                    shot.slug = virtual
+                else:
+                    shot.flags["under"] = virtual
+                card = resolver.card_for(cur)
+                f = pool_pick(cur, card, pool_files(card, resolver.talk_dir), count[cur])
+                resolver.pool_log.append((virtual, f.name if f else None, shot.line))
+        for shot in scr.shots:
+            # the pool's `text:` is the default for every shot that uses it
+            # (a use, a pin, a continue); the shot's own `text=` wins
+            if shot.slug and "text" not in shot.flags:
+                card = resolver.card_for(shot.slug)
+                if card is not None and card.get("pool") and card.get("text") in ("light", "dark"):
+                    shot.flags["text"] = card["text"]
+        m = scr.media_shot
+        if m is not None:
+            prev_media = m
+
+
 @dataclass
 class MediaResolver:
     talk_dir: Path
@@ -144,6 +247,11 @@ class MediaResolver:
     # --link-media: symlink published files instead of copying them. For
     # throwaway and test builds only: the output folder is no longer portable.
     link_media: bool = False
+    # pool cards: (virtual slug, chosen file name or None, shot line), filled by expand_pools()
+    pool_log: list = field(default_factory=list)
+    # check 41: (slug, message) for a pool card that cannot apply as written
+    pool_issues: list = field(default_factory=list)
+    _pin_map: dict = field(default_factory=dict)            # pin id -> (pool card, file name)
     # check-10 register: (slug, declared-path) pairs whose file does not exist.
     # Filled in __post_init__; kept for the future `animatic check` runner.
 
@@ -194,6 +302,8 @@ class MediaResolver:
                         f"(joined to deck dir {self.talk_dir})",
                         stacklevel=3)  # past __post_init__ + dataclass __init__
 
+        self._check_pools()
+
         # check 29: a card's `playback:` must be one of the known values, and
         # only a video card plays.  Like check 10 this runs over ALL cards.
         for c in self.cards:
@@ -222,13 +332,74 @@ class MediaResolver:
                     f"card '{slug}' has sound: true but type: "
                     f"{c.get('type')}; sound applies to video cards only"))
 
+    def _check_pools(self) -> None:
+        """Index every pool card's `pins:` and record what cannot apply (check 41)."""
+        card_slugs = {str(c["slug"]) for c in self.cards
+                      if isinstance(c, dict) and c.get("slug")}
+        for c in self.cards:
+            if not (isinstance(c, dict) and c.get("slug") and c.get("pool")):
+                continue
+            slug = str(c["slug"])
+            folder = (self.talk_dir / str(c["pool"])).resolve()
+            if not folder.is_dir():
+                self.pool_issues.append((slug,
+                    f"pool '{slug}': folder {c['pool']!r} does not exist (joined to deck dir)"))
+                continue
+            if not pool_files(c, self.talk_dir):
+                self.pool_issues.append((slug,
+                    f"pool '{slug}': no unpinned media files in {c['pool']!r}; "
+                    f"its uses render placeholders"))
+            if "text" in c and c["text"] not in ("light", "dark"):
+                self.pool_issues.append((slug,
+                    f"pool '{slug}': text: {c['text']!r}; expected light or dark (ignored)"))
+            if c.get("pins") is not None and not isinstance(c.get("pins"), dict):
+                self.pool_issues.append((slug,
+                    f"pool '{slug}': pins: must be a mapping of id to file name"))
+            for pid, fname in _pins(c).items():
+                if not PIN_SLUG_RE.fullmatch(pid) or POOL_RE.match(pid):
+                    self.pool_issues.append((pid,
+                        f"pool '{slug}': pin id {pid!r} breaks the slug rule "
+                        f"[a-z0-9-], 3-40 chars, no leading/trailing '-' (and no "
+                        f"trailing '--NN'); it is ignored"))
+                    continue
+                if pid in card_slugs or pid in self._pin_map:
+                    self.pool_issues.append((pid,
+                        f"pool '{slug}': pin id {pid!r} is already a card or another "
+                        f"pin; the pin is ignored"))
+                    continue
+                self._pin_map[pid] = (c, fname)
+                f = folder / fname
+                if not f.is_file():
+                    self.pool_issues.append((pid,
+                        f"pool '{slug}': pin '{pid}' names {fname!r}, which is not in "
+                        f"{c['pool']!r}; the screen renders a placeholder"))
+
     # -- lookups -------------------------------------------------------------
 
     def card_for(self, slug: str) -> Optional[dict]:
         for c in self.cards:
             if isinstance(c, dict) and c.get("slug") == slug:
                 return c
+        if slug in self._pin_map:
+            return self._pin_map[slug][0]
+        m = POOL_RE.match(slug)
+        if m:                       # a pool use answers with its pool's card
+            c = self.card_for(m.group(1))
+            if c is not None and c.get("pool"):
+                return c
         return None
+
+    def _pool_ref(self, slug: str, base: str, n: int, card: dict) -> MediaRef:
+        files = pool_files(card, self.talk_dir)
+        f = pool_pick(base, card, files, n)
+        if f is None:
+            return MediaRef(
+                slug=slug, type="image", status="missing", found=False,
+                alt=card.get("alt", ""), credit=card.get("credit", ""),
+                licence=card.get("licence", ""),
+                reason=f"pool '{base}': no media files in {card.get('pool')!r}")
+        # a pool's own `type:` is the card's default; the file decides here
+        return self._make(slug, {**card, "type": None}, f, "pool")
 
     def library_entry_for(self, slug: str) -> Optional[dict]:
         for e in self.library:
@@ -421,6 +592,21 @@ class MediaResolver:
 
     def _resolve_plain(self, slug: str) -> MediaRef:
         card = self.card_for(slug)
+        if slug in self._pin_map:
+            pcard, fname = self._pin_map[slug]
+            f = (self.talk_dir / str(pcard["pool"])).resolve() / fname
+            if f.is_file():
+                return self._make(slug, {**pcard, "type": None}, f, "pool")
+            return MediaRef(
+                slug=slug, type="image", status="missing", found=False,
+                alt=pcard.get("alt", ""), credit=pcard.get("credit", ""),
+                licence=pcard.get("licence", ""),
+                reason=f"pin '{slug}': {fname!r} is not in pool folder {pcard.get('pool')!r}")
+        if card is not None and card.get("pool"):
+            m = POOL_RE.match(slug)
+            if m and m.group(1) == card.get("slug"):
+                return self._pool_ref(slug, m.group(1), int(m.group(2)), card)
+            return self._pool_ref(slug, slug, 1, card)    # the bare pool slug: its first pick
         ctype = card.get("type") if card else None
         cstatus = card.get("status") if card else None
 
@@ -667,6 +853,12 @@ class MediaResolver:
         """Card slugs never referenced by any shot (authoring info).  A stepped
         card's frames count as referenced by it."""
         referenced = set(referenced)
+        for slug in list(referenced):       # a pool use or pin counts for its pool
+            m = POOL_RE.match(slug)
+            if m:
+                referenced.add(m.group(1))
+            if slug in self._pin_map:
+                referenced.add(str(self._pin_map[slug][0]["slug"]))
         for slug in list(referenced):
             spec = self.steps_spec(slug)
             if spec:

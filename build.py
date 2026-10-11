@@ -39,7 +39,7 @@ import yaml
 
 import render
 import talkparse
-from mediaresolve import MediaResolver
+from mediaresolve import MediaResolver, expand_pools
 from render import (cited_sources, render_cues, render_document, render_manifest, render_nav,
                     render_present, render_presenter)
 
@@ -99,6 +99,7 @@ def build(talk_path: Path, args) -> int:
         talk.meta["theme"] = args.theme
     resolver = MediaResolver(talk_dir=talk_path.parent, meta=talk.meta)
     resolver.link_media = bool(getattr(args, "link_media", False))
+    expand_pools(talk, resolver)
     if args.media_remap:
         remap_path = Path(args.media_remap).expanduser().resolve()
         if not remap_path.is_file():
@@ -133,6 +134,8 @@ def build(talk_path: Path, args) -> int:
         print(f"warn      : check 29: {msg}")
     for _slug, msg in resolver.steps_issues:
         print(f"warn      : check 33: {msg}")
+    for _slug, msg in resolver.pool_issues:
+        print(f"warn      : check 41: {msg}")
     for scr, _line, msg in render.step_count_notes(talk, resolver):
         print(f"warn      : check 34: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
     for scr, _line, msg in render.next_mark_notes(talk, resolver):
@@ -156,6 +159,8 @@ def build(talk_path: Path, args) -> int:
     print(f"title     : {talk.meta.get('title', '')}")
     print(f"movements : {len(talk.movements)} "
           f"({', '.join(str(m.index) for m in talk.movements)})")
+    for virtual, fname, line in resolver.pool_log:
+        print(f"pool      : {virtual} <- {fname or 'NO FILE'} (line {line})")
     print(f"screens   : {len(talk.screens)} (cues); "
           f"opening={sum(1 for s in talk.screens if s.movement == 0)}")
     roles = {r: 0 for r in ("stat", "lower", "credits")}

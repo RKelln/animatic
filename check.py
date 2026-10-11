@@ -80,7 +80,7 @@ import yaml
 import talkparse
 import render
 import timing
-from mediaresolve import MEDIA_EXTS, MediaResolver
+from mediaresolve import MEDIA_EXTS, MediaResolver, expand_pools
 
 # ---------------------------------------------------------------------------
 # Severity + register
@@ -159,6 +159,7 @@ REGISTER = [
     (38, "a `[Timer: ...]` over 3 hours (sanity; the timer is kept)", WARNING, "enforced: talkparse.py"),
     (39, "a `[Timer: ...]` token in a spoken paragraph: dropped from the voice-over, starts nothing", WARNING, "enforced: talkparse.py"),
     (40, "a screen's `[next]` / `[n]` marks differ in number from its next-presses (stepped images, `reveal=list` items)", WARNING, "implemented"),
+    (41, "pool card that cannot apply: folder missing or empty, a `pins:` file not in the folder, or a pin id that breaks the slug rule or repeats a card (a bad pin renders a placeholder or is ignored)", WARNING, "implemented: check.py + mediaresolve.py"),
 ]
 
 DEFERRED = {
@@ -923,6 +924,12 @@ def check_34_step_counts(talk, resolver, report: Report) -> None:
         report.add(34, WARNING, msg, line=line, screen=s.idx)
 
 
+def check_41_pools(talk, resolver, report: Report) -> None:
+    """A pool card's folder, `pins:` files and pin ids must hold up."""
+    for slug, msg in resolver.pool_issues:
+        report.add(41, WARNING, f"{msg} (spec: Media, pool cards)")
+
+
 def check_40_next_marks(talk, resolver, report: Report) -> None:
     """`[next]` marks in the script should match the presses the screen takes."""
     for s, line, msg in render.next_mark_notes(talk, resolver):
@@ -1107,6 +1114,7 @@ def run_checks(talk, resolver, source_text: str,
     check_33_steps(talk, resolver, report)
     check_34_step_counts(talk, resolver, report)
     check_40_next_marks(talk, resolver, report)
+    check_41_pools(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:
@@ -1139,6 +1147,7 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
         warnings.simplefilter("ignore")     # mediaresolve warns check 10 via
         resolver = MediaResolver(talk_dir=p.parent, meta=talk.meta)
         # the warnings module; the suite surfaces declared_missing itself.
+        expand_pools(talk, resolver)
     for inc in talk.includes:            # footnote refs inside included files
         try:
             text += "\n" + inc.read_text(encoding="utf-8")

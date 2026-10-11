@@ -243,3 +243,18 @@
   credit: Ryan Kelln (generated)
   licence: CC BY-SA
   alt: ""
+
+# A pool card: one slug for a whole folder of art. Every `<!-- shot: ryan-art -->`
+# gets the next file of a seeded shuffle, no repeats until the folder is used up.
+# See the spec: Pool cards.
+- slug: ryan-art
+  type: image
+  status: have
+  pool: ../_media/ryan/kaleido     # folder, deck-relative or absolute
+  # text: light                    # default text= for shots using this pool (art for a dark ground)
+  # seed: 2                        # change to re-roll the picks
+  # pins:                          # ids that always show one file (left out of the random draw)
+  #   title-ink: ink_03889_2259_01.png
+  alt: Abstract art by Ryan Kelln
+  credit: Ryan Kelln
+  licence: CC BY-SA

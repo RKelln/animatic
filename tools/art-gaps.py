@@ -64,7 +64,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import talkparse  # noqa: E402
-from mediaresolve import MediaResolver  # noqa: E402
+from mediaresolve import MediaResolver, expand_pools  # noqa: E402
 from render import deck_slug  # noqa: E402
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".tif", ".tiff", ".bmp"}
@@ -109,6 +109,7 @@ def slug_for_file(media_dir: Path, p: Path) -> str:
 def collect(talk_path: Path) -> dict:
     talk = talkparse.build_talk(talk_path)
     resolver = MediaResolver(talk_dir=talk_path.parent, meta=talk.meta)
+    expand_pools(talk, resolver)
     slug = deck_slug(talk)
     media_dir = Path(resolver.media_dir)
 

@@ -1,0 +1,12 @@
+- slug: pool-art
+  type: image
+  status: have
+  pool: art
+  seed: fixture
+  text: grey
+  alt: A generic backdrop
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+  pins:
+    pinned-blue: blue.svg
+    pinned-gone: gone.svg

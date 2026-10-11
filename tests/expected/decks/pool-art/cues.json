@@ -1,0 +1,247 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "pool-art",
+    "title": "Pool of backdrops",
+    "date": "2026-10-10",
+    "venue": "Internal fixture",
+    "format": "Golden deck",
+    "dur": "~1 min",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "pool-art-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": "First title",
+      "shots": [
+        {
+          "slug": "pool-art--01",
+          "role": null,
+          "flags": {
+            "text": "light"
+          }
+        }
+      ],
+      "media": {
+        "slug": "pool-art--01",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--01.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "First title"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "pool-art-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "pool-art--01",
+          "role": null,
+          "flags": {
+            "text": "light"
+          }
+        }
+      ],
+      "media": {
+        "slug": "pool-art--01",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--01.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "Same picture as the first title.",
+      "stage": null,
+      "est_seconds": 2.4
+    },
+    {
+      "id": "pool-art-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "media",
+      "title": "Second title",
+      "shots": [
+        {
+          "slug": "pool-art--02",
+          "role": null,
+          "flags": {
+            "text": "light"
+          }
+        }
+      ],
+      "media": {
+        "slug": "pool-art--02",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--02.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Second title"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "pool-art-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "media",
+      "title": "Third title",
+      "shots": [
+        {
+          "slug": "pool-art--03",
+          "role": null,
+          "flags": {
+            "text": "light"
+          }
+        }
+      ],
+      "media": {
+        "slug": "pool-art--03",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--03.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Third title"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "pool-art-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "media",
+      "title": "Fourth title, the folder has run out, and its own text=dark wins",
+      "shots": [
+        {
+          "slug": "pool-art--04",
+          "role": null,
+          "flags": {
+            "text": "dark"
+          }
+        }
+      ],
+      "media": {
+        "slug": "pool-art--04",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pool-art--04.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Fourth title, the folder has run out, and its own text=dark wins"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "pool-art-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "media",
+      "title": "Pinned to blue",
+      "shots": [
+        {
+          "slug": "pinned-blue",
+          "role": null,
+          "flags": {
+            "text": "light"
+          }
+        }
+      ],
+      "media": {
+        "slug": "pinned-blue",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/pinned-blue.svg",
+        "source": "pool",
+        "alt": "A generic backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Pinned to blue"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": []
+}
