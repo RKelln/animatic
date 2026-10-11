@@ -670,6 +670,32 @@ one line of yaml in `roles.yaml`, like every other name in the vocabulary — th
 grammar does not change, and a deck may add its own name for the same form in
 its own `roles.yaml`.
 
+### Notes text (`[notes]`)
+
+`[notes]` alone on a line keeps the lines directly under it off the slide and
+out of the speech: they show in the presenter notes and print in the handout at
+that spot. Use it when a picture already carries a list and the written version
+should still have the words. (Not a stage note: a `( … )` parenthetical stays
+out of the handout.)
+
+```
+<!-- shot: notebook-sources -->
+### notebook.google.com
+
+[notes]
+- Five sources on the left
+- A chat in the middle
+
+This paragraph is still spoken.
+```
+
+- **Scope.** The consecutive non-blank lines after the marker (a blank line,
+  a shot comment or a fence ends it). Anything inside can be a list, table,
+  quote, heading or paragraph.
+- **Kind.** The block is kind `print` (wrapping `inner` blocks), never in
+  cues.json; `onscreen_blocks` skips it, so `dim` still warns on a screen whose
+  only text is in `[notes]`.
+
 ### Directions (parentheticals)
 
 Parentheses are never spoken and never on screen. Every parenthetical is

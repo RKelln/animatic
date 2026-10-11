@@ -172,6 +172,9 @@ def parse_timer_token(inner: str) -> Optional[tuple]:
 # a cue for the presenter, never speech, so the parser takes it out of the text
 # (timing, captions, the document view and the handout never see it) and keeps
 # only where it stood, as Block.nexts.
+# `[notes]` alone on a line: the lines directly under it (to the next blank
+# line) are off the slide, in the presenter notes and the handout.
+PRINT_MARK_RE = re.compile(r"^\s*\[\s*notes\s*\]\s*$", re.IGNORECASE)
 NEXT_TOKEN_RE = re.compile(r"\[\s*(?:n|next)\s*\]", re.IGNORECASE)
 
 
@@ -415,7 +418,7 @@ class Shot:
 class Block:
     """One content block on a screen, in document order."""
 
-    kind: str                     # vo|heading|handout-heading|quote|quote-source|list|table|code|stat|lower|credits|paraphrase
+    kind: str                     # print|vo|heading|handout-heading|quote|quote-source|list|table|code|stat|lower|credits|paraphrase
     text: str = ""                # for vo/heading/quote/stat/lower/credits/paraphrase; code: the verbatim lines
     level: Optional[int] = None   # heading depth (1..6)
     items: list = field(default_factory=list)   # list items
@@ -437,6 +440,9 @@ class Block:
     # vo only: offsets in `text` where the author wrote `[n]` / `[next]`, the
     # point the presenter presses next.  Speaker notes show them; nothing else does.
     nexts: list = field(default_factory=list)
+    # kind "print" only: the blocks written under a `[notes]` line.  Handout
+    # only: never on a slide, never spoken, never in cues.
+    inner: list = field(default_factory=list)
 
 
 @dataclass
@@ -829,6 +835,7 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
     cont = None  # (kind, block, last_lineno) for quote/list line merging
     comment_buf: Optional[list] = None
     comment_start = 0
+    print_ranges: list = []   # (first, last) source lines under a `[notes]` line
 
     def flush_para():
         nonlocal para_buf, cont, para_end
@@ -896,6 +903,17 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
                          "flags": im.group(2).split(), "line": lineno,
                          "line_end": lineno}
                     )
+            continue
+
+        # --- [notes]: the lines under it, to the next blank line, are handout-only
+        if PRINT_MARK_RE.match(line):
+            flush_para()
+            end = idx
+            while end + 1 < len(lines) and lines[end + 1].strip() \
+                    and (end + 1) not in fenced \
+                    and not lines[end + 1].lstrip().startswith("<!--"):
+                end += 1
+            print_ranges.append((lineno + 1, end + 1 + line_offset))
             continue
 
         # --- blank line ------------------------------------------------------
@@ -1049,6 +1067,9 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
         para_end = lineno
 
     flush_para()
+    for b in blocks:
+        if any(a <= b.get("line", 0) <= z for a, z in print_ranges):
+            b["print"] = True
     return blocks
 
 
@@ -1507,8 +1528,25 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                     f"probably a slip (kept as written)")
             block.timer = got
 
+    print_open = None     # (screen, first block index) of a `[notes]` run being read
+
+    def close_print() -> None:
+        """Move the blocks a `[notes]` run produced into one handout-only wrapper."""
+        nonlocal print_open
+        if print_open is None:
+            return
+        scr, at = print_open
+        print_open = None
+        moved = scr.blocks[at:]
+        if moved:
+            scr.blocks[at:] = [Block(kind="print", inner=moved, line=moved[0].line,
+                                     line_end=moved[-1].line_end or moved[-1].line)]
+
     for i_rb, rb in enumerate(raw_blocks):
         kind = rb["kind"]
+        close_print()
+        if rb.get("print") and kind not in ("shot", "include") and cur is not None:
+            print_open = (cur, len(cur.blocks))
 
         if kind == "shot":
             shot: Shot = rb["shot"]
@@ -1815,6 +1853,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
 
         talk.warnings.append(f"line {rb.get('line', 0)}: unhandled block kind {kind}")
 
+    close_print()
     if pending_role is not None:
         talk.warnings.append(
             f"line {role_line}: role shot never consumed a payload paragraph"

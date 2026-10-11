@@ -195,7 +195,7 @@ def is_credits_screen(screen: Screen) -> bool:
 
 def onscreen_blocks(screen: Screen) -> list[Block]:
     """Blocks that are screen objects (not VO)."""
-    return [b for b in screen.blocks if b.kind != "vo"]
+    return [b for b in screen.blocks if b.kind not in ("vo", "print")]
 
 
 def screen_script(screen: Screen) -> str:
@@ -3153,6 +3153,14 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     for b in screen.blocks:
         if b.kind == "vo" and (b.text.strip() or b.nexts):
             notes.append(f"<p>{notes_vo_html(b)}</p>")
+        elif b.kind == "print":      # `[notes]` text: in the notes, off the slide
+            for ib in b.inner:
+                if ib.kind == "list":
+                    notes.append(list_html(ib))
+                elif ib.kind == "table":
+                    notes.append(table_html(ib))
+                elif ib.text.strip():
+                    notes.append(f'<p class="print-note">{inline_md(ib.text)}</p>')
     for b in screen.blocks:
         for st in b.stage:
             notes.append(f'<p class="stage-note">({html.escape(st)})</p>')
@@ -3407,7 +3415,10 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         out.append(f'<figure class="shot" data-slug="{html.escape(ref.slug)}">{inner}{cap}</figure>')
         # lower/credits already rendered as the figure caption: don't repeat them
         consumed = {id(b) for b in screen.blocks if b.kind in ("lower", "credits")}
-    for b in screen.blocks:
+    flow = []
+    for b in screen.blocks:      # a `[handout]` run prints in place, in the flow
+        flow.extend(b.inner if b.kind == "print" else [b])
+    for b in flow:
         if id(b) in consumed:
             continue
         if b.kind == "vo":
