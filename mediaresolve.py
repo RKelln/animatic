@@ -23,7 +23,7 @@ Resolution order (docs/media-pipeline.md):
      metadata (credit/licence/alt) is untouched; refs carry source
      "standin" so the manifest audit stays honest.
 
-Pool cards (card `pool: <folder>`, deck-relative): one slug stands for a
+Pool cards (card or shared-library entry `pool: <folder>`, deck-relative): one slug stands for a
 folder of art.  `expand_pools()` runs after the parse and gives every use of
 the slug its own concrete virtual slug (`<slug>--NN`, NN = use number in
 document order); the resolver maps NN to a file by a seeded shuffle of the
@@ -280,6 +280,14 @@ class MediaResolver:
                 if isinstance(loaded, list):
                     self.library = loaded
                     self.library_path = lib
+                    # a library entry with `pool:` is a shared pool card: it joins
+                    # the deck's cards (a deck card of the same slug wins); its
+                    # `pool:` folder is still deck-relative, so one entry serves
+                    # every deck that sits beside `_media/`
+                    have = {c.get("slug") for c in self.cards if isinstance(c, dict)}
+                    self.cards = list(self.cards) + [
+                        e for e in loaded
+                        if isinstance(e, dict) and e.get("pool") and e.get("slug") not in have]
             except yaml.YAMLError:
                 pass
 
