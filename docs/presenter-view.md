@@ -15,7 +15,7 @@ second.
 | Surface | Keys |
 | --- | --- |
 | deck | arrows / space / PageUp / PageDown / Home / End to move, `s` presenter window, `n` in-page notes, `d` demo hookup panel, `Escape` closes a panel |
-| presenter window | arrows / space to move the deck, `s` closes the window |
+| presenter window | arrows / space to move the deck, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
 | timer screens (either window) | `p` pause / resume, `0` reset and run, `+` / `=` add a minute, `-` take a minute off (spec: Timer screens) |
 
 ## Why two windows and not a bigger panel
@@ -185,6 +185,10 @@ repaints four times a second from the same wall clock, so the readout stays live
 pushes. `p`, `0`, `+`, `-` in the presenter window post `animatic-timer` requests to the
 deck, which applies them to the current screen. The preview thumbnails show the plate at
 its full duration: a preview never runs a timer.
+
+`t` (or the restart button beside `elapsed`) restarts the talk clock: elapsed goes back to
+0:00 and every `[Timer: ...]` in the deck is reset to unstarted, with the current screen's
+timer starting over. The deck owns `startedAt`, so a presenter reload keeps the new zero.
 
 ## Limits, stated plainly
 

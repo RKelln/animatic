@@ -1300,6 +1300,20 @@ TIMER_JS = r"""
     return true;
   }
 
+  // Restart the whole talk: every timer goes back to unstarted (plates show
+  // their full duration), then the current slide's timer starts fresh.
+  function resetAll() {
+    st = {};
+    for (var k = 0; k < slides.length; k++) {
+      var p = plateOf(k);
+      if (!p) continue;
+      paintPlate(p, fmt(dur(k) / 1000), "idle", false);
+      p.classList.remove("pulse");
+    }
+    arrive(A.current());
+    emit();
+  }
+
   function state() {
     var i = A.current(), t = st[i];
     if (!t) return null;
@@ -1318,7 +1332,7 @@ TIMER_JS = r"""
   }
 
   A.timer = {
-    state: state, command: command, freshen: freshen,
+    state: state, command: command, freshen: freshen, resetAll: resetAll,
     addOnChange: function (fn) { if (typeof fn === "function") listeners.push(fn); }
   };
   A.addOnChange(arrive);
@@ -1696,7 +1710,7 @@ PRESENTER_JS = r"""
   var slides = Array.prototype.slice.call(
     document.querySelectorAll(".animatic-slide"));
   var statusEl = document.getElementById("deck-status");
-  var startedAt = Date.now();
+  var startedAt = Date.now();   // the talk clock; the presenter can restart it
 
   function say(msg) {
     if (!statusEl) return;
@@ -1896,6 +1910,11 @@ PRESENTER_JS = r"""
     else if (d.type === "animatic-reload-media") window.animatic.reloadMedia();
     else if (d.type === "animatic-go" && typeof d.index === "number") {
       window.animatic.go(d.index);
+    }
+    else if (d.type === "animatic-restart-clock") {
+      startedAt = Date.now();
+      if (window.animatic.timer) window.animatic.timer.resetAll();
+      push();
     }
     else if (d.type === "animatic-timer" && window.animatic.timer) {
       window.animatic.timer.command(d.cmd);
@@ -2205,6 +2224,10 @@ PRESENTER_UI_JS = r"""
     tick();
   });
 
+  var restartBtn = document.getElementById("presenter-restart");
+  if (restartBtn) {
+    restartBtn.addEventListener("click", function () { post({ type: "animatic-restart-clock" }); });
+  }
   var prevBtn = document.getElementById("presenter-prev");
   var nextBtn = document.getElementById("presenter-next");
   if (prevBtn) {
@@ -2227,6 +2250,7 @@ PRESENTER_UI_JS = r"""
         window.setTimeout(function () { say(""); }, 1800);
         break;
       case "s": case "S": e.preventDefault(); window.close(); break;
+      case "t": case "T": post({ type: "animatic-restart-clock" }); break;
       case "p": case "P": post({ type: "animatic-timer", cmd: "pause" }); break;
       case "0": post({ type: "animatic-timer", cmd: "reset" }); break;
       case "+": case "=": post({ type: "animatic-timer", cmd: "add" }); break;
@@ -2837,7 +2861,8 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 <span class="presenter-timer-state" id="presenter-timer-state"></span>
 <span class="presenter-timer-keys">p pause &middot; 0 reset &middot; + / - one minute</span></p>
 <p class="presenter-clock"><span id="presenter-wall">--:--:--</span>
-<span class="presenter-elapsed">elapsed <span id="presenter-elapsed">0:00</span></span></p>
+<span class="presenter-elapsed">elapsed <span id="presenter-elapsed">0:00</span>
+<button type="button" id="presenter-restart" class="presenter-restart" title="Restart elapsed time and all timers (t)">restart (t)</button></span></p>
 <nav class="presenter-nav" aria-label="deck navigation">
 <button type="button" id="presenter-prev" aria-label="previous screen">&#8249;</button>
 <span class="presenter-pos"><span id="presenter-ordinal">1</span> / <span id="presenter-count">1</span></span>

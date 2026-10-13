@@ -917,6 +917,8 @@
     margin: 0 0 0 auto; font-size: 0.95rem; font-variant-numeric: tabular-nums;
   }
   .presenter-elapsed { margin-left: 0.9rem; color: var(--stage-muted); font-size: 0.85em; }
+  .presenter-restart { margin-left: 0.5rem; font: inherit; font-size: 0.8em; color: inherit; background: none; border: 1px solid currentColor; border-radius: 0.3em; padding: 0 0.4em; cursor: pointer; opacity: 0.7; }
+  .presenter-restart:hover { opacity: 1; }
   .presenter-nav { display: flex; align-items: center; gap: 0.5rem; }
   .presenter-nav button {
     padding: 0.15em 0.45em; border-radius: 0.5em; cursor: pointer;
