@@ -158,10 +158,11 @@ def pool_files(card: dict, talk_dir: Path) -> list:
                   and p.suffix.lower() in MEDIA_EXTS and p.name not in pinned)
 
 
-def pool_pick(slug: str, card: dict, files: list, n: int):
+def pool_pick(slug: str, card: dict, files: list, n: int, deck: str = ""):
     """The file for use number `n` (1-based) of pool `slug`: cycle k is a
-    shuffle seeded by (seed|slug|k); a cycle never opens on the file that
-    closed the one before."""
+    shuffle seeded by (seed|deck|slug|k), `deck` being the talk's slug so two
+    talks sharing a pool get different orders; a cycle never opens on the
+    file that closed the one before."""
     import random
 
     if not files:
@@ -170,7 +171,7 @@ def pool_pick(slug: str, card: dict, files: list, n: int):
     order, k, prev_last = [], 0, None
     while len(order) < n:
         cyc = list(files)
-        random.Random(f"{seed}|{slug}|{k}").shuffle(cyc)
+        random.Random(f"{seed}|{deck}|{slug}|{k}").shuffle(cyc)
         if len(cyc) > 1 and cyc[0] == prev_last:
             cyc[0], cyc[1] = cyc[1], cyc[0]
         order.extend(cyc)
@@ -208,7 +209,8 @@ def expand_pools(talk, resolver) -> None:
                 else:
                     shot.flags["under"] = virtual
                 card = resolver.card_for(cur)
-                f = pool_pick(cur, card, pool_files(card, resolver.talk_dir), count[cur])
+                f = pool_pick(cur, card, pool_files(card, resolver.talk_dir), count[cur],
+                          resolver.deck_id())
                 resolver.pool_log.append((virtual, f.name if f else None, shot.line))
         for shot in scr.shots:
             # the pool's `text:` is the default for every shot that uses it
@@ -397,9 +399,13 @@ class MediaResolver:
                 return c
         return None
 
+    def deck_id(self) -> str:
+        """The talk's frontmatter slug (else its folder name): seeds pool picks."""
+        return str(self.meta.get("slug", "") or self.talk_dir.name)
+
     def _pool_ref(self, slug: str, base: str, n: int, card: dict) -> MediaRef:
         files = pool_files(card, self.talk_dir)
-        f = pool_pick(base, card, files, n)
+        f = pool_pick(base, card, files, n, self.deck_id())
         if f is None:
             return MediaRef(
                 slug=slug, type="image", status="missing", found=False,

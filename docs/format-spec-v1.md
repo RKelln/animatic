@@ -855,7 +855,8 @@ is that card steps, with no shot flag.
 A card with `pool: <folder>` stands for every media file in that folder
 (deck-relative or absolute; images and video, hidden files and sidecar yaml
 skipped). Each use of the slug in a shot gets the next file of a seeded
-shuffle of the folder, in document order, with no repeats until every file has
+shuffle of the folder (seeded by the deck's frontmatter `slug`, so two decks
+sharing a pool get different orders), in document order, with no repeats until every file has
 been used; the next cycle is reshuffled and never opens on the file that ended
 the last.
 
