@@ -804,7 +804,7 @@ PAGER_JS = """
   var FIT_FLOOR = 0.75, FIT_STEP = 0.02;
   // A fenced block (.code-block) wraps its long lines under a hanging indent,
   // so width never shrinks the text: only height decides the size.
-  function codeBlocks(sl) { return sl.querySelectorAll(".code-block"); }
+  function codeBlocks(sl) { return sl.querySelectorAll(".code-block, .quote-block"); }
   // On a slide with a fenced block the content must also stay inside the
   // body's padding, so a block sized to the last pixel never touches the edge.
   function overflows(sl, body) {
@@ -839,18 +839,21 @@ PAGER_JS = """
       }
     }
   }
-  // fit=hero with a fenced block: the block takes the biggest size at which
-  // the whole slide still fits, between the 75% floor and 300% of its normal
-  // size, by height alone (long lines wrap). The title sizes itself (hero
-  // text), and only the block scales. A slide still too tall at the floor is
+  // fit=hero with a fenced block or a quote: the block takes the biggest size
+  // at which the whole slide still fits, between the 75% floor and 300% of its
+  // normal size, by height alone (long lines wrap). The title sizes itself
+  // (hero text), and only the block scales. A slide still too tall at the floor is
   // marked data-fit="floor", as above.
   var HERO_CODE_MAX = 3;
   function fitHeroCode() {
     for (var i = 0; i < slides.length; i++) {
       var sl = slides[i];
       var body = sl.querySelector(".screen-body");
-      var pre = body && sl.classList.contains("text-fit") && body.querySelector(".code-block");
+      var pre = body && sl.classList.contains("text-fit") &&
+        body.querySelector(".code-block, .quote-block");
       if (!pre) continue;
+      var bq = pre.querySelector("blockquote");
+      if (bq) bq.style.fontSize = "";   // fitQuotes may have shrunk it
       pre.style.fontSize = "";
       sl.removeAttribute("data-fit");
       var base = parseFloat(getComputedStyle(pre).fontSize);

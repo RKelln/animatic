@@ -101,6 +101,9 @@
     line-height: 1.04;
     max-width: 92%;
   }
+  /* fit=hero with a quote: centred like the title, no left rule */
+  .animatic-slide.text-fit .quote-block { align-self: center; }
+  .animatic-slide.text-fit .quote-block blockquote { border-left: 0; padding-left: 0; }
   /* fit=hero with a fenced block: the block is the hero, so the title steps
      down to a heading size and leaves the slide to the text */
   .animatic-slide.has-code.text-fit .slide-title {

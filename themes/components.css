@@ -324,6 +324,16 @@
     line-height: 1.42;
   }
 
+  /* fit=hero with a quote: centred under the centred title, wrap balanced,
+     (the lecture theme also drops the left rule: off-axis beside centred text) */
+  .animatic-slide.text-fit .quote-block { margin-inline: auto; }
+  .animatic-slide.text-fit .quote-block blockquote {
+    text-align: center;
+    text-wrap: balance;
+  }
+  .animatic-slide.text-fit .quote-block blockquote p { text-wrap: balance; }
+  .animatic-slide.text-fit .quote-source { text-align: center; }
+
   /* stat cards — the number is the whole slide */
   .animatic-slide .stat {
     font-size: 2.3em;
