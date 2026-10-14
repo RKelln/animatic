@@ -300,8 +300,8 @@
     z-index: -1;
     border-radius: 1.1em;
     background: var(--quote-panel-bg);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(var(--quote-panel-blur, 14px));
+    backdrop-filter: blur(var(--quote-panel-blur, 14px));
     filter: blur(2px);               /* feathers the plate's own boundary */
     box-shadow: var(--quote-panel-shadow);
     pointer-events: none;

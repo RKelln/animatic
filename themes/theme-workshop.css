@@ -127,6 +127,8 @@
       0 2px 22px rgba(0, 0, 0, 0.65),
       0 0 3px rgba(0, 0, 0, 0.5);
   }
+  /* the frosted plate behind quotes and code follows the text: dark glass for light glyphs */
+  .animatic-slide.text-light { --quote-panel-bg: rgba(24, 19, 14, 0.3); --quote-panel-blur: 6px; }
   .animatic-slide.text-light .quote-source { color: rgba(247, 242, 232, 0.85); }
   /* a [Timer: ...] in the flow is screen text too: it follows the text mode.
      (.timer-corner keeps its own opaque plate and the theme colours.) The ember
