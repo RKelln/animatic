@@ -445,7 +445,7 @@
   .timer-plate.is-zero .timer-digits { color: var(--stage-alert); }
   .timer-plate.is-zero .timer-state { color: var(--stage-alert); }
   .timer-plate.is-paused .timer-digits { opacity: 0.4; }
-  .timer-block { margin: 0.2em 0 0; }
+  .timer-block { margin: 1.3em 0 -0.2em; }
   .timer-block .timer-digits { font-size: 7.4em; }
   .animatic-slide.text-fit .timer-block .timer-digits { font-size: clamp(7.4em, 26vmin, 14em); }
   .timer-inline { display: inline-block; }
