@@ -22,7 +22,7 @@
        pager needs an explicit stage scale or em sizes fall back to the
        browser's 16px and read small from a distance. 3vh tracks the
        projection height. */
-    font-size: 3vh;
+    font-size: 3.6vh;
   }
   @media (max-height: 640px) {
     .stage { font-size: 19px; }
@@ -201,10 +201,11 @@
     text-shadow: var(--stage-text-glow);
     max-width: 24em;
   }
+  /* slide titles are all close to one size whatever the heading level */
   .animatic-slide h1.slide-title { font-size: 2.6em; letter-spacing: 0.01em; }
-  .animatic-slide h2.slide-title { font-size: 2em; }
-  .animatic-slide h3.slide-title { font-size: 1.55em; }
-  .animatic-slide h4.slide-title { font-size: 1.25em; }
+  .animatic-slide h2.slide-title { font-size: 2.5em; }
+  .animatic-slide h3.slide-title { font-size: 2.4em; }
+  .animatic-slide h4.slide-title { font-size: 2.3em; }
 
   /* vertical rhythm: the reset zeroes every margin, so headings need their own.
      Space below scales with the heading (em), a heading after other content gets
@@ -406,7 +407,7 @@
   .animatic-slide .md-table th { font-weight: 600; }
 
   /* timer (the `[Timer: 8:00]` token in screen text): a countdown that starts
-     when the presenter arrives. Sized in em of the slide (3vh on the stage), so
+     when the presenter arrives. Sized in em of the slide (3.6vh on the stage), so
      the presenter previews scale it like everything else. Digits sit in
      fixed-width cells (.d, .c, .sg) so the figures never jiggle whatever the
      display face's numerals are. Three shapes: .timer-block, a token alone on

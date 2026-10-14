@@ -104,7 +104,7 @@ default in every theme); the framed "piece" look is opt-in per shot.
   the aerials.
 - Corrections from the first live feel-test (2026-09-05): (1) type scale
   was browser-16px-based and read small from a distance — the stage now
-  sets an explicit cinematic base (3vh) so em sizes track projection
+  sets an explicit cinematic base (3.6vh) so em sizes track projection
   height; (2) framed media is NOT a theme default — full-bleed atmosphere
   is the default in both themes, and the floating framed look is the
   opt-in `piece` flag, meant for images shown as objects (e.g. other
