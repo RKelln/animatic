@@ -182,7 +182,25 @@ def pool_pick(slug: str, card: dict, files: list, n: int, deck: str = ""):
 
 def expand_pools(talk, resolver) -> None:
     """Give every use of a pool slug its own virtual slug (`<slug>--NN`),
-    in document order.  Call once, right after the resolver is made."""
+    in document order, then apply each card's `text:` default to its shots.
+    Call once, right after the resolver is made."""
+    _expand_pool_uses(talk, resolver)
+    _apply_text_defaults(talk, resolver)
+
+
+def _apply_text_defaults(talk, resolver) -> None:
+    """A card's `text: light|dark` (any card, or a shared-library entry) is the
+    default `text=` for every shot that uses its slug (a use, a pin, a
+    continue); the shot's own `text=` wins.  Runs even when the deck has no pool."""
+    for scr in talk.screens:
+        for shot in scr.shots:
+            if shot.slug and "text" not in shot.flags:
+                val = resolver.text_default_for(shot.slug)
+                if val:
+                    shot.flags["text"] = val
+
+
+def _expand_pool_uses(talk, resolver) -> None:
     pools = {str(c["slug"]) for c in resolver.cards
              if isinstance(c, dict) and c.get("slug") and c.get("pool")}
     if not pools:
@@ -212,13 +230,6 @@ def expand_pools(talk, resolver) -> None:
                 f = pool_pick(cur, card, pool_files(card, resolver.talk_dir), count[cur],
                           resolver.deck_id())
                 resolver.pool_log.append((virtual, f.name if f else None, shot.line))
-        for shot in scr.shots:
-            # the pool's `text:` is the default for every shot that uses it
-            # (a use, a pin, a continue); the shot's own `text=` wins
-            if shot.slug and "text" not in shot.flags:
-                card = resolver.card_for(shot.slug)
-                if card is not None and card.get("pool") and card.get("text") in ("light", "dark"):
-                    shot.flags["text"] = card["text"]
         m = scr.media_shot
         if m is not None:
             prev_media = m
@@ -346,6 +357,18 @@ class MediaResolver:
         """Index every pool card's `pins:` and record what cannot apply (check 41)."""
         card_slugs = {str(c["slug"]) for c in self.cards
                       if isinstance(c, dict) and c.get("slug")}
+        # `text:` on any card or shared-library entry (pool cards from the
+        # library are already in self.cards, so each slug is checked once)
+        seen = set()
+        for c in list(self.cards) + list(self.library):
+            if not (isinstance(c, dict) and c.get("slug")) or "text" not in c:
+                continue
+            if str(c["slug"]) in seen or c["text"] in ("light", "dark"):
+                continue
+            seen.add(str(c["slug"]))
+            kind = "pool" if c.get("pool") else "card"
+            self.pool_issues.append((str(c["slug"]),
+                f"{kind} '{c['slug']}': text: {c['text']!r}; expected light or dark (ignored)"))
         for c in self.cards:
             if not (isinstance(c, dict) and c.get("slug") and c.get("pool")):
                 continue
@@ -359,9 +382,6 @@ class MediaResolver:
                 self.pool_issues.append((slug,
                     f"pool '{slug}': no unpinned media files in {c['pool']!r}; "
                     f"its uses render placeholders"))
-            if "text" in c and c["text"] not in ("light", "dark"):
-                self.pool_issues.append((slug,
-                    f"pool '{slug}': text: {c['text']!r}; expected light or dark (ignored)"))
             if c.get("pins") is not None and not isinstance(c.get("pins"), dict):
                 self.pool_issues.append((slug,
                     f"pool '{slug}': pins: must be a mapping of id to file name"))
@@ -414,6 +434,16 @@ class MediaResolver:
                 reason=f"pool '{base}': no media files in {card.get('pool')!r}")
         # a pool's own `type:` is the card's default; the file decides here
         return self._make(slug, {**card, "type": None}, f, "pool")
+
+    def text_default_for(self, slug: str) -> Optional[str]:
+        """The `text:` default (light or dark) of the card, else the shared-library
+        entry, that this slug resolves to; None when there is none or it is invalid."""
+        for src in (self.card_for(slug), self.library_entry_for(slug)):
+            if isinstance(src, dict) and src.get("text") in ("light", "dark"):
+                return src["text"]
+            if isinstance(src, dict) and "text" in src:
+                return None
+        return None
 
     def library_entry_for(self, slug: str) -> Optional[dict]:
         for e in self.library:

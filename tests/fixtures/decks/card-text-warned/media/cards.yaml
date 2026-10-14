@@ -1,0 +1,22 @@
+- slug: dark-art
+  type: image
+  status: have
+  text: light
+  alt: A generic dark backdrop
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+
+- slug: bad-art
+  type: image
+  status: have
+  text: grey
+  alt: A generic backdrop with a bad text value
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA
+
+- slug: plain-art
+  type: image
+  status: have
+  alt: A generic backdrop with no text value
+  credit: Ryan Kelln (generated)
+  licence: CC BY-SA

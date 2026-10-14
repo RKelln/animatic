@@ -1,0 +1,204 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "card-text-warned",
+    "title": "Card text default, with a bad value",
+    "date": "2026-10-10",
+    "venue": "Internal fixture",
+    "format": "Golden deck",
+    "dur": "~1 min",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "card-text-warned-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": "Card says light",
+      "shots": [
+        {
+          "slug": "dark-art",
+          "role": null,
+          "flags": {
+            "text": "light"
+          }
+        }
+      ],
+      "media": {
+        "slug": "dark-art",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/dark-art.svg",
+        "source": "deckdir",
+        "alt": "A generic dark backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Card says light"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "card-text-warned-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "dark-art",
+          "role": null,
+          "flags": {
+            "text": "light"
+          }
+        }
+      ],
+      "media": {
+        "slug": "dark-art",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/dark-art.svg",
+        "source": "deckdir",
+        "alt": "A generic dark backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "A continue keeps the light default.",
+      "stage": null,
+      "est_seconds": 2.4
+    },
+    {
+      "id": "card-text-warned-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "media",
+      "title": "The shot says dark and wins",
+      "shots": [
+        {
+          "slug": "dark-art",
+          "role": null,
+          "flags": {
+            "text": "dark"
+          }
+        }
+      ],
+      "media": {
+        "slug": "dark-art",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/dark-art.svg",
+        "source": "deckdir",
+        "alt": "A generic dark backdrop",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "The shot says dark and wins"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "card-text-warned-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "media",
+      "title": "Bad card value, ignored with a warning",
+      "shots": [
+        {
+          "slug": "bad-art",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "bad-art",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/bad-art.svg",
+        "source": "deckdir",
+        "alt": "A generic backdrop with a bad text value",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "Bad card value, ignored with a warning"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "card-text-warned-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "media",
+      "title": "No card value, no flag",
+      "shots": [
+        {
+          "slug": "plain-art",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "plain-art",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/plain-art.svg",
+        "source": "deckdir",
+        "alt": "A generic backdrop with no text value",
+        "credit": "Ryan Kelln (generated)",
+        "licence": "CC BY-SA",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 2,
+          "text": "No card value, no flag"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": []
+}

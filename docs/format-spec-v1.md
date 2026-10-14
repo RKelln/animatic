@@ -866,7 +866,7 @@ the last.
   status: have
   pool: ../_media/ryan/kaleido
   seed: 2          # optional; change it to re-roll the whole deck
-  text: light      # optional; default text= for every shot using the pool
+  text: light      # optional; default text= for every shot using the pool (any card may carry it)
   pins:            # optional; ids that always resolve to one file
     title-ink: ink_03889_2259_01.png
   alt: Abstract art by Ryan Kelln
@@ -886,12 +886,26 @@ the last.
   then needs no card of its own and shows that file every time. Pinned files
   are left out of the random draw, so a pinned image appears only where it is
   pinned. A pin id follows the slug rules and must not repeat a card or another pin.
-- **Text.** `text: light|dark` on the card is the default `text=` flag for every
-  shot that uses the pool (draws, pins, `continue` screens). A shot's own
-  `text=` wins. Any other value is ignored with a check 41 warning.
+- **Text.** A pool takes `text:` like any card; see "Card text default" below. It
+  covers draws, pins and `continue` screens.
 - **Check 41** (warning): the pool folder is missing or has no unpinned files; a
   pin names a file that is not in the folder (the screen is a placeholder); a pin
-  id breaks the slug rule or repeats a card (the pin is ignored).
+  id breaks the slug rule or repeats a card (the pin is ignored); a bad `text:`
+  on any card (see below).
+
+### Card text default
+
+Any card, or shared-library entry, may carry `text: light|dark` (`light` for dark
+art, `dark` for bright art). It is the default `text=` flag for every shot that
+uses the slug, whatever the card is: image, video, live, or a pool (draws, pins and
+`continue` screens). A shot's own `text=` wins. Any other value is ignored with a
+check 41 warning. A deck card shadows a library entry of the same slug, text included.
+
+```yaml
+- slug: lighthouse-harbor
+  type: image
+  text: light      # shots of this slug get text=light unless they say otherwise
+```
 
 ### Slug scope and uniqueness
 

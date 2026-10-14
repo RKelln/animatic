@@ -7,6 +7,9 @@
 # deck media/ dir -> shared library. Humans write talk.md; agents draft prompts
 # from briefs and iterate in gen-log.md until Ryan approves; the builder
 # consumes only current prompts + approved outputs.
+#
+# Any card may carry `text: light|dark` (light for dark art, dark for bright art):
+# the default text= flag for every shot that uses the slug; a shot's own text= wins.
 
 - slug: garden-title
   type: image
@@ -251,7 +254,7 @@
   type: image
   status: have
   pool: ../_media/ryan/kaleido     # folder, deck-relative or absolute
-  # text: light                    # default text= for shots using this pool (art for a dark ground)
+  # text: light                    # as on any card: default text= for the pool's shots
   # seed: 2                        # change to re-roll the picks
   # pins:                          # ids that always show one file (left out of the random draw)
   #   title-ink: ink_03889_2259_01.png
