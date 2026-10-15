@@ -16,7 +16,7 @@ The picture carries the title, so the heading is handout-only.
 
 A heading directly after its shot is drawn on the slide.
 
-## Handout-only section
+### Handout-only section
 
 <!-- note: a comment between the heading and the shot does not count -->
 

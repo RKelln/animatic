@@ -1,0 +1,131 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "quote-attribution-forms",
+    "title": "Quote attribution forms",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "quote-attribution-forms-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "Quote one"
+        },
+        {
+          "kind": "source",
+          "text": "Source A"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "quote-attribution-forms-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "Quote two"
+        },
+        {
+          "kind": "source",
+          "text": "Source B"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "quote-attribution-forms-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "Quote three"
+        },
+        {
+          "kind": "source",
+          "text": "Source C"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "quote-attribution-forms-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "First line\nSecond line"
+        },
+        {
+          "kind": "source",
+          "text": "Source D"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": []
+}

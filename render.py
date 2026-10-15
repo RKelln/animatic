@@ -2904,7 +2904,7 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 
 def quote_paras_html(text: str) -> str:
     """A quote's paragraphs (blank `>` lines, kept as "\n\n") as <p>s."""
-    return "".join(f"<p>{inline_md(p.strip())}</p>"
+    return "".join(f"<p>{inline_md(p.strip()).replace(chr(10), '<br>')}</p>"
                    for p in text.split("\n\n") if p.strip())
 
 

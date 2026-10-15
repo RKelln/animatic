@@ -74,8 +74,17 @@ def _inert_lines(lines: list) -> set:
     above it and belongs to none (spec: Movements).  Blank lines are dropped
     by the paragraph lexer.
     """
-    from talkparse import HEADING_RE, HR_RE, MOVEMENT_RE
+    from talkparse import HR_RE, _is_section_heading, _lex_blocks
     inert: set = set()
+    # `##` section headings (part / act / movement) are structure, not screen
+    # text: classify them with the parser's own rule, on the lexed blocks.
+    try:
+        raw = _lex_blocks([l + "\n" for l in lines], "nav-props", None, None)
+        for k, rb in enumerate(raw):
+            if _is_section_heading(raw, k):
+                inert.add(rb["line"])
+    except Exception:
+        pass
     i = 0
     total = len(lines)
     while i < total:
@@ -92,10 +101,7 @@ def _inert_lines(lines: list) -> set:
             continue
         stripped = line.strip()
         if stripped:
-            hm = HEADING_RE.match(line)
-            if HR_RE.match(line) or (
-                    hm and len(hm.group(1)) == 2
-                    and MOVEMENT_RE.match(hm.group(2).strip())):
+            if HR_RE.match(line):
                 inert.add(i + 1)
         else:
             inert.add(i + 1)

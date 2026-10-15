@@ -50,7 +50,7 @@
       "screen_text": [
         {
           "kind": "quote",
-          "text": "A quote that runs across two source lines."
+          "text": "A quote that runs\nacross two source lines."
         },
         {
           "kind": "source",

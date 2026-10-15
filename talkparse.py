@@ -725,7 +725,7 @@ def _lex_frontmatter(body: str, source: str) -> tuple[dict, list]:
 # backtick, so inline "```code```" is not a fence).
 FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 FENCE_SHOT_RE = re.compile(r"^\s*<!--\s*shot\b")
-FENCE_MOVEMENT_RE = re.compile(r"^##\s+movement\b", re.IGNORECASE)
+FENCE_MOVEMENT_RE = re.compile(r"^##\s")
 
 
 def find_fences(lines: list) -> dict:
@@ -938,12 +938,19 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
                 # a blank `>` line is a paragraph break inside the quote,
                 # kept as "\n\n" in the text (the views split on it)
                 piece = qm.group(1).strip()
+                if piece.startswith("~") and not piece.startswith("~~") and piece[1:].strip():
+                    # `> ~ Source` ends the quote and is its attribution, the
+                    # same as a `~ Source` line right under it
+                    blocks.append({"kind": "para", "text": "~ " + piece[1:].strip(),
+                                   "line": lineno, "line_end": lineno})
+                    cont = None
+                    continue
                 if not piece:
                     cont[1]["para_break"] = True
                 elif cont[1].pop("para_break", False) and cont[1]["text"]:
                     cont[1]["text"] += "\n\n" + piece
                 else:
-                    cont[1]["text"] += " " + piece
+                    cont[1]["text"] += "\n" + piece   # a line break is kept
                 cont[1]["line_end"] = lineno
                 cont[2] = lineno
             else:
@@ -1355,16 +1362,35 @@ def _resolve_continue(shot: Shot, screens: list, talk) -> None:
         shot.flags.pop("live", None)     # live-only belongs to one screen
 
 
-def _heading_run_opens_at_shot(raw_blocks: list, i: int) -> bool:
-    """True when heading `i` belongs to a run of headings that starts right
-    after a shot: a title card (`# Title`, `## Date`, `### Website`) keeps every
-    heading on its slide, not only the first.  Movement headings are structure
-    and end the run."""
-    j = i - 1
-    while j >= 0 and raw_blocks[j]["kind"] == "heading" and not (
-            raw_blocks[j]["level"] == 2 and MOVEMENT_RE.match(raw_blocks[j]["text"])):
+def _run_start(raw_blocks: list, i: int) -> int:
+    """Index of the first block of the heading run that contains heading `i`.
+    A `## Movement N` heading is structure and ends the walk."""
+    j = i
+    while j - 1 >= 0 and raw_blocks[j - 1]["kind"] == "heading" and not (
+            raw_blocks[j - 1]["level"] == 2 and MOVEMENT_RE.match(raw_blocks[j - 1]["text"])):
         j -= 1
-    return j >= 0 and raw_blocks[j]["kind"] == "shot"
+    return j
+
+
+def _heading_run_opens_at_shot(raw_blocks: list, i: int, or_start: bool = False) -> bool:
+    """True when heading `i` belongs to a run of headings that starts right
+    after a shot (with `or_start`, or at the very start of the file): a title card
+    (`# Title`, `## Date`, `### Website`) keeps every heading on its slide, not
+    only the first.  Section headings and movement headings are structure and
+    end the run."""
+    s = _run_start(raw_blocks, i)
+    return (or_start and s == 0) or (s > 0 and raw_blocks[s - 1]["kind"] == "shot")
+
+
+def _is_section_heading(raw_blocks: list, i: int) -> bool:
+    """A `##` heading is a section break (part / act / chapter) unless it sits
+    in a title-card run.  `## Movement N · Title` always is one."""
+    rb = raw_blocks[i]
+    if rb["kind"] != "heading" or rb["level"] != 2:
+        return False
+    if MOVEMENT_RE.match(rb["text"]):
+        return True
+    return not _heading_run_opens_at_shot(raw_blocks, i, or_start=True)
 
 
 def _include_error(source: str, line: int, msg: str) -> ValueError:
@@ -1542,6 +1568,12 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             scr.blocks[at:] = [Block(kind="print", inner=moved, line=moved[0].line,
                                      line_end=moved[-1].line_end or moved[-1].line)]
 
+    # Written `Movement N` numbers are kept only when every section in the file
+    # is numbered; mixed with plain `##` sections, ordinals are by position so
+    # they can't collide.
+    mixed_sections = any(
+        _is_section_heading(raw_blocks, k) and not MOVEMENT_RE.match(b["text"])
+        for k, b in enumerate(raw_blocks))
     for i_rb, rb in enumerate(raw_blocks):
         kind = rb["kind"]
         close_print()
@@ -1612,33 +1644,35 @@ def assemble(meta: dict, raw_blocks: list, source: str,
 
         if kind == "heading" and rb["level"] == 2:
             mm = MOVEMENT_RE.match(rb["text"])
-            if mm:
-                cur = None  # movement boundary closes any open screen
+            if mm or MOVEMENT_LOOK_RE.match(rb["text"]) or _is_section_heading(raw_blocks, i_rb):
+                if not mm and MOVEMENT_LOOK_RE.match(rb["text"]):
+                    # Register check 22: the author intended a numbered
+                    # movement but the shape is wrong.
+                    raise ValueError(
+                        f"{source}:{rb.get('line', 0)}: check 22: H2 "
+                        f"{rb['text']!r} begins with 'Movement' but does not "
+                        f"match 'Movement <integer> [separator] <title>' — "
+                        f"fatal (spec: Error and warning taxonomy: a malformed movement heading is "
+                        f"never silently treated as screen text)"
+                    )
+                cur = None  # section boundary closes any open screen
                 credits_open = False
-                movement_index = int(mm.group(1))
+                if mm and not mixed_sections:
+                    movement_index = int(mm.group(1))
+                    mtitle = mm.group(2).strip() or rb["text"]
+                else:
+                    movement_index += 1       # by position
+                    mtitle = (mm.group(2).strip() or rb["text"]) if mm else rb["text"]
                 talk.movements.append(
-                    Movement(index=movement_index,
-                             title=mm.group(2).strip() or rb["text"],
-                             label=rb["text"])
+                    Movement(index=movement_index, title=mtitle, label=rb["text"])
                 )
                 if pending_role is not None:
                     talk.warnings.append(
                         f"line {role_line}: role shot never consumed a payload "
-                        f"(movement boundary crossed first)"
+                        f"(section boundary crossed first)"
                     )
                     pending_role = None
                 continue
-            if MOVEMENT_LOOK_RE.match(rb["text"]):
-                # Register check 22: the author intended structure.  Left
-                # silent, this H2 becomes an on-screen heading, never closes
-                # the open screen, and merges screens in both views.
-                raise ValueError(
-                    f"{source}:{rb.get('line', 0)}: check 22: H2 "
-                    f"{rb['text']!r} begins with 'Movement' but does not "
-                    f"match 'Movement <integer> [separator] <title>' — "
-                    f"fatal (spec: Error and warning taxonomy: a malformed movement heading is "
-                    f"never silently treated as screen text)"
-                )
 
         # --- content blocks ---------------------------------------------------
         # Role payloads (stat / lower / overlay credits / paraphrase) expect a
@@ -1788,6 +1822,9 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                 )
             bkind = "vo"
             is_spoken = False
+            if spoken.startswith("~") and not spoken.startswith("~~") \
+                    and len(spoken) > 1 and not spoken[1].isspace():
+                spoken = "~ " + spoken[1:]      # `~Source` is `~ Source`
             if (
                 not credits_open
                 and cur.blocks

@@ -306,10 +306,19 @@ flag on a `role=` shot is read but never duplicated. Media flags (`kb`, `dim`,
   addressed positionally (cue ordinal, then position within the screen).
   Content that needs its own address is promoted to its own screen.
 
-### Movements
+### Sections (movements)
 
-A talk is divided into **movements** — its parts — marked by a heading:
-`## Movement N · Title`.
+A talk is divided into **sections** — its parts, acts or chapters — marked by a
+`##` heading. A `##` heading is a section break unless it is part of a
+title-card run (a run of headings that starts right after a shot, as in
+`# Title` / `## Date` / `### Website`), where it stays on the slide. The
+section heading is never drawn on a slide. `## Movement N · Title` is the
+numbered spelling of the same thing and keeps its number; an unnumbered
+section takes the next ordinal. `---` is inert.
+
+A `###` heading that follows a section heading and precedes a shot is that
+screen's handout heading, so `## Act 5` then `### Title` then a shot works as
+written. The rest of this section says "movement"; read it as "section".
 
 - **When to use them.** At argumentative boundaries — where the talk turns
   from one idea to the next. Sparingly: a handful per talk, not one per screen
@@ -628,13 +637,16 @@ silently absorbing into the roll.
 
 ### Attribution
 
-Attribution is the `~` form only: a paragraph beginning `~ ` whose immediately
-preceding block is a quote. It is screen text (right-aligned under the quote),
+Attribution is the `~` form only: a paragraph beginning `~` whose immediately
+preceding block is a quote. Three spellings are equivalent: `> ~ Source` as the
+quote's last line, `~ Source` on the line under it, and `~Source` (no space). It is screen text (right-aligned under the quote),
 never spoken, and travels with the quote. Same-line attribution (`> q ~ Name`)
 is unsupported — the whole line renders as the quote. An attribution-shaped
 paragraph anywhere else is spoken, with a warning.
 
-A blank `>` line inside a quote is a paragraph break, shown as separate
+Consecutive `>` lines keep their line breaks (a title card's date and venue
+lines stay on separate lines; it is not markdown soft-wrap). A blank `>` line
+inside a quote is a paragraph break, shown as separate
 paragraphs on the slide and in the document view. The slide sizes a quote by
 its length: a short one (60 visible characters or fewer) gets a column wide
 enough to stay on one line, a long one (320 or more, or three paragraphs or
