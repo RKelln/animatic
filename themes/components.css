@@ -1073,7 +1073,7 @@
     flex: 0 0 auto; min-height: 0;
     font-family: var(--font-body); line-height: 1.5;
   }
-  .presenter-pane-current .presenter-notes { font-size: 1.12rem; line-height: 1.55; }
+  .presenter-pane-current .presenter-notes { font-size: calc(1.12rem * var(--notes-scale, 1)); line-height: 1.55; }
   .presenter-pane-next .presenter-notes { font-size: 0.88rem; overflow: auto; }
   /* rung 1 of the fit ladder (see fitNotes in the presenter module): long notes
      flow into two columns rather than scrolling. Reading order goes down the
@@ -1097,6 +1097,12 @@
     flex: 0 1 22vh; min-height: 9vh;
     max-height: min(22vh, var(--cur-preview-h, 22vh), calc(100cqw * 9 / 16));
   }
+  /* notes above the image (key f): label and title stay first, then notes, the
+     live control, and the preview last. Same order in both panes. */
+  body.notes-top .presenter-pane .presenter-notes { order: 1; }
+  body.notes-top .presenter-pane .presenter-live { order: 2; }
+  body.notes-top .presenter-pane .preview { order: 3; }
+  .presenter-nav button[aria-pressed="true"] { color: var(--stage-accent); }
   .presenter-notes p { margin: 0.35em 0; }
   .presenter-notes p.stage-note { color: var(--stage-muted); font-size: 0.85em; font-style: italic; }
   /* the live control: presenter-side state and a Stop. It only appears on a

@@ -2231,6 +2231,36 @@ PRESENTER_UI_JS = r"""
   if (restartBtn) {
     restartBtn.addEventListener("click", function () { post({ type: "animatic-restart-clock" }); });
   }
+  // Notes above or below the slide image: a laptop held at standing height
+  // wants the notes at the top of the screen. Default is the image on top.
+  // Remembered per browser, never required (file:// storage can be blocked).
+  var flipBtn = document.getElementById("presenter-flip");
+  function setNotesTop(on, save) {
+    document.body.classList.toggle("notes-top", on);
+    if (flipBtn) flipBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    if (save) { try { localStorage.setItem("animatic-notes-top", on ? "1" : "0"); } catch (err) {} }
+    fitNotes();
+  }
+  function flipNotes() { setNotesTop(!document.body.classList.contains("notes-top"), true); }
+  try { if (localStorage.getItem("animatic-notes-top") === "1") setNotesTop(true, false); } catch (err) {}
+  if (flipBtn) flipBtn.addEventListener("click", flipNotes);
+  // Text size of the current screen's notes only (next-up stays small).
+  // Steps of 10%, remembered like the flip.
+  var notesScale = 1;
+  function setNotesScale(x, save) {
+    notesScale = Math.max(0.6, Math.min(2.5, Math.round(x * 10) / 10));
+    document.body.style.setProperty("--notes-scale", String(notesScale));
+    if (save) { try { localStorage.setItem("animatic-notes-scale", String(notesScale)); } catch (err) {} }
+    fitNotes();
+  }
+  try {
+    var savedScale = parseFloat(localStorage.getItem("animatic-notes-scale"));
+    if (savedScale > 0) setNotesScale(savedScale, false);
+  } catch (err) {}
+  var smallerBtn = document.getElementById("presenter-smaller");
+  var biggerBtn = document.getElementById("presenter-bigger");
+  if (smallerBtn) smallerBtn.addEventListener("click", function () { setNotesScale(notesScale - 0.1, true); });
+  if (biggerBtn) biggerBtn.addEventListener("click", function () { setNotesScale(notesScale + 0.1, true); });
   var prevBtn = document.getElementById("presenter-prev");
   var nextBtn = document.getElementById("presenter-next");
   if (prevBtn) {
@@ -2254,6 +2284,9 @@ PRESENTER_UI_JS = r"""
         break;
       case "s": case "S": e.preventDefault(); window.close(); break;
       case "t": case "T": post({ type: "animatic-restart-clock" }); break;
+      case "f": case "F": flipNotes(); break;
+      case "[": setNotesScale(notesScale - 0.1, true); break;
+      case "]": setNotesScale(notesScale + 0.1, true); break;
       case "p": case "P": post({ type: "animatic-timer", cmd: "pause" }); break;
       case "0": post({ type: "animatic-timer", cmd: "reset" }); break;
       case "+": case "=": post({ type: "animatic-timer", cmd: "add" }); break;
@@ -2869,6 +2902,9 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 <nav class="presenter-nav" aria-label="deck navigation">
 <button type="button" id="presenter-prev" aria-label="previous screen">&#8249;</button>
 <span class="presenter-pos"><span id="presenter-ordinal">1</span> / <span id="presenter-count">1</span></span>
+<button type="button" id="presenter-smaller" aria-label="smaller notes text" title="Smaller notes text ([)">A&minus;</button>
+<button type="button" id="presenter-bigger" aria-label="bigger notes text" title="Bigger notes text (])">A+</button>
+<button type="button" id="presenter-flip" class="presenter-flip" aria-label="put the notes above the slide image" title="Swap notes and slide image, top / bottom (f)">&#8645;</button>
 <button type="button" id="presenter-next" aria-label="next screen">&#8250;</button>
 </nav>
 </header>

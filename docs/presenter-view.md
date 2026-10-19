@@ -15,7 +15,7 @@ second.
 | Surface | Keys |
 | --- | --- |
 | deck | arrows / space / PageUp / PageDown / Home / End to move, `s` presenter window, `n` in-page notes, `d` demo hookup panel, `Escape` closes a panel |
-| presenter window | arrows / space to move the deck, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
+| presenter window | arrows / space to move the deck, `f` (or the ⇅ button) puts the notes above the slide image instead of below, remembered per browser, `[` / `]` (or the A− / A+ buttons) shrink / grow the current screen's notes text, also remembered, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
 | timer screens (either window) | `p` pause / resume, `0` reset and run, `+` / `=` add a minute, `-` take a minute off (spec: Timer screens) |
 
 ## Why two windows and not a bigger panel
