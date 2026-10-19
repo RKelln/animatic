@@ -702,26 +702,35 @@
     box-shadow: var(--piece-shadow);
   }
   /* A live capture in the DUO column: a text pane on one side, the demo
-     window on the other. Ryan's shape (2026-10-18): the pane is half the stage
-     and the FULL height, edge to edge, with the notes in the other half.
-     Two things the piece rules cannot supply:
+     window on the other. Ryan's shape (2026-10-18): the pane is the FULL stage
+     height, edge to edge, and most of the width, with the notes in the other
+     side. 45/55 splits in favour of the window because most shared windows are
+     landscape: a 16:9 capture gets 1056x594 here, and a tall window fills the
+     full height at 961 wide.
+     Three things the piece rules cannot supply:
        - the duo zone is left at auto height by `top: 50%; translateY(-50%)`
          and is size-contained, so its height is 0 and the piece fit rule's
          `100cqh` resolved to nothing: before this rule the host measured
          614x2 px beside the text (W04 "Meet Search Desk", 1920x1080);
        - a full-height pane has no object edge, so the framed-object border
-         and shadow come off and the split itself is the boundary.
+         and shadow come off and the split itself is the boundary;
+       - presenter chrome has to stay off the picture (the chip and Stop live
+         in the text pane, below).
      The picture takes the PANE's box with `object-fit: contain`, so it scales
-     to fit at its own aspect. A wide window therefore leaves the pane's extra
-     height empty; the way to make the picture fill the pane is to size the
-     demo window tall, never to crop a window's UI to fit (measured: a 16:9
-     window in a 960x1080 pane under `cover` loses 25% off each side). */
+     to fit at its own aspect. A window of another shape leaves the pane's
+     remainder empty; the way to make the picture fill the pane is to size the
+     demo window to the pane, never to crop a window's UI to fit (measured: a
+     16:9 window in a 50vw full-height pane under `cover` loses 25% off each
+     side).
+     The two widths are variables so the offsets below stay true if the split
+     is tuned again. */
+  .animatic-slide.duo-live { --duo-text-w: 45vw; --duo-pane-w: 55vw; }
   .animatic-slide.duo-live .screen-body {
-    width: 50%; padding: 0 4vw 0 6vw;
+    width: var(--duo-text-w); padding: 0 3vw 0 6vw;
   }
   .animatic-slide.duo-live .media-zone.piece.duo {
     inset: 0 0 0 auto; top: 0; right: 0;
-    width: 50vw; transform: none;
+    width: var(--duo-pane-w); transform: none;
   }
   .animatic-slide.duo-live .media-zone.piece.duo .live-host,
   .animatic-slide.duo-live .media-zone.piece.duo .live-host[data-live-ratio] {
@@ -731,13 +740,23 @@
   .animatic-slide.duo-live .media-zone.piece.duo .live-host .live-poster {
     border: 0; box-shadow: none;
   }
-  /* controls and status belong INSIDE a full-height pane: "below the frame" is
-     off the bottom of the stage, the same exception as a full-bleed screen. */
+  /* The chip and Stop move OFF the window and into the text pane (Ryan,
+     2026-10-18: "so it doesn't hide the live window"). The pane is the thing
+     the room is reading; presenter chrome belongs in the margin, which is
+     empty below the text. The offset is stage arithmetic in vw because the
+     containing block is the pane, not the stage: 6vw minus the pane itself
+     puts the control on the text column's left padding at any split. The idle
+     control stays in the pane: before hookup the pane is empty, and the
+     control belongs to the thing it is about to fill. */
   .animatic-slide.duo-live .media-zone.piece.duo .live-controls {
-    top: auto; left: auto; right: 2vw; bottom: 2.5vh; justify-content: flex-end;
+    top: auto; bottom: 2.5vh; right: auto;
+    left: calc(6vw - (100vw - var(--duo-pane-w)));
+    justify-content: flex-start;
   }
   .animatic-slide.duo-live .media-zone.piece.duo .live-status {
-    top: auto; bottom: 8vh;
+    top: auto; bottom: 8.5vh; right: auto;
+    left: calc(6vw - (100vw - var(--duo-pane-w)));
+    width: calc(var(--duo-text-w) - 12vw); text-align: left;
   }
 
   /* the hookup panel: a pre-talk setup surface, one row per capture session.
