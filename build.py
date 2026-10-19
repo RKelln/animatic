@@ -73,7 +73,16 @@ def main(argv=None) -> int:
                     help="stay running and rebuild whenever the talkfile, a "
                          "file beside it, its media/ dir or the remap changes; "
                          "open pages reload themselves after each build")
+    ap.add_argument("--lease", default=None, metavar="PATH",
+                    help="with --watch: stop once PATH's mtime is older than "
+                         "--lease-timeout. A watcher must not outlive the "
+                         "process that started it (pull-deck.sh heartbeats this)")
+    ap.add_argument("--lease-timeout", type=float, default=60.0, metavar="SECS",
+                    help="how stale the --lease heartbeat may get (default 60)")
     args = ap.parse_args(argv)
+
+    if args.lease and not args.watch:
+        ap.error("--lease only means something with --watch")
 
     if args.corpus is not None:
         if args.talkfile:
@@ -270,6 +279,23 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
     import time
     import traceback
 
+    # A lease is a heartbeat someone else writes; when it stops moving, whoever
+    # asked for this build is gone (ctrl-c cannot reach us from another machine,
+    # and a SIGKILLed puller leaves no chance to say goodbye). So the watcher
+    # stops itself: the alternative is a build nobody is watching, still
+    # stamping _watch.js into a deck that might get carried to a venue.
+    lease = Path(args.lease).expanduser() if args.lease else None
+    started = time.monotonic()
+
+    def lease_stale() -> bool:
+        if lease is None:
+            return False
+        try:
+            age = time.time() - lease.stat().st_mtime
+        except OSError:            # no beat yet: give the starter one window
+            return (time.monotonic() - started) > args.lease_timeout
+        return age > args.lease_timeout
+
     def run(changed):
         stamp = time.strftime("%H:%M:%S")
         if changed:
@@ -310,6 +336,10 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
     run(None)
     try:
         while True:
+            if lease_stale():
+                print(f"\nlease stale ({args.lease_timeout:g}s without a "
+                      f"heartbeat): nothing is pulling this build. Stopping.")
+                return 0
             time.sleep(interval)
             now = watched_files(talk_path, args)
             if now == snap:
