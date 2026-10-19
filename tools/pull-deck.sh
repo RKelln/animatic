@@ -12,9 +12,13 @@
 #   bash pull-deck.sh W01 --serve   # another deck: the event slug (L01, W01, W02, W11 ...)
 #                                   # maps to out-<slug lowercased>; a full deck name works too
 #                                   # (W01-bring-your-problems -> out-w01)
-#   bash pull-deck.sh W01 --follow  # edit on experimance with  build.py ... --watch  running there;
-#                                   # this serves on localhost and re-pulls every 1.5 s, so the open
-#                                   # deck reloads. Not for carrying: do a plain build + pull first
+#   bash pull-deck.sh W01 --follow  # pulls every 1.5 s and serves, AND makes sure a watcher is
+#                                   # running on experimance for that outdir: reuses one if it is
+#                                   # there, starts one if not. Not for carrying: plain build first
+#   bash pull-deck.sh W01 --follow --no-watch       # follow, but never start or stop the box's
+#                                                   # build (you started one yourself)
+#   bash pull-deck.sh W01 --follow --talk=/path/on/box/talk.md
+#                                                   # skip discovery: watch this talkfile
 #   OUTDIR=out-w11 bash pull-deck.sh                               # or name the folder outright
 #   BOX=203.0.113.10 bash pull-deck.sh                          # if name lookup fails
 #
@@ -22,9 +26,18 @@
 # runs from the side that can reach the other one. Retries, --partial-dir resume
 # and the verification all live here, on the machine you are sitting at.
 #
-# Env knobs: OUTDIR DECK BOX REMOTE_BASE LOCAL_BASE PORT
+# --follow OWNS ITS WATCH. It reuses a watcher already running for this outdir and
+# never doubles one (two build.py --watch on the same --out fight over the same
+# staging directory). If there is none, it starts one over ssh and stamps a lease
+# file on the box; the pull loop heartbeats that file, and the watcher stops
+# itself when the beat goes stale, so a SIGKILLed puller, a closed window or a
+# dropped link cannot leave a watch rebuilding behind your back. Ctrl-c stops it
+# directly; the lease is the backstop, not the plan.
+#
+# Env knobs: OUTDIR DECK BOX TALK REMOTE_BASE LOCAL_BASE PORT
 #   OUTDIR wins; else the slug argument; else DECK (same as the slug); else L01 (out-l01)
 #   FOLLOW_INTERVAL seconds between pulls under --follow (default 1.5)
+#   LEASE_TIMEOUT seconds of silence before a started watch stops itself (60)
 #   defaults: OUTDIR=out-l01
 #             REMOTE_BASE=~/Documents/art/animatic
 #             LOCAL_BASE=the animatic folder this script is in (<base>/tools/), else
@@ -44,21 +57,30 @@ if [ "$(basename "$_here")" = tools ]; then _base=$(dirname "$_here"); else _bas
 LOCAL_BASE=${LOCAL_BASE:-$_base}
 PORT=${PORT:-8787}
 FORCE=${FORCE:-0}                    # FORCE=1 skips the on-the-right-machine guard (tests only)
+TALK=${TALK:-}                       # talkfile ON THE BOX: skips discovery under --follow
 
-DRY=0; SERVE=0; CHECK=0; OFFLINE=0; FOLLOW=0; SLUG=""
+# Defined up here because the exit trap below may need to reach the box, and it
+# can fire from any exit after this point.
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new)
+
+DRY=0; SERVE=0; CHECK=0; OFFLINE=0; FOLLOW=0; NOWATCH=0; SLUG=""
 FOLLOW_INTERVAL=${FOLLOW_INTERVAL:-1.5}
-for a in "$@"; do
-  case "$a" in
+LEASE_TIMEOUT=${LEASE_TIMEOUT:-60}
+while [ $# -gt 0 ]; do
+  case "$1" in
     --dry-run|-n) DRY=1 ;;
     --serve)      SERVE=1 ;;
     --serve-only) SERVE=1; OFFLINE=1 ;;
     --check)      CHECK=1 ;;
     --follow)     FOLLOW=1; SERVE=1 ;;
-    -h|--help)    sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    -*) echo "unknown option: $a (try --help)" >&2; exit 2 ;;
-    *) if [ -z "$SLUG" ]; then SLUG="$a"
-       else echo "one deck at a time: got '$SLUG' and '$a' (try --help)" >&2; exit 2; fi ;;
+    --no-watch)   NOWATCH=1 ;;
+    --talk=*)     TALK=${1#--talk=} ;;
+    -h|--help)    sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
+    *) if [ -z "$SLUG" ]; then SLUG="$1"
+       else echo "one deck at a time: got '$SLUG' and '$1' (try --help)" >&2; exit 2; fi ;;
   esac
+  shift
 done
 
 if [ "$FOLLOW" = 1 ] && { [ "$OFFLINE" = 1 ] || [ "$DRY" = 1 ] || [ "$CHECK" = 1 ]; }; then
@@ -78,6 +100,41 @@ if [ "$(hostname)" = "experimance" ] && [ "$FORCE" != 1 ]; then
   echo "(Nothing was changed. Run it on framework, or FORCE=1 for a local test run.)" >&2
   exit 2
 fi
+
+# --- what we started on the box, and how it gets stopped ----------------------
+WATCH_SSH=""; WATCH_PID=""; WATCH_OWNED=0; LEASE_REL=""; BEAT_AT=0
+WATCH_LOG="$HOME/.cache/pull-deck-watch.log"
+
+# One cleanup path for ctrl-c, TERM, a failed command under set -e and the normal
+# end of the script. INT and TERM only convert into an exit, so this always runs.
+stop_watch() {
+  set +e
+  trap '' INT TERM          # a second ctrl-c must not cut the cleanup short
+  if [ "$FOLLOW" = 1 ]; then
+    echo
+    echo "follow stopped. The copy is the last pull; the server is still up (see the kill line above)."
+  fi
+  if [ "$WATCH_OWNED" = 1 ] && [ -n "$WATCH_PID" ]; then
+    # bounded on purpose: ctrl-c must not hang on a dead link
+    if timeout 5 ssh "${SSH_OPTS[@]}" "$BOX" "kill $WATCH_PID" 2>/dev/null; then
+      echo "  watch    : stopped (pid $WATCH_PID on $BOX)"
+    else
+      echo "  watch    : could not reach $BOX; the lease stops pid $WATCH_PID" \
+           "within ${LEASE_TIMEOUT}s of silence" >&2
+    fi
+    [ -n "$WATCH_SSH" ] && kill "$WATCH_SSH" 2>/dev/null
+  elif [ -n "$WATCH_PID" ]; then
+    echo "  watch    : left running (you started it): kill $WATCH_PID on $BOX"
+  fi
+  if [ "$FOLLOW" = 1 ] && [ -f "${DST:-/nonexistent}/_watch.js" ]; then
+    echo "note: this local copy is a WATCH build. Before carrying it anywhere: stop the"
+    echo "      watch, run a plain build.py on the box, then  bash $0 ${SLUG:-${OUTDIR#out-}} --check"
+  fi
+  return 0                  # a trap's last command decides the exit status otherwise
+}
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap stop_watch EXIT
 
 # --- serve it the way the talk will ------------------------------------------
 serve_deck() {
@@ -164,8 +221,6 @@ if [ "$OFFLINE" = 1 ]; then
   echo "       Reload with ctrl-shift-R: the deck has no cache-buster."
   exit 0
 fi
-
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new)
 
 # --- resolve the box rather than hardcoding it -------------------------------
 if [ -z "$BOX" ]; then
@@ -265,6 +320,70 @@ if [ "$LEFT" != "0" ] || [ "$SRC_HTML" != "$LOCAL_HTML" ]; then
   echo "  mirror is not proven exact; re-run, or --check for the full list" >&2
 fi
 
+# --- make sure something on the box is building this outdir -------------------
+# Three things can be true: a watch is already running (reuse it, never double
+# one), none is running (start one we own), or we cannot tell which talkfile it
+# came from (say so, keep following anyway). Starting needs the talkfile, which
+# the built folder does not record: nav.json is deliberately path-free, so the
+# box is asked instead.
+watch_remote() {
+  set +e
+  local running mine
+  running=$(ssh "${SSH_OPTS[@]}" "$BOX" "pgrep -af 'build\\.py.*--watch'" 2>/dev/null)
+  # both spellings, because argparse accepts --out X and --out=X
+  mine=$(printf '%s\n' "$running" | grep -E -- "--out[= ]$OUTDIR( |\$)" | head -1)
+  if [ -z "$mine" ] && [ "$OUTDIR" = out ]; then    # the default --out needs no flag
+    mine=$(printf '%s\n' "$running" | grep -v -- '--out' | head -1)
+  fi
+  if [ -n "$mine" ]; then
+    WATCH_PID=$(printf '%s' "$mine" | cut -d' ' -f1)
+    WATCH_OWNED=0
+    echo "  watch    : already running on the box for $OUTDIR (pid $WATCH_PID)"
+    echo "             following it, and leaving it alone when this stops"
+    return 0
+  fi
+
+  if [ -z "$TALK" ]; then
+    TALK=$(ssh "${SSH_OPTS[@]}" "$BOX" \
+      "cd '$REMOTE_BASE' && python3 tools/find-talkfile.py --outdir '$OUTDIR'" 2>/dev/null)
+  fi
+  if [ -z "$TALK" ]; then
+    echo "  watch    : nothing is building $OUTDIR on the box, and I cannot tell which" >&2
+    echo "             talkfile built it. Start one there, then re-run with --no-watch:" >&2
+    echo "               ssh $BOX \"cd $REMOTE_BASE && python3 build.py <talk.md> --out $OUTDIR --watch\"" >&2
+    echo "             or name it here:  bash $0 ${SLUG:-<deck>} --follow --talk=/path/on/box/talk.md" >&2
+    return 0
+  fi
+
+  # The lease lives under the REMOTE user's home, which is not this shell's $HOME:
+  # keep it relative and let the box expand $HOME itself.
+  LEASE_REL=".cache/animatic/watch-$OUTDIR.lease"
+  ssh "${SSH_OPTS[@]}" "$BOX" \
+    "mkdir -p \"\$HOME/$(dirname "$LEASE_REL")\" && date +%s > \"\$HOME/$LEASE_REL\""
+  # echo $$ then exec: exec keeps the pid, so the first line is the watcher's own
+  # pid. Nothing to clean up if the start fails halfway, and no pid file to trust.
+  ssh "${SSH_OPTS[@]}" "$BOX" \
+    "cd '$REMOTE_BASE' && { echo \$\$; exec python3 build.py '$TALK' --out '$OUTDIR' \
+       --watch --lease \"\$HOME/$LEASE_REL\" --lease-timeout $LEASE_TIMEOUT; }" \
+    </dev/null >"$WATCH_LOG" 2>&1 &
+  WATCH_SSH=$!
+  local i
+  for i in $(seq 1 50); do                    # up to 5s for the pid line
+    WATCH_PID=$(head -1 "$WATCH_LOG" 2>/dev/null | tr -dc '0-9')
+    [ -n "$WATCH_PID" ] && break
+    sleep 0.1
+  done
+  if [ -z "$WATCH_PID" ]; then
+    echo "  watch    : could not start one; the box said:" >&2
+    sed 's/^/             /' "$WATCH_LOG" >&2
+    return 0
+  fi
+  WATCH_OWNED=1
+  echo "  watch    : started pid $WATCH_PID on $BOX"
+  echo "             $TALK --out $OUTDIR"
+  echo "             it stops on ctrl-c here, or by itself ${LEASE_TIMEOUT}s after the last pull"
+}
+
 if [ "$SERVE" = 1 ]; then serve_deck; fi
 
 # --- follow: keep pulling so an open deck reloads as experimance rebuilds ------------
@@ -272,15 +391,32 @@ if [ "$SERVE" = 1 ]; then serve_deck; fi
 # that file. So: pull everything except _watch.js, then pull _watch.js last, so a reload
 # can only fire once the rest of the build is already here.
 if [ "$FOLLOW" = 1 ]; then
-  trap 'echo; echo "follow stopped. The server is still up (see the kill line above); the copy is the last pull."; exit 0' INT TERM
   echo
   echo "=== following $BOX:$SRC every ${FOLLOW_INTERVAL}s (ctrl-c stops) ==="
+  if [ "$NOWATCH" = 1 ]; then
+    echo "  watch    : --no-watch, so I am not touching the box's build."
+  else
+    watch_remote
+  fi
   if grep -q 'animatic --watch' "$DST/present/index.html" 2>/dev/null; then
     echo "  WATCH BUILD: this copy has the reload snippet in it. Do not carry it to the venue:"
     echo "  stop the watch, run a plain build.py, then  bash pull-deck.sh ${SLUG:-${OUTDIR#out-}} --check"
   fi
   PULLS=0
   while sleep "$FOLLOW_INTERVAL"; do
+    # heartbeat + liveness in one round trip: the beat keeps the watcher's lease
+    # fresh, and kill -0 tells us it is still there. Throttled to every 10s.
+    if [ "$WATCH_OWNED" = 1 ] && [ $(( $(date +%s) - BEAT_AT )) -ge 10 ]; then
+      if ssh "${SSH_OPTS[@]}" "$BOX" \
+           "date +%s > \"\$HOME/$LEASE_REL\" && kill -0 '$WATCH_PID'" 2>/dev/null; then
+        BEAT_AT=$(date +%s)
+      else
+        printf '  %s  the box is not answering or its watch (pid %s) is gone;' \
+          "$(date +%H:%M:%S)" "$WATCH_PID" >&2
+        printf ' still pulling. ctrl-c and re-run to start a new one.\n' >&2
+        BEAT_AT=$(date +%s)          # do not repeat the warning every loop
+      fi
+    fi
     set +e
     CH=$(rsync "${RSYNC_COMMON[@]}" -i --delete --exclude '_watch.js' "$BOX:$SRC/" "$DST/" 2>&1)
     RC=$?
@@ -294,6 +430,11 @@ if [ "$FOLLOW" = 1 ]; then
         PULLS=$((PULLS+1))
         printf '  %s  pulled %s change(s), html %s\n' "$(date +%H:%M:%S)" "$N" \
           "$(sha256sum "$DST/present/index.html" 2>/dev/null | cut -c1-12)"
+        # a failed build never stops build.py --watch, so from here it is invisible
+        if [ "$WATCH_OWNED" = 1 ] && tail -1 "$WATCH_LOG" 2>/dev/null | grep -q 'build FAILED'; then
+          printf '  %s  the box build FAILED, so this pull is the last good build\n' \
+            "$(date +%H:%M:%S)" >&2
+        fi
       fi
     else
       printf '  %s  pull failed (rsync rc=%s), will retry\n' "$(date +%H:%M:%S)" "$RC" >&2

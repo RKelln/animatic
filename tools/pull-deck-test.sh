@@ -178,10 +178,12 @@ cp "$REPO/tools/serve-deck.py" "$R/tools/"
 printf '<html>v1 animatic --watch</html>' > "$R/out-w01/present/index.html"; printf 'stamp1\n' > "$R/out-w01/_watch.js"
 OUT=$(PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox REMOTE_BASE="$R" LOCAL_BASE="$L" bash "$SCRIPT" W01 --serve-only --follow 2>&1); want "--follow with --serve-only refused" "$?" "2"
 PORT=8791; while ss -ltn 2>/dev/null | grep -q ":$PORT "; do PORT=$((PORT+1)); done
-PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox REMOTE_BASE="$R" LOCAL_BASE="$L" PORT="$PORT" FOLLOW_INTERVAL=0.3 bash "$SCRIPT" W01 --follow > "$T/follow.log" 2>&1 &
+PATH="$T/bin:$PATH" FORCE=1 BOX=fakebox REMOTE_BASE="$R" LOCAL_BASE="$L" PORT="$PORT" FOLLOW_INTERVAL=0.3 bash "$SCRIPT" W01 --follow --no-watch > "$T/follow.log" 2>&1 &
 FPID=$!
 for _ in $(seq 1 40); do grep -q "following" "$T/follow.log" 2>/dev/null && break; sleep 0.3; done
 grep -q "following" "$T/follow.log" && ok "follow loop started" || bad "follow never started: $(tail -3 "$T/follow.log")"
+grep -q -- "--no-watch, so I am not touching" "$T/follow.log" \
+  && ok "--no-watch leaves the box's build alone" || bad "no --no-watch message"
 grep -q "WATCH BUILD" "$T/follow.log" && ok "warns that a watch build must not be carried" || bad "no watch-build warning"
 want "initial pull landed" "$(cat "$L/out-w01/present/index.html")" "$(cat "$R/out-w01/present/index.html")"
 printf '<html>v2 animatic --watch</html>' > "$R/out-w01/present/index.html"; printf 'stamp2\n' > "$R/out-w01/_watch.js"
@@ -197,6 +199,107 @@ kill -TERM "$FPID" 2>/dev/null; wait "$FPID" 2>/dev/null
 grep -q "follow stopped" "$T/follow.log" && ok "TERM stops the loop cleanly" || bad "no clean stop message"
 SRV=$(cat "$HOME/.cache/pull-deck.pid" 2>/dev/null); [ -n "$SRV" ] && kill "$SRV" 2>/dev/null
 LIVE=$(ss -ltnp 2>/dev/null | grep ":$PORT " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1); [ -n "$LIVE" ] && kill "$LIVE" 2>/dev/null
+
+echo "=== 10. find-talkfile.py maps an outdir back to a talkfile ==="
+FT="$T/ft"; rm -rf "$FT"; mkdir -p "$FT/repo/tools" "$FT/decks/A-deck" "$FT/decks/B-deck" "$FT/decks/C-deck"
+cp "$REPO/tools/find-talkfile.py" "$FT/repo/tools/"
+printf 'decks:\n  - %s/decks\n' "$FT" > "$FT/repo/corpus.yaml"
+printf -- '---\nslug: Z-one\n---\nbody\n' > "$FT/decks/A-deck/talk.md"
+printf -- '---\nslug: a-two\n---\nbody\n' > "$FT/decks/B-deck/talk.md"
+printf -- '---\nslug: a-three\n---\nbody\n' > "$FT/decks/C-deck/talk.md"
+want "one match, found from the script's own corpus.yaml" \
+  "$(python3 "$FT/repo/tools/find-talkfile.py" --outdir out-z)" "$FT/decks/A-deck/talk.md"
+python3 "$FT/repo/tools/find-talkfile.py" --outdir out-a >/dev/null 2>&1
+want "two matches is a refusal, not a guess" "$?" "2"
+python3 "$FT/repo/tools/find-talkfile.py" --outdir out-q >/dev/null 2>&1
+want "no match is exit 1" "$?" "1"
+
+echo "=== 11. --follow starts exactly one watch, and ctrl-c stops it ==="
+mkdir -p "$T/watchbin"
+cat > "$T/watchbin/python3" <<'SHIM'
+#!/usr/bin/env bash
+case "${1:-}" in
+  *build.py)
+    printf '%s\n' "$*" >> "$(dirname "$0")/argv.log"
+    exec sleep 300 ;;            # stands in for a long-lived watcher
+  *) exec /usr/bin/python3 "$@" ;;
+esac
+SHIM
+chmod +x "$T/watchbin/python3"
+
+R2="$T/r2"; L2="$T/l2"; rm -rf "$R2" "$L2"; mkdir -p "$R2/out-w01/present" "$R2/tools" "$R2/decks/D1" "$L2"
+printf '<html>w</html>' > "$R2/out-w01/present/index.html"
+printf 'decks:\n  - %s/decks\n' "$R2" > "$R2/corpus.yaml"
+printf -- '---\nslug: W01-thing\n---\nbody\n' > "$R2/decks/D1/talk.md"
+cp "$REPO/tools/serve-deck.py" "$R2/tools/"
+cp "$REPO/tools/find-talkfile.py" "$R2/tools/"
+: > "$T/watchbin/argv.log"
+
+PORT2=8811; while ss -ltn 2>/dev/null | grep -q ":$PORT2 "; do PORT2=$((PORT2+1)); done
+env --default-signal=INT PATH="$T/watchbin:$T/bin:$PATH" FORCE=1 BOX=fakebox \
+  REMOTE_BASE="$R2" LOCAL_BASE="$L2" PORT="$PORT2" FOLLOW_INTERVAL=0.3 LEASE_TIMEOUT=30 \
+  bash "$SCRIPT" W01 --follow > "$T/watch2.log" 2>&1 &
+P2=$!
+for _ in $(seq 1 40); do grep -q "watch    : started" "$T/watch2.log" && break; sleep 0.3; done
+grep -q "watch    : started pid" "$T/watch2.log" \
+  && ok "started a watch on the box" || bad "no watch start: $(tail -3 "$T/watch2.log")"
+grep -q -- "--lease" "$T/watchbin/argv.log" 2>/dev/null \
+  && ok "started with a lease" || bad "no --lease in the started argv: $(cat "$T/watchbin/argv.log" 2>/dev/null)"
+grep -q -- "--out out-w01 --watch" "$T/watchbin/argv.log" 2>/dev/null \
+  && ok "watches the outdir being pulled" || bad "wrong --out: $(cat "$T/watchbin/argv.log" 2>/dev/null)"
+WATCHPID=$(grep -o 'started pid [0-9]*' "$T/watch2.log" | grep -o '[0-9]*')
+kill -INT "$P2"; wait "$P2" 2>/dev/null; want "ctrl-c exit code" "$?" "130"
+grep -q "watch    : stopped" "$T/watch2.log" && ok "ctrl-c stops the watch it owns" || bad "no stop line"
+kill -0 "$WATCHPID" 2>/dev/null && bad "watcher $WATCHPID survived ctrl-c" || ok "watcher $WATCHPID is gone"
+
+# a watch already running must be reused, never doubled
+env --default-signal=INT bash -c 'exec -a "python3 build.py x --out out-w01 --watch" sleep 300' &
+PRE=$!
+sleep 0.4
+: > "$T/watchbin/argv.log"
+env --default-signal=INT PATH="$T/watchbin:$T/bin:$PATH" FORCE=1 BOX=fakebox \
+  REMOTE_BASE="$R2" LOCAL_BASE="$L2" PORT="$PORT2" FOLLOW_INTERVAL=0.3 \
+  bash "$SCRIPT" W01 --follow > "$T/watch4.log" 2>&1 &
+P4=$!
+for _ in $(seq 1 20); do grep -q "watch    : already running" "$T/watch4.log" && break; sleep 0.2; done
+grep -q "already running on the box for out-w01" "$T/watch4.log" \
+  && ok "detects a watch already on the box" || bad "reuse not detected: $(tail -3 "$T/watch4.log")"
+[ -s "$T/watchbin/argv.log" ] && bad "a second watch was started" || ok "no second watch started"
+kill -INT "$P4"; for _ in $(seq 1 20); do kill -0 "$P4" 2>/dev/null || break; sleep 0.2; done
+grep -q "left running (you started it)" "$T/watch4.log" \
+  && ok "says it is leaving your watch alone" || bad "no ownership message"
+kill -0 "$PRE" 2>/dev/null && ok "the watch you started is still running" || bad "it killed the watch it did not start"
+kill -9 "$PRE" 2>/dev/null
+
+# --no-watch must not even look
+: > "$T/watchbin/argv.log"
+env --default-signal=INT PATH="$T/watchbin:$T/bin:$PATH" FORCE=1 BOX=fakebox \
+  REMOTE_BASE="$R2" LOCAL_BASE="$L2" PORT="$PORT2" FOLLOW_INTERVAL=0.3 \
+  bash "$SCRIPT" W01 --follow --no-watch > "$T/watch3.log" 2>&1 &
+P3=$!
+for _ in $(seq 1 20); do grep -q "not touching" "$T/watch3.log" && break; sleep 0.2; done
+kill -INT "$P3" 2>/dev/null; sleep 0.5
+[ -s "$T/watchbin/argv.log" ] && bad "--no-watch started a watch" || ok "--no-watch starts nothing"
+
+SRV=$(cat "$HOME/.cache/pull-deck.pid" 2>/dev/null); [ -n "$SRV" ] && kill "$SRV" 2>/dev/null
+LIVE=$(ss -ltnp 2>/dev/null | grep ":$PORT2 " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1)
+[ -n "$LIVE" ] && kill "$LIVE" 2>/dev/null
+
+echo "=== 12. build.py --watch --lease stops itself when the beat goes stale ==="
+LB="$T/lease"; rm -rf "$LB"; mkdir -p "$LB"
+date +%s > "$LB/beat"
+python3 "$REPO/build.py" "$REPO/examples/roles-demo/talk.md" --out "$LB/out" \
+  --watch --lease "$LB/beat" --lease-timeout 2 > "$LB/log" 2>&1 &
+LP=$!
+for _ in $(seq 1 10); do date +%s > "$LB/beat"; sleep 0.4; done
+kill -0 "$LP" 2>/dev/null && ok "kept running while heartbeated" \
+  || bad "stopped while heartbeated: $(tail -2 "$LB/log")"
+for _ in $(seq 1 40); do kill -0 "$LP" 2>/dev/null || break; sleep 0.3; done
+kill -0 "$LP" 2>/dev/null && { bad "did not stop on a stale lease"; kill -9 "$LP"; } \
+  || ok "stopped itself on a stale lease"
+grep -q "lease stale" "$LB/log" && ok "says why it stopped" || bad "no lease message"
+python3 "$REPO/build.py" "$REPO/examples/roles-demo/talk.md" --out "$LB/out2" --lease "$LB/beat" \
+  >/dev/null 2>&1; want "--lease without --watch is a usage error" "$?" "2"
 
 echo
 printf '=== %d passed, %d failed ===\n' "$PASS" "$FAIL"

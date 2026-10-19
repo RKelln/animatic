@@ -30,13 +30,14 @@ coding agent. Edit here, never there.
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
     python3 check.py --register                    # the canonical 1-39 check register
     python3 check.py --corpus [ROOT] --strict      # warnings become deck failures
-    python3 tests/run.py                           # golden suite (profiles: 44, passed: 48)
+    python3 tests/run.py                           # golden suite (profiles: 51, passed: 55)
 
 `check.py` exits 0 on a clean deck, 1 on a fatal (or, under `--strict`, a warning),
 2 on usage errors. Corpus mode is read-only: it parses and checks, never writes into
 a content root. Builds are deterministic — re-running rebuilds identical bytes.
 
-As of 2026-09-16: `--corpus` reports 3/3 decks passed, banks 1, exit 0.
+As of 2026-10-19: `--corpus` reports 8/8 decks passed, banks 1, exit 0 (under
+`--strict` 6/8: two decks carry concept tag-drift warnings, not deck defects).
 
 ## Rules
 

@@ -7,3 +7,6 @@ __pycache__/
 
 # E3: alternate-theme build dirs (--theme lecture etc.)
 **/out-*/
+
+# agent scratch: plans and notes that live with the workspace, not the code
+.hermes/

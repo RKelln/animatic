@@ -69,6 +69,9 @@ treats `*.talk.md` as decks).
 
     python3 build.py <talkfile> [--out OUTDIR]
     python3 build.py <talkfile> [--out OUTDIR] --watch   # rebuild on every save; open pages reload
+    python3 build.py <talkfile> --watch --lease <path>   # ...and stop when that heartbeat goes stale
+                                                         # (pull-deck.sh heartbeats it, so a watcher
+                                                         # cannot outlive the pull that started it)
 
 ### Handout PDF
 
