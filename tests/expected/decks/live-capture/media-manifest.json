@@ -77,6 +77,25 @@
         "live": true,
         "poster": null
       }
+    },
+    {
+      "slug": "live-duo",
+      "first_cue": "live-capture-006",
+      "media": {
+        "slug": "live-duo",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A live window capture beside a text column",
+        "credit": "",
+        "licence": "",
+        "note": "fixture live screen in the duo layout (notes left, capture right)",
+        "reason": "",
+        "live": true,
+        "poster": "_media/live-duo-poster.png"
+      }
     }
   ],
   "unreferenced_cards": []

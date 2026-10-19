@@ -236,6 +236,53 @@ def check(fx, errors: list) -> None:
         if 'setAttribute("data-live-ratio"' not in pres_text:
             err(errors, "live deck: nothing ever sets the frame ratio from the "
                         "stream, so the fit rule can never take effect")
+        # A capture in the DUO column has to size ITSELF: the duo zone is left
+        # at auto height by `top: 50%; transform: translateY(-50%)`, and it is
+        # size-contained, so `100cqh` measures 0 and the host collapsed to a
+        # 2px sliver beside the text (measured in a real engine on W04's
+        # "Meet Search Desk" screen, 2026-10-18). The fix is a duo-local rule,
+        # so assert the rule AND its shape: a check for the selector alone
+        # passes against an empty rule.
+        duo_live = [c for c in cues["cues"]
+                    if (c.get("media") or {}).get("source") == "live"
+                    and (((c.get("shots") or [{}])[0].get("flags") or {})
+                         .get("layout") == "duo")]
+        if duo_live:
+            for c in duo_live:
+                cls = next((cl for cid, cl, _ in sections if cid == c["id"]), "")
+                if "duo" not in cls.split():
+                    err(errors, f"cue {c['id']}: live screen declares layout=duo "
+                                f"but its slide carries no duo class ({cls!r})")
+                # A live duo screen is a DEMO slide and takes demo
+                # proportions; the plain duo split gives the capture the
+                # object-sized 32vw column, which reads as a small window in
+                # the room (Ryan, 2026-10-18).
+                if "duo-live" not in cls.split():
+                    err(errors, f"cue {c['id']}: live screen in the duo layout "
+                                f"is not marked duo-live, so the capture keeps "
+                                f"the object-sized column ({cls!r})")
+            if not re.search(r"\.animatic-slide\.duo-live \.media-zone\.piece\.duo"
+                             r"\s*\{[^}]*width:", pres_text, re.S):
+                err(errors, "live deck with a duo screen: no duo-live rule gives "
+                            "the capture its own pane, so it keeps the "
+                            "object-sized column")
+            rule = re.search(r"\.animatic-slide\.duo-live \.media-zone\.piece\.duo "
+                             r"\.live-host,\s*\.animatic-slide\.duo-live "
+                             r"\.media-zone\.piece\.duo \.live-host\[data-live-ratio\]"
+                             r"\s*\{([^}]*)\}", pres_text, re.S)
+            if not rule:
+                err(errors, "live deck with a duo screen: no rule sizes the "
+                            "capture to the duo pane, where the zone's own "
+                            "height is 0")
+            else:
+                body = " ".join(rule.group(1).split())
+                for need in ("width: 100%", "height: 100%", "aspect-ratio: auto"):
+                    if need not in body:
+                        err(errors, f"duo live pane rule is missing {need!r}: "
+                                    f"{body[:160]}")
+                if "cqh" in body:
+                    err(errors, "duo live pane rule measures against the zone's "
+                                "container height, which is 0 in a duo column")
 
     # -- the deck's side of the presenter window ----------------------------
     # Two bindings moved when the presenter became a second window, and one

@@ -3209,6 +3209,13 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     layout_name = sflags.get("layout")
     if layout_name == "duo" and screen.media_shot is not None:
         cls += " duo"
+        # A duo screen whose object is a LIVE capture is a demo slide, and it
+        # takes demo proportions (themes/components.css): the capture leads and
+        # the text is the margin note. The plain duo split gives the capture
+        # 32vw, which is a framed object's size and reads as a small window in
+        # the room (Ryan, 2026-10-18: "it works but the window is very small").
+        if ref is not None and ref.live:
+            cls += " duo-live"
     if layout_name == "titled" and screen.media_shot is not None:
         cls += " titled"
     # per-slide text mode (shot flag `text=light|dark`): the author picks the

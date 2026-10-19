@@ -28,3 +28,9 @@
   alt: A grouped live screen, second of two sharing one capture
   live_group: demos
   brief: fixture live screen in the `demos` group; same session as live-pair-a
+- slug: live-duo
+  status: live
+  type: live
+  alt: A live window capture beside a text column
+  poster: media/live-window-poster.png
+  brief: fixture live screen in the duo layout (notes left, capture right)

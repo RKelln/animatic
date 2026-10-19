@@ -196,6 +196,47 @@
       "script": "Arriving here re-attaches the same stream: one picker, two slides.",
       "stage": null,
       "est_seconds": 4.0
+    },
+    {
+      "id": "live-capture-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "media",
+      "title": "A live window beside the text",
+      "shots": [
+        {
+          "slug": "live-duo",
+          "role": null,
+          "flags": {
+            "layout": "duo"
+          }
+        }
+      ],
+      "media": {
+        "slug": "live-duo",
+        "type": "live",
+        "status": "live",
+        "found": true,
+        "file": null,
+        "source": "live",
+        "alt": "A live window capture beside a text column",
+        "credit": "",
+        "licence": "",
+        "note": "fixture live screen in the duo layout (notes left, capture right)",
+        "reason": "",
+        "live": true,
+        "poster": "_media/live-duo-poster.png"
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A live window beside the text"
+        }
+      ],
+      "script": "The duo layout gives the capture its own column, with the notes on the other side.",
+      "stage": null,
+      "est_seconds": 6.4
     }
   ],
   "warnings": []

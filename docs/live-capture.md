@@ -48,8 +48,66 @@ One card, one shot.
   Without it the capture fills the stage. Both are supported; the piece framing
   reads better when the deck also carries a heading, since the letterbox area
   gives the type somewhere to live.
+- `layout=duo` puts the capture in the narrow column beside a text column
+  (notes left, window right) — the shape for a demo beat whose instructions
+  need to stay on screen while the tool runs. The capture sizes itself from
+  the ratio, see below.
 - `kb=` and `dim=` are ignored on a live screen. Drift and a scrim both fight a
   moving picture.
+
+## A capture in the duo column: the half-and-half demo screen
+
+**Added 2026-10-18.** A live screen in `layout=duo` becomes a demo screen with
+the notes in one pane and the capture in the other. Ryan's shape for it: the
+pane is **half the stage and the full height**, edge to edge, with the text
+pane in the other half (W04's "Meet Search Desk" is the first consumer).
+
+Two things the piece rules could not supply:
+
+- **The duo zone has no height.** It is positioned with
+  `top: 50%; transform: translateY(-50%)` and is `container-type: size`, so its
+  height is 0, and the piece fit rule measures exactly that
+  (`width: min(100%, calc(100cqh * ratio))`). Before this rule the host
+  measured **614x2 px** beside the text, idle and live alike (real engine,
+  1920x1080).
+- **A full-height pane has no object edge.** The framed-object border and soft
+  shadow come off; the split itself is the boundary.
+
+```css
+.animatic-slide.duo-live .screen-body { width: 50%; padding: 0 4vw 0 6vw; }
+.animatic-slide.duo-live .media-zone.piece.duo {
+  inset: 0 0 0 auto; top: 0; right: 0; width: 50vw; transform: none;
+}
+.animatic-slide.duo-live .media-zone.piece.duo .live-host,
+.animatic-slide.duo-live .media-zone.piece.duo .live-host[data-live-ratio] {
+  width: 100%; height: 100%; aspect-ratio: auto;
+}
+```
+
+- **The picture takes the pane's box with `object-fit: contain`**: it scales to
+  fit at its own aspect. A 16:9 window in the 960x1080 pane is drawn
+  958x539, centred, with the pane's spare height empty. **`cover` was measured
+  and rejected**: filling that pane with a 16:9 window cuts 25% off each side,
+  which chops UI labels and columns. Cropping somebody's interface is not a
+  layout choice this deck should make by default.
+- **To make the picture fill the pane, shape the demo window, not the CSS.**
+  A window captured at roughly the pane's ratio (a tall, narrow browser window,
+  e.g. 1000x1120) contains to 958x1078 and fills it. This is a setup step for
+  the day, and it is why the pane's shape belongs in the card's `notes:`.
+- The control chip and status line sit inside the pane, bottom right, because
+  "below the frame" is off the bottom of the stage for a full-height pane (the
+  same exception as a full-bleed live screen).
+- Proportions were tuned twice against the room: the object-sized 32vw column
+  read as "a very small window", and an intermediate 58vw pane was still the
+  wrong shape once the capture wanted the full height.
+
+Pinned in `tests/properties/html_props.py`: the slide carries `duo` **and**
+`duo-live`, a `.duo-live .media-zone.piece.duo` rule gives the pane its width,
+and the pane's host rule sizes to the box (`width/height: 100%`,
+`aspect-ratio: auto`) without measuring `cqh`. Negative controls, both run:
+changing `aspect-ratio: auto` back to the stream's ratio, and dropping the
+`duo-live` class in the renderer, each fail the suite. Fixture screen:
+`tests/fixtures/decks/live-capture/talk.md` -> `live-duo`.
 
 ## The one requirement: a secure context
 

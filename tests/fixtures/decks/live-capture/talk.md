@@ -34,3 +34,8 @@ Grouped live screens share a single capture session, so the hookup panel has one
 ### Two slides, one window, part two
 
 Arriving here re-attaches the same stream: one picker, two slides.
+
+<!-- shot: live-duo layout=duo -->
+### A live window beside the text
+
+The duo layout gives the capture its own column, with the notes on the other side.
