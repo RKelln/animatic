@@ -920,6 +920,10 @@
   }
   .notes-panel.open { display: block; }
   .notes-panel p { margin: 0.4em 0; }
+  /* a spoken list in the notes: the bullets the presenter reads aloud. The
+     reset zeroes the list padding, so the markers need their indent back. */
+  .notes-panel :is(ul, ol) { margin: 0.4em 0; padding-left: 1.3em; }
+  .notes-panel li { margin: 0.12em 0; }
   /* `stage-note`, never `stage`: a paragraph matching the present view's
      fixed full-viewport `.stage` container escapes the panel and covers the
      slide (found by hit test, 2026-09-15). */
@@ -1105,6 +1109,10 @@
   .presenter-nav button[aria-pressed="true"] { color: var(--stage-accent); }
   .presenter-notes p { margin: 0.35em 0; }
   .presenter-notes p.stage-note { color: var(--stage-muted); font-size: 0.85em; font-style: italic; }
+  /* a spoken list in the notes: the bullets the presenter is reading aloud.
+     The deck's own notes panel styles the same list through `.notes ul`. */
+  .presenter-notes .note-list :is(ul, ol) { margin: 0.35em 0; padding-left: 1.25em; }
+  .presenter-notes .note-list li { margin: 0.12em 0; }
   /* the live control: presenter-side state and a Stop. It only appears on a
      screen that actually carries a live capture, so it costs nothing on the
      other 23. Start is deliberately absent — see fillLive in the module. */

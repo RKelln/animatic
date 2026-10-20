@@ -42,6 +42,7 @@ Every piece of text in a talkfile is exactly one of these kinds:
 |---|---|---|---|
 | **Voice-over** — a plain paragraph | yes | no | yes, as prose |
 | **Screen text** — a role payload, heading, quote, or list after a shot | role-dependent | yes | yes, at its level |
+| **Spoken list** — a list that follows spoken voice-over (see "Spoken lists") | yes | yes | yes, once, as a list |
 | **Fenced code** — a block between ``` fences (see "Fenced code") | no | yes, verbatim | yes, verbatim, as a `<pre>` |
 | **Handout heading** — a heading directly before a shot | no | no | yes, leading the next screen |
 | **Stage note** — a parenthetical `(…)` | no | no | no (speaker notes only) |
@@ -58,11 +59,15 @@ its **position**.
    `|`, with an optional `|---|` delimiter row marking the row above it as
    the header) is screen text too. A pipe in the middle of a paragraph
    stays prose. A fenced block (a line of three or more backticks or tildes opens
-   it, see "Fenced code") is screen text too, shown verbatim.
+   it, see "Fenced code") is screen text too, shown verbatim. The one
+   exception is a list that follows spoken voice-over on its screen: it is
+   spoken as well as shown (see "Spoken lists").
 2. **Position overrides a paragraph's default.** A paragraph directly after a
    `role=` shot becomes that role's payload (on screen; `stat` is also spoken,
    `lower` and `credits` are not). A paragraph on a credits screen becomes a
    credits entry. A `~ ` paragraph directly under a quote becomes attribution.
+   Position also decides a list's voice: a list after spoken voice-over on the
+   same screen is spoken too.
 3. **Position also decides a heading's screen.** A heading directly after a
    shot is that screen's on-screen title. A heading directly before a shot,
    and not directly after one, is a **handout heading**: it leads the next
@@ -87,11 +92,11 @@ its **position**.
    ```
 
 So a role changes only the one paragraph that follows it. With no role,
-paragraphs stay spoken and headings, quotes, and lists stay on screen. Four
+paragraphs stay spoken and headings, quotes, and lists stay on screen. Five
 outcomes are possible: spoken (voice-over), on screen (screen text), both
-(`stat` reads the number it shows), or neither (a stage note). Voice-over is
-spoken to the audience; speaker notes are private to the presenter — different
-things.
+(`stat` reads the number it shows; a spoken list reads the bullets it shows),
+or neither (a stage note). Voice-over is spoken to the audience; speaker notes
+are private to the presenter — different things.
 
 ---
 
@@ -361,6 +366,50 @@ The parser tolerates a fixed set of authoring shapes, each as written here:
 A plain paragraph is spoken. It belongs to the screen open before it. A screen
 with no paragraphs has no voice-over (a "beat screen") — that is the default
 and needs no marker.
+
+### Spoken lists
+
+A list is screen text: it shows on the slide and it is never spoken. **A list
+that follows spoken voice-over on the same screen is spoken as well as shown.**
+The speaker says the lead-in, then reads the bullets; the list is written once
+and lands on the slide, in the speaker notes, in the script, in the captions
+and in the timing estimate — the copy under `[notes]` or in a parenthetical
+that used to carry the same words is now redundant (check 42).
+
+```
+<!-- shot -->
+# Title
+
+Spoken line is here, then I say and display:
+
+- bullet point is in notes and on slide
+- same same
+
+More spoken text
+```
+
+- **The trigger.** Spoken voice-over *before* the list, on the same screen: a
+  voice-over paragraph (one with words in it), or a spoken role payload
+  (`stat`, `paraphrase`). A stage note is not voice-over, so a list under a
+  `(…)` note stays screen text. A list that stands *before* any spoken text
+  on its screen is screen text too: the rule does not reach back. Each screen
+  counts on its own.
+- **The script.** The items join the script where the list stands, one item
+  per paragraph, exactly as written — the words and their punctuation
+  untouched, markdown markers stripped as everywhere else in the script. A
+  parenthetical inside an item is never spoken: it comes out of the speech and
+  travels as a stage note, while the slide keeps the item as written.
+- **The speaker notes.** The list appears in the notes as the bullets the
+  speaker is reading, in file order between the spoken paragraphs.
+- **The handout.** The list prints once, as a list. The duplication the
+  feature removes is the copy, not the list.
+- **Everything else is unchanged.** The slide shows the list as before,
+  `reveal=list` still steps the bullets one per press, and a screen's
+  estimated time grows by the words now read aloud.
+- **`cues.json`.** The list's `screen_text` entry carries `"spoken": true`,
+  and the items are in the cue's `script`.
+- **Check 42** (warning): a `[notes]` block that repeats a spoken list word for
+  word. The list is read aloud already, so the copy would be read twice.
 
 ### Fenced code
 
@@ -707,6 +756,10 @@ This paragraph is still spoken.
 - **Kind.** The block is kind `print` (wrapping `inner` blocks), never in
   cues.json; `onscreen_blocks` skips it, so `dim` still warns on a screen whose
   only text is in `[notes]`.
+- **With a spoken list.** `[notes]` is the other door to the notes: it keeps
+  a block off the slide, where a spoken list puts it on the slide and reads it
+  aloud (see "Spoken lists"). A `[notes]` block that repeats a spoken list
+  word for word is redundant, and check 42 says so.
 
 ### Directions (parentheticals)
 
@@ -729,6 +782,10 @@ way to keep a list in the speaker notes without drawing it on the slide:
 It runs over consecutive non-blank lines only. A blank line, heading, shot
 comment or fence before the closing `)` cancels it, and the lines parse as they
 would without the `(`.
+
+When the list is on the slide and the speaker reads it, this copy is
+redundant: a list that follows spoken voice-over is spoken as well as shown
+(see "Spoken lists").
 
 A prefix is an authorial convention, never behaviour:
 
@@ -989,6 +1046,7 @@ video attributes      data-autoplay muted loop playsinline preload="none", no co
                       (`playback: once` drops loop and carries data-playback="once";
                       `sound: true` drops muted and carries data-sound)
 cue invariants        ids unique, ordinals 1..N, len(cues) == len(sections)
+spoken lists          a list marked spoken has every item in the script
 determinism           build twice, compare hashes
 theme completeness    every required token defined in each theme CSS
 screen-text hygiene   no em-dashes in screen_text (public-copy rule)
@@ -1014,7 +1072,7 @@ screen boundaries).
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39).
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[notes]` block that repeats a spoken list word for word (check 42).
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 

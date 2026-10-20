@@ -1,0 +1,52 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "spoken-list-warned",
+    "title": "A copy of a list that is read aloud",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "lecture",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "spoken-list-warned-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "The two steps",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "The two steps"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Open the file.",
+            "Press the button."
+          ],
+          "spoken": true
+        }
+      ],
+      "script": "Here is the whole thing, and I read it as we go:\n\nOpen the file.\n\nPress the button.",
+      "stage": null,
+      "est_seconds": 7.2
+    }
+  ],
+  "warnings": []
+}

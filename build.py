@@ -178,13 +178,17 @@ def build(talk_path: Path, args) -> int:
             if b.kind in roles:
                 roles[b.kind] += 1
     empty_script = 0
+    said_lists = 0
     for s in talk.screens:
         has_script = any((b.kind == "vo" and b.text.strip()) or b.spoken
                          for b in s.blocks)
         if not has_script:
             empty_script += 1
+        said_lists += sum(1 for b in s.blocks if b.kind == "list" and b.spoken)
     print(f"roles     : stat={roles['stat']} lower={roles['lower']} "
           f"credits={roles['credits']} (payloads)")
+    print(f"lists     : {said_lists} list(s) read aloud (spoken voice-over "
+          f"before them — spec: Text, Spoken lists)")
     print(f"beats     : {empty_script} screen(s) carry no script (card/media "
           f"beat with no VO — see cues.json)")
     found = [r for r in media_refs if r.found]

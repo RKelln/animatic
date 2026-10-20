@@ -428,6 +428,8 @@ class Block:
     header: bool = False          # table: rows[0] is the header row
     stage: list = field(default_factory=list)   # extracted parentheticals
     spoken: bool = False          # role payload is spoken VO (from roles.yaml)
+    spoken_items: list = field(default_factory=list)   # a spoken list: the
+                                   # items as they are read (parentheticals out)
     line: int = 0                 # first source line of the block
     line_end: int = 0             # last source line: merged soft-wrap or a
                                   # multi-line quote / list occupies every line
@@ -678,6 +680,23 @@ def plain_md(text: str) -> str:
     s = re.sub(r"`([^`]+)`", r"\1", s)
     s = re.sub(r"(?<!\w)\*([^*\s][^*]*)\*(?!\w)", r"\1", s)
     return re.sub(r"\s+", " ", s).strip()
+
+
+def spoken_list_items(items: list) -> list:
+    """A list's items as the sentences the speaker reads (spec: Text — Spoken
+    lists).
+
+    Each item is one utterance, kept as written: markdown markers stripped (as
+    everywhere in the script), the words and their punctuation untouched.  The
+    items come back as a list so the script can give each one its own
+    paragraph — one caption per bullet.
+    """
+    out = []
+    for item in items:
+        t = plain_md(item).strip()
+        if t:
+            out.append(t)
+    return out
 
 
 def slugify(text: str, maxlen: int = 48) -> str:
@@ -1512,11 +1531,17 @@ def assemble(meta: dict, raw_blocks: list, source: str,
     pending_role: Optional[str] = None   # role shot waiting to consume a para
     role_line = 0
     credits_open = False                 # credits screen: consume following content
+    # Spoken voice-over seen so far ON THE OPEN SCREEN.  A list that follows
+    # it is spoken as well as shown (spec: Text — Spoken lists): the author
+    # says the list out loud, so it lands in the script once and the copy in
+    # the speaker notes can go.
+    spoken_seen = False
 
     def new_screen(line: int) -> Screen:
-        nonlocal cur
+        nonlocal cur, spoken_seen
         cur = Screen(idx=len(screens) + 1, movement=movement_index, line=line)
         screens.append(cur)
+        spoken_seen = False      # a new screen starts the count over
         return cur
 
     # Handout headings: a heading written directly before a shot (and not
@@ -1789,8 +1814,18 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                               for i in rb["items"]],
                        ordered=rb.get("ordered", False),
                        depths=(rb["depths"] if any(rb.get("depths", ())) else []),
+                       spoken=spoken_seen,
                        line=rb.get("line", 0),
                        line_end=rb.get("line_end", 0) or rb.get("line", 0))
+            if spoken_seen:
+                # The list is read aloud.  A parenthetical inside an item is
+                # never spoken (spec: Text — Directions): it comes out of the
+                # speech and travels as a stage note, while the slide keeps the
+                # item as written.
+                for item in lb.items:
+                    said, stage = split_parens(item)
+                    lb.spoken_items.append(said.strip())
+                    lb.stage.extend(stage)
             scan_timer(lb, "\n".join(lb.items), lb.line)
             cur.blocks.append(lb)
             continue
@@ -1886,6 +1921,12 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             if pb.kind == "vo" and NEXT_TOKEN_RE.search(pb.text):
                 pb.text, pb.nexts = split_next_tokens(pb.text)
             cur.blocks.append(pb)
+            if (pb.text.strip() and (pb.kind == "vo" or pb.spoken)
+                    and not rb.get("print")):
+                # spoken voice-over on this screen: a list after it is read
+                # aloud too (spec: Text — Spoken lists).  A `[notes]` block's
+                # paragraph is never spoken, so it does not count.
+                spoken_seen = True
             continue
 
         talk.warnings.append(f"line {rb.get('line', 0)}: unhandled block kind {kind}")

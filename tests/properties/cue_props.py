@@ -8,6 +8,8 @@ rules (parens, footnote markers, em dashes in screen text).
 
 from __future__ import annotations
 
+from talkparse import plain_md
+
 from .common import (
     ABS_PATH_RE, EM_DASH, KINDS, TEXT_ENTRY_KINDS,
     derive_sources, err, text_entries, walk_strings,
@@ -87,6 +89,15 @@ def check(fx, errors: list) -> None:
             if t.get("kind") not in TEXT_ENTRY_KINDS:
                 err(errors, f"cue {cid}: screen_text kind "
                             f"{t.get('kind')!r} not in {TEXT_ENTRY_KINDS}")
+            # a spoken list is read aloud: every item must reach the script
+            # (spec: Text — Spoken lists).  The script carries the item with
+            # its markdown stripped, so compare on the plain form.
+            if t.get("kind") == "list" and t.get("spoken"):
+                for item in t.get("items") or []:
+                    said = plain_md(str(item))
+                    if said and said not in script:
+                        err(errors, f"cue {cid}: list is marked spoken but the "
+                                    f"item {said[:50]!r} never reaches the script")
         if cue.get("script") is not None and not isinstance(cue.get("script"), str):
             err(errors, f"cue {cid}: script must be a string")
 

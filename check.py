@@ -160,6 +160,7 @@ REGISTER = [
     (39, "a `[Timer: ...]` token in a spoken paragraph: dropped from the voice-over, starts nothing", WARNING, "enforced: talkparse.py"),
     (40, "a screen's `[next]` / `[n]` marks differ in number from its next-presses (stepped images, `reveal=list` items)", WARNING, "implemented"),
     (41, "pool card that cannot apply: folder missing or empty, a `pins:` file not in the folder, or a pin id that breaks the slug rule or repeats a card (a bad pin renders a placeholder or is ignored)", WARNING, "implemented: check.py + mediaresolve.py"),
+    (42, "a `[notes]` block that repeats a spoken list word for word: the list is read aloud now, so the copy is redundant", WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -936,6 +937,44 @@ def check_40_next_marks(talk, resolver, report: Report) -> None:
         report.add(40, WARNING, msg, line=line, screen=s.idx)
 
 
+def _norm_item(text: str) -> str:
+    """A list item as a comparable string: case and spacing do not matter."""
+    return " ".join(str(text).split()).lower()
+
+
+def check_42_redundant_copy(talk, resolver, report: Report) -> None:
+    """A `[notes]` block that repeats a spoken list is now a copy of nothing.
+
+    A list that follows spoken voice-over is read aloud as well as shown
+    (spec: Text — Spoken lists), so the list the author wrote out again under
+    `[notes]` is read twice: once by the list, once by the copy.  The copy can
+    go.
+    """
+    for s in talk.screens:
+        said = [b for b in s.blocks if b.kind == "list" and b.spoken and b.items]
+        if not said:
+            continue
+        for b in s.blocks:
+            if b.kind != "print":
+                continue
+            for ib in b.inner:
+                if ib.kind != "list" or not ib.items:
+                    continue
+                for lb in said:
+                    if len(ib.items) != len(lb.items):
+                        continue
+                    if [_norm_item(i) for i in ib.items] != \
+                            [_norm_item(i) for i in lb.items]:
+                        continue
+                    report.add(42, WARNING,
+                               f"a `[notes]` block repeats the list on this "
+                               f"screen word for word, and the list is read "
+                               f"aloud now (spoken voice-over before it): the "
+                               f"copy is redundant — delete the `[notes]` "
+                               f"block",
+                               line=b.line, screen=s.idx)
+
+
 def check_30_dim_without_text(talk, resolver, report: Report) -> None:
     """`dim` exists to keep on-screen text readable over a picture. On a screen
     with no text it only darkens the picture: a chart or photo that is too
@@ -1115,6 +1154,7 @@ def run_checks(talk, resolver, source_text: str,
     check_34_step_counts(talk, resolver, report)
     check_40_next_marks(talk, resolver, report)
     check_41_pools(talk, resolver, report)
+    check_42_redundant_copy(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

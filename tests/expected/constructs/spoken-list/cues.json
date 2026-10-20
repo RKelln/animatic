@@ -1,0 +1,118 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "spoken-list",
+    "title": "A list that is read aloud",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "lecture",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "spoken-list-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "The four things",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "The four things"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "A message to their daughter about a winter visit.",
+            "A checklist for the week, made from something Pat said out loud.",
+            "Three questions to take to Friday's diabetes check.",
+            "One thing to do outside the apartment this month."
+          ],
+          "spoken": true
+        }
+      ],
+      "script": "Here is what we do today, and I read them as we go:\n\nA message to their daughter about a winter visit.\n\nA checklist for the week, made from something Pat said out loud.\n\nThree questions to take to Friday's diabetes check.\n\nOne thing to do outside the apartment this month.\n\nThat is the whole session.",
+      "stage": null,
+      "est_seconds": 22.4
+    },
+    {
+      "id": "spoken-list-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "List first",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "List first"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "This list stands before any spoken text on the screen.",
+            "So it stays screen text."
+          ]
+        }
+      ],
+      "script": "The spoken line comes after it, and does not reach back.",
+      "stage": null,
+      "est_seconds": 4.4
+    },
+    {
+      "id": "spoken-list-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "No voice-over",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "No voice-over"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "A list with no spoken voice-over on its screen.",
+            "Stays screen text, and never reaches the script."
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": []
+}

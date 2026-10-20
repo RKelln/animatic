@@ -198,16 +198,17 @@
           "kind": "list",
           "items": [
             "a list"
-          ]
+          ],
+          "spoken": true
         },
         {
           "kind": "code",
           "text": "and the fence interrupts the list"
         }
       ],
-      "script": "Before the fence is a paragraph.\n\nAfter it, more spoken words.",
+      "script": "Before the fence is a paragraph.\n\na list\n\nAfter it, more spoken words.",
       "stage": null,
-      "est_seconds": 4.4
+      "est_seconds": 5.2
     },
     {
       "id": "code-fences-007",

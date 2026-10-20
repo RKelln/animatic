@@ -49,6 +49,7 @@ from talkparse import (
     parse_timer_token,
     plain_md,
     slugify,
+    spoken_list_items,
     strip_timer_tokens,
 )
 from mediaresolve import VIDEO_EXTS, MediaResolver, MediaRef
@@ -205,11 +206,18 @@ def screen_script(screen: Screen) -> str:
     A stat payload ("57.5% of web traffic is bots, not people.") is a sentence
     the speaker reads while the screen shows the number, so it is scripted.
     Lower/credits payloads are attribution labels: screen text, never VO.
+
+    A list under spoken voice-over is spoken as well as shown: its items join
+    the script where the list stands, one item per paragraph (spec: Text —
+    Spoken lists).
     """
     parts = []
     for b in screen.blocks:
         if b.kind == "vo" and b.text.strip():
             parts.append(plain_md(b.text))
+        elif b.kind == "list" and b.spoken:
+            for item in spoken_list_items(b.spoken_items or b.items):
+                parts.append(item)
         elif b.spoken and b.text.strip():
             # a timer token in a spoken payload (a stat) is shown, never read
             t = strip_timer_tokens(b.text) if b.timer is not None else b.text
@@ -1735,7 +1743,11 @@ PRESENTER_JS = r"""
         if (k.className && /(^|\s)stage-note(\s|$)/.test(k.className)) {
           stage.push(k.innerHTML);
         } else {
-          vo.push(k.innerHTML);
+          // a list keeps its wrapper: the innerHTML of a <ul> is a row of
+          // bare <li>s, and the bullets the presenter reads would lose their
+          // markers in the other window.
+          var tag = k.tagName ? k.tagName.toUpperCase() : "";
+          vo.push((tag === "UL" || tag === "OL") ? k.outerHTML : k.innerHTML);
         }
       }
     }
@@ -2000,11 +2012,21 @@ PRESENTER_UI_JS = r"""
     if (!node) return;
     node.textContent = "";
     if (!notes) return;
-    var i, p;
+    var i, p, box;
     for (i = 0; i < notes.vo.length; i++) {
+      var m = notes.vo[i];
+      if (/^\s*<(ul|ol)\b/i.test(m)) {
+        // a list is a block of its own: a <ul> inside a <p> is invalid
+        // markup, and the bullets would lose their indentation
+        box = document.createElement("div");
+        box.className = "note-list";
+        box.innerHTML = m;
+        node.appendChild(box);
+        continue;
+      }
       p = document.createElement("p");
       // the deck's own notes markup, builder-escaped static output
-      p.innerHTML = notes.vo[i];
+      p.innerHTML = m;
       node.appendChild(p);
     }
     for (i = 0; i < notes.stage.length; i++) {
@@ -3217,6 +3239,10 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     for b in screen.blocks:
         if b.kind == "vo" and (b.text.strip() or b.nexts):
             notes.append(f"<p>{notes_vo_html(b)}</p>")
+        elif b.kind == "list" and b.spoken:
+            # a list the speaker reads out: on the slide AND in the notes, as
+            # the bullets they are reading (spec: Text — Spoken lists)
+            notes.append(list_html(b))
         elif b.kind == "print":      # `[notes]` text: in the notes, off the slide
             for ib in b.inner:
                 if ib.kind == "list":
@@ -3688,6 +3714,8 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
                     entry["depths"] = list(b.depths)
                 if b.ordered:
                     entry["ordered"] = True
+                if b.spoken:
+                    entry["spoken"] = True     # read aloud as well as shown
                 text.append(entry)
             elif b.kind == "table":
                 text.append({"kind": "table", "header": b.header,
