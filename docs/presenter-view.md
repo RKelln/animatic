@@ -57,6 +57,15 @@ message carries only what only the deck has: the position, the VO script and
 stage notes for the current and next cue (read from the `<aside class="notes">`
 markup the deck already renders), and the two previews.
 
+The notes markup is the deck's, so the presenter window shows whatever the
+notes hold: his voice-over, the payloads he reads off (a `stat`, a
+`paraphrase`), and the screen's text that follows his words — a list, a quote
+with its credit, a code block — copied in as the **reading copy** of the slide,
+so he can read the slide without looking at it (spec: Text — The reading
+copy). The deck's own notes panel (`n`) shows the same notes. A list or a code
+block travels with its wrapper: the presenter window renders the bullets and
+the code as blocks, not as bare rows of `<li>`s.
+
 That split is not decoration. It is what makes the interesting rule checkable
 without a browser: **a `type: live` screen is marked preview-less before
 anything runs**, so no second sink can ever attach to a capture stream for a

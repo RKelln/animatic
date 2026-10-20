@@ -51,7 +51,8 @@ A line's fate is decided by two things, in order: its **markdown shape**, then
 its **position**.
 
 1. **Shape decides the default.** A paragraph is spoken. A heading, quote, or
-   list is screen text — on screen, never spoken. A parenthetical is a stage
+   list is screen text — on screen, never spoken (a list that follows spoken
+   voice-over is the one exception; see "Spoken lists"). A parenthetical is a stage
    note. This is the whole rule for headings, quotes, and lists: they are
    always screen text, with or without a role. A list is `-` (or `*`, `+`)
    items, or numbered `1.` / `1)` items, which render as a numbered list; a
@@ -812,6 +813,11 @@ Parentheses are never spoken and never on screen. Every parenthetical is
 stripped identically and travels as a stage note (speaker notes in the present
 view, `stage` in cues.json). Parentheticals do not nest — a nested `(` warns.
 
+One exception, and it predates the spoken lists: a parenthetical *inside* a
+list item is part of the item, which is screen text, so it stays on the slide.
+If that list is read aloud, the parenthetical comes out of the speech and
+travels as a stage note (see "Spoken lists").
+
 A parenthetical may span lines. When a line starts with `(` and the parens do not
 balance until a later line, everything up to the closing `)` is one stage note,
 list items included (their markers dropped, items joined with `; `). This is the
@@ -1092,6 +1098,7 @@ video attributes      data-autoplay muted loop playsinline preload="none", no co
                       `sound: true` drops muted and carries data-sound)
 cue invariants        ids unique, ordinals 1..N, len(cues) == len(sections)
 spoken lists          a list marked spoken has every item in the script
+reading copy          the screen's text that follows the words is in the notes
 determinism           build twice, compare hashes
 theme completeness    every required token defined in each theme CSS
 screen-text hygiene   no em-dashes in screen_text (public-copy rule)
