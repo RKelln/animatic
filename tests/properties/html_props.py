@@ -141,6 +141,28 @@ def check(fx, errors: list) -> None:
             err(errors, f"slide {cid} is active but not the first")
         if "<aside class=\"notes\">" not in pres_text.split(f'id="{cid}"', 1)[-1].split("</section>", 1)[0]:
             err(errors, f"section {cid}: no speaker-notes aside")
+        # -- the reading copy: a screen with no script of its own carries its
+        #    list or code block in the notes (spec: Text — The reading copy)
+        if not (cue.get("script") or "").strip():
+            section = pres_text.split(f'id="{cid}"', 1)[-1].split("</section>", 1)[0]
+            nm = re.search(r'<aside class="notes">(.*?)</aside>', section, re.S)
+            notes_html = html_mod.unescape(nm.group(1)) if nm else ""
+            for t in cue.get("screen_text") or []:
+                if t.get("kind") == "list":
+                    for item in t.get("items") or []:
+                        said = plain_md(str(item))
+                        if said and said not in notes_html:
+                            err(errors, f"cue {cid}: the screen has no script, "
+                                        f"so its list belongs in the notes as "
+                                        f"the reading copy — {said[:40]!r} is "
+                                        f"missing")
+                elif t.get("kind") == "code":
+                    first = (t.get("text") or "").split("\n")[0]
+                    if first and first not in notes_html:
+                        err(errors, f"cue {cid}: the screen has no script, so "
+                                    f"its code block belongs in the notes as "
+                                    f"the reading copy — {first[:40]!r} is "
+                                    f"missing")
         if cue["kind"] == "black" and "black-beat" not in cls.split():
             err(errors, f"section {cid}: black cue lacks black-beat class")
 

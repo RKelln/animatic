@@ -411,6 +411,37 @@ More spoken text
 - **Check 42** (warning): a `[notes]` block that repeats a spoken list word for
   word. The list is read aloud already, so the copy would be read twice.
 
+### The reading copy
+
+A screen with **no spoken text of its own** shows a list or a code block and
+nothing to say about it. The speaker notes then carry that text as a **reading
+copy**: the presenter reads the slide from the notes instead of from the
+screen, and never has to look at the screen to say what is on it.
+
+```
+<!-- shot -->
+### The four things
+
+- A message to their daughter about a winter visit.
+- A checklist for the week, made from something Pat said out loud.
+```
+
+- **The trigger.** The screen's script is empty: no voice-over, no spoken role
+  payload, no spoken list. A screen that has words of its own is left alone —
+  the words are in the notes and the slide is the slide.
+- **What is copied.** The list or code block, as it stands on the slide, and
+  nothing else: the title stays the cue title (the presenter view names the
+  screen above the notes), and a quote or a table is not copied.
+- **Where it lands.** The speaker notes (the deck's own notes panel and the
+  presenter window), in the same markup the slide uses: a list as bullets, a
+  code block verbatim.
+- **It is not speech.** The copy never reaches the script, the captions or the
+  clock — it is a reading aid, exactly like a `[notes]` block, and unlike a
+  spoken list (see "Spoken lists"). The handout prints the list once, as the
+  slide does; the copy is the presenter's, and stays off the page.
+- **Check 42** (warning): a `[notes]` block that repeats a list the notes
+  already carry — read aloud, or copied as the reading copy. The copy can go.
+
 ### Fenced code
 
 A line of three or more backticks (or tildes, `~~~`) opens a **fenced block**;
@@ -758,8 +789,9 @@ This paragraph is still spoken.
   only text is in `[notes]`.
 - **With a spoken list.** `[notes]` is the other door to the notes: it keeps
   a block off the slide, where a spoken list puts it on the slide and reads it
-  aloud (see "Spoken lists"). A `[notes]` block that repeats a spoken list
-  word for word is redundant, and check 42 says so.
+  aloud (see "Spoken lists"), and where the reading copy puts a silent
+  screen's list in the notes (see "The reading copy"). A `[notes]` block that
+  repeats a list the notes already carry is redundant, and check 42 says so.
 
 ### Directions (parentheticals)
 
@@ -1072,7 +1104,7 @@ screen boundaries).
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[notes]` block that repeats a spoken list word for word (check 42).
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[notes]` block that repeats a list the notes already carry (check 42).
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 

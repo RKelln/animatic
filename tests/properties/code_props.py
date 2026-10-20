@@ -97,15 +97,25 @@ def check(fx, errors: list) -> None:
         err(errors, "cues: duplicate ids")
 
     # -- views: each fence once, as a <pre>; no live nodes from inside ---------
-    for view, path in (("document", fx.out / "document" / "index.html"),
-                       ("present", fx.out / "present" / "index.html")):
+    # The present view carries a fenced block twice when the screen has no
+    # script: once on the slide, once in the notes as the reading copy (spec:
+    # Text — The reading copy).  The handout prints it once, like the slide.
+    want_present = []
+    for c in cues["cues"]:
+        codes = [t["text"] for t in (c.get("screen_text") or [])
+                 if t.get("kind") == "code"]
+        want_present.extend(codes)
+        if not (c.get("script") or "").strip():
+            want_present.extend(codes)
+    for view, path, expect in (("document", fx.out / "document" / "index.html", want),
+                               ("present", fx.out / "present" / "index.html", want_present)):
         if not path.exists():
             err(errors, f"{view} view missing")
             continue
         text = path.read_text(encoding="utf-8")
         pres = [_pre_text(m) for m in PRE_RE.findall(text)]
-        if pres != want:
-            err(errors, f"{view} view: <pre> blocks {pres!r} != fences {want!r}")
+        if pres != expect:
+            err(errors, f"{view} view: <pre> blocks {pres!r} != fences {expect!r}")
         for lines in shown:
             for ln in lines:
                 if "<!--" in ln and ln in text:

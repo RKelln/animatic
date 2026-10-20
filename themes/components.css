@@ -924,6 +924,16 @@
      reset zeroes the list padding, so the markers need their indent back. */
   .notes-panel :is(ul, ol) { margin: 0.4em 0; padding-left: 1.3em; }
   .notes-panel li { margin: 0.12em 0; }
+  /* the reading copy: a code block the presenter reads from the notes. The
+     slide's code treatment is scoped to the slide, so the notes get a plain
+     one — mono, quiet, on the notes' own ground. */
+  .notes-panel pre.code-block {
+    font-family: var(--font-mono); font-size: 0.92em; line-height: 1.45;
+    white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4;
+    margin: 0.4em 0; padding: 0.5em 0.7em; color: inherit; background: none;
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 0.4em;
+  }
   /* `stage-note`, never `stage`: a paragraph matching the present view's
      fixed full-viewport `.stage` container escapes the panel and covers the
      slide (found by hit test, 2026-09-15). */
@@ -1111,8 +1121,15 @@
   .presenter-notes p.stage-note { color: var(--stage-muted); font-size: 0.85em; font-style: italic; }
   /* a spoken list in the notes: the bullets the presenter is reading aloud.
      The deck's own notes panel styles the same list through `.notes ul`. */
-  .presenter-notes .note-list :is(ul, ol) { margin: 0.35em 0; padding-left: 1.25em; }
-  .presenter-notes .note-list li { margin: 0.12em 0; }
+  .presenter-notes .note-block :is(ul, ol) { margin: 0.35em 0; padding-left: 1.25em; }
+  .presenter-notes .note-block li { margin: 0.12em 0; }
+  .presenter-notes pre.code-block {
+    font-family: var(--font-mono); font-size: 0.85em; line-height: 1.45;
+    white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4;
+    margin: 0.35em 0; padding: 0.5em 0.7em; color: inherit; background: none;
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 0.4em;
+  }
   /* the live control: presenter-side state and a Stop. It only appears on a
      screen that actually carries a live capture, so it costs nothing on the
      other 23. Start is deliberately absent — see fillLive in the module. */

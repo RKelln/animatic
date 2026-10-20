@@ -160,7 +160,7 @@ REGISTER = [
     (39, "a `[Timer: ...]` token in a spoken paragraph: dropped from the voice-over, starts nothing", WARNING, "enforced: talkparse.py"),
     (40, "a screen's `[next]` / `[n]` marks differ in number from its next-presses (stepped images, `reveal=list` items)", WARNING, "implemented"),
     (41, "pool card that cannot apply: folder missing or empty, a `pins:` file not in the folder, or a pin id that breaks the slug rule or repeats a card (a bad pin renders a placeholder or is ignored)", WARNING, "implemented: check.py + mediaresolve.py"),
-    (42, "a `[notes]` block that repeats a spoken list word for word: the list is read aloud now, so the copy is redundant", WARNING, "implemented"),
+    (42, "a `[notes]` block that repeats a list the notes already carry (a list read aloud, or a screen's reading copy): the copy is redundant", WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -943,16 +943,20 @@ def _norm_item(text: str) -> str:
 
 
 def check_42_redundant_copy(talk, resolver, report: Report) -> None:
-    """A `[notes]` block that repeats a spoken list is now a copy of nothing.
+    """A `[notes]` block that repeats a list the notes already carry is a
+    copy of nothing.
 
-    A list that follows spoken voice-over is read aloud as well as shown
-    (spec: Text — Spoken lists), so the list the author wrote out again under
-    `[notes]` is read twice: once by the list, once by the copy.  The copy can
-    go.
+    The notes carry a list twice over, in two ways: a list the speaker reads
+    aloud is in them (spec: Text — Spoken lists), and a screen with nothing
+    of its own to say copies its list there (spec: Text — The reading copy).
+    Either way the words the author wrote out again under `[notes]` would be
+    read twice: once by the list, once by the copy.  The copy can go.
     """
     for s in talk.screens:
         said = [b for b in s.blocks if b.kind == "list" and b.spoken and b.items]
-        if not said:
+        copy = render.reading_copy_blocks(s)
+        carried = said + [b for b in copy if b.kind == "list"]
+        if not carried:
             continue
         for b in s.blocks:
             if b.kind != "print":
@@ -960,7 +964,7 @@ def check_42_redundant_copy(talk, resolver, report: Report) -> None:
             for ib in b.inner:
                 if ib.kind != "list" or not ib.items:
                     continue
-                for lb in said:
+                for lb in carried:
                     if len(ib.items) != len(lb.items):
                         continue
                     if [_norm_item(i) for i in ib.items] != \
@@ -968,10 +972,9 @@ def check_42_redundant_copy(talk, resolver, report: Report) -> None:
                         continue
                     report.add(42, WARNING,
                                f"a `[notes]` block repeats the list on this "
-                               f"screen word for word, and the list is read "
-                               f"aloud now (spoken voice-over before it): the "
-                               f"copy is redundant — delete the `[notes]` "
-                               f"block",
+                               f"screen word for word, and the notes already "
+                               f"carry that list: the copy is redundant — "
+                               f"delete the `[notes]` block",
                                line=b.line, screen=s.idx)
 
 

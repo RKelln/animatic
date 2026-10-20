@@ -226,6 +226,26 @@ def screen_script(screen: Screen) -> str:
     return "\n\n".join(parts)
 
 
+def reading_copy_blocks(screen: Screen) -> list:
+    """The screen's reading copy: the blocks the presenter reads from the
+    notes when the slide says nothing else (spec: Text — The reading copy).
+
+    A screen with no spoken text of its own shows a list or a code block and
+    nothing to say about it, so the notes carry that text: the presenter can
+    read the slide without looking at it.  A screen that has words of its own
+    is left alone — the words are in the notes, and the slide is the slide.
+    """
+    if screen_script(screen).strip():
+        return []                      # the screen speaks for itself
+    out = []
+    for b in screen.blocks:
+        if b.kind == "list" and b.items:
+            out.append(b)
+        elif b.kind == "code" and b.text.strip():
+            out.append(b)
+    return out
+
+
 _BEAT_NOTE_RE = re.compile(r"beat\.?", re.IGNORECASE)
 
 
@@ -1743,11 +1763,12 @@ PRESENTER_JS = r"""
         if (k.className && /(^|\s)stage-note(\s|$)/.test(k.className)) {
           stage.push(k.innerHTML);
         } else {
-          // a list keeps its wrapper: the innerHTML of a <ul> is a row of
-          // bare <li>s, and the bullets the presenter reads would lose their
-          // markers in the other window.
+          // a list or a code block keeps its wrapper: the innerHTML of a <ul>
+          // is a row of bare <li>s, and the bullets the presenter reads would
+          // lose their markers in the other window.
           var tag = k.tagName ? k.tagName.toUpperCase() : "";
-          vo.push((tag === "UL" || tag === "OL") ? k.outerHTML : k.innerHTML);
+          vo.push((tag === "UL" || tag === "OL" || tag === "PRE")
+                  ? k.outerHTML : k.innerHTML);
         }
       }
     }
@@ -2015,11 +2036,12 @@ PRESENTER_UI_JS = r"""
     var i, p, box;
     for (i = 0; i < notes.vo.length; i++) {
       var m = notes.vo[i];
-      if (/^\s*<(ul|ol)\b/i.test(m)) {
-        // a list is a block of its own: a <ul> inside a <p> is invalid
-        // markup, and the bullets would lose their indentation
+      if (/^\s*<(ul|ol|pre)\b/i.test(m)) {
+        // a list or a code block is a block of its own: a <ul> or a <pre>
+        // inside a <p> is invalid markup, and the bullets would lose their
+        // indentation
         box = document.createElement("div");
-        box.className = "note-list";
+        box.className = "note-block";
         box.innerHTML = m;
         node.appendChild(box);
         continue;
@@ -3236,6 +3258,11 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     # `class="stage"` inside the notes panel resolved to `position: fixed;
     # inset: 0` and covered the whole screen instead of sitting in the panel.
     notes = []
+    # the reading copy first: a screen with nothing of its own to say shows a
+    # list or a code block, and the presenter reads it from the notes instead
+    # of from the screen (spec: Text — The reading copy)
+    for b in reading_copy_blocks(screen):
+        notes.append(list_html(b) if b.kind == "list" else code_html(b))
     for b in screen.blocks:
         if b.kind == "vo" and (b.text.strip() or b.nexts):
             notes.append(f"<p>{notes_vo_html(b)}</p>")
