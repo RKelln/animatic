@@ -35,6 +35,7 @@ import html
 import json
 import re
 from pathlib import Path
+from typing import Optional
 
 import timing
 
@@ -224,26 +225,6 @@ def screen_script(screen: Screen) -> str:
             if t.strip():
                 parts.append(plain_md(t))
     return "\n\n".join(parts)
-
-
-def reading_copy_blocks(screen: Screen) -> list:
-    """The screen's reading copy: the blocks the presenter reads from the
-    notes when the slide says nothing else (spec: Text — The reading copy).
-
-    A screen with no spoken text of its own shows a list or a code block and
-    nothing to say about it, so the notes carry that text: the presenter can
-    read the slide without looking at it.  A screen that has words of its own
-    is left alone — the words are in the notes, and the slide is the slide.
-    """
-    if screen_script(screen).strip():
-        return []                      # the screen speaks for itself
-    out = []
-    for b in screen.blocks:
-        if b.kind == "list" and b.items:
-            out.append(b)
-        elif b.kind == "code" and b.text.strip():
-            out.append(b)
-    return out
 
 
 def notes_quote_html(b: Block, source: Optional[Block] = None) -> str:
