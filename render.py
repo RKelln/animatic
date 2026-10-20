@@ -246,6 +246,69 @@ def reading_copy_blocks(screen: Screen) -> list:
     return out
 
 
+def notes_quote_html(b: Block, source: Optional[Block] = None) -> str:
+    """A quote for the speaker notes: the quote and its attribution, in the
+    notes' own treatment (no slide plate)."""
+    inner = f"<blockquote>{quote_paras_html(b.text)}</blockquote>"
+    if source is not None and source.text.strip():
+        inner += f'<p class="quote-source">{inline_md(source.text)}</p>'
+    return f'<div class="quote-block">{inner}</div>'
+
+
+def speaker_notes(screen: Screen) -> list:
+    """The speaker notes of a screen, as (block, html) pairs.
+
+    The notes are a reading copy of the slide: the presenter's words, the
+    payloads he reads off (a stat, a paraphrase), and the screen's text that
+    follows his words — or all of the screen's text, on a screen with no
+    words of its own (spec: Text — Spoken lists, The reading copy).
+
+    A `[notes]` block and the stage notes keep their own places: the block
+    where the author wrote it, the stage notes at the end.
+    """
+    out = []
+    silent = not screen_script(screen).strip()   # nothing said on this screen
+    spoken_before = False                         # his words have been said
+    blocks = screen.blocks
+    for i, b in enumerate(blocks):
+        if b.kind == "vo" and (b.text.strip() or b.nexts):
+            out.append((b, f"<p>{notes_vo_html(b)}</p>"))
+            if b.text.strip():
+                spoken_before = True
+        elif b.kind in ("stat", "paraphrase") and b.spoken and b.text.strip():
+            # a payload he reads off: the number, our line under a quote
+            out.append((b, f"<p>{inline_md(b.text)}</p>"))
+            spoken_before = True
+        elif b.kind == "list" and b.items:
+            if spoken_before or silent:
+                out.append((b, list_html(b)))
+        elif b.kind == "quote":
+            if spoken_before or silent:
+                nxt = blocks[i + 1] if i + 1 < len(blocks) else None
+                src = nxt if (nxt is not None and nxt.kind == "quote-source") else None
+                out.append((b, notes_quote_html(b, src)))
+        elif b.kind == "quote-source":
+            continue        # it travels with its quote, never on its own
+        elif b.kind == "code" and b.text.strip():
+            if spoken_before or silent:
+                out.append((b, code_html(b)))
+        elif b.kind == "print":      # `[notes]` text: in the notes, off the slide
+            inner = []
+            for ib in b.inner:
+                if ib.kind == "list":
+                    inner.append(list_html(ib))
+                elif ib.kind == "table":
+                    inner.append(table_html(ib))
+                elif ib.text.strip():
+                    inner.append(f'<p class="print-note">{inline_md(ib.text)}</p>')
+            if inner:
+                out.append((b, "".join(inner)))
+    for b in blocks:
+        for st in b.stage:
+            out.append((b, f'<p class="stage-note">({html.escape(st)})</p>'))
+    return out
+
+
 _BEAT_NOTE_RE = re.compile(r"beat\.?", re.IGNORECASE)
 
 
@@ -2036,8 +2099,8 @@ PRESENTER_UI_JS = r"""
     var i, p, box;
     for (i = 0; i < notes.vo.length; i++) {
       var m = notes.vo[i];
-      if (/^\s*<(ul|ol|pre)\b/i.test(m)) {
-        // a list or a code block is a block of its own: a <ul> or a <pre>
+      if (/^\s*<(ul|ol|pre|div|blockquote)\b/i.test(m)) {
+        // a list, a code block or a quote is a block of its own: any of them
         // inside a <p> is invalid markup, and the bullets would lose their
         // indentation
         box = document.createElement("div");
@@ -3258,30 +3321,17 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     # `class="stage"` inside the notes panel resolved to `position: fixed;
     # inset: 0` and covered the whole screen instead of sitting in the panel.
     notes = []
-    # the reading copy first: a screen with nothing of its own to say shows a
-    # list or a code block, and the presenter reads it from the notes instead
-    # of from the screen (spec: Text — The reading copy)
-    for b in reading_copy_blocks(screen):
-        notes.append(list_html(b) if b.kind == "list" else code_html(b))
-    for b in screen.blocks:
-        if b.kind == "vo" and (b.text.strip() or b.nexts):
-            notes.append(f"<p>{notes_vo_html(b)}</p>")
-        elif b.kind == "list" and b.spoken:
-            # a list the speaker reads out: on the slide AND in the notes, as
-            # the bullets they are reading (spec: Text — Spoken lists)
-            notes.append(list_html(b))
-        elif b.kind == "print":      # `[notes]` text: in the notes, off the slide
-            for ib in b.inner:
-                if ib.kind == "list":
-                    notes.append(list_html(ib))
-                elif ib.kind == "table":
-                    notes.append(table_html(ib))
-                elif ib.text.strip():
-                    notes.append(f'<p class="print-note">{inline_md(ib.text)}</p>')
-    for b in screen.blocks:
-        for st in b.stage:
-            notes.append(f'<p class="stage-note">({html.escape(st)})</p>')
-    notes_html = "".join(notes)
+    # speaker notes: VO + stage directions (never on the slide body). The
+    # stage-note class is deliberately NOT "stage": `.stage` is the present
+    # view's fixed, full-viewport slide container, so a paragraph carrying
+    # `class="stage"` inside the notes panel resolved to `position: fixed;
+    # inset: 0` and covered the whole screen instead of sitting in the panel.
+    #
+    # The notes are a reading copy of the slide: his words, the payloads he
+    # reads off, and the screen's text that follows his words — or all of the
+    # slide's text, on a screen with no words of its own (spec: Text — The
+    # reading copy).
+    notes_html = "".join(html for _b, html in speaker_notes(screen))
 
     cls = "animatic-slide" + first
     if sflags.get("fit") == "hero" and not credits_screen and (

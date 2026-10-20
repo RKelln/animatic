@@ -21,6 +21,8 @@ import re
 import talkparse
 import timing
 
+import render
+
 from .common import err
 
 MARKER_RE = re.compile(r"^(?:#{1,6}|[-*+>]|\d+[.)]|\|)\s*")
@@ -97,16 +99,29 @@ def check(fx, errors: list) -> None:
         err(errors, "cues: duplicate ids")
 
     # -- views: each fence once, as a <pre>; no live nodes from inside ---------
-    # The present view carries a fenced block twice when the screen has no
-    # script: once on the slide, once in the notes as the reading copy (spec:
-    # Text — The reading copy).  The handout prints it once, like the slide.
+    # The present view carries a fenced block twice when the notes carry it:
+    # the reading copy (a screen with no script) and the copy under the
+    # presenter's words (spec: Text — The reading copy).  The handout prints it
+    # once, like the slide.
     want_present = []
-    for c in cues["cues"]:
-        codes = [t["text"] for t in (c.get("screen_text") or [])
-                 if t.get("kind") == "code"]
-        want_present.extend(codes)
-        if not (c.get("script") or "").strip():
-            want_present.extend(codes)
+    talk = talkparse.build_talk(str(fx.talkfile))
+    for screen in talk.screens:
+        silent = not render.screen_script(screen).strip()
+        spoken_before = False
+        on_slide = []
+        in_notes = []
+        for b in screen.blocks:
+            if (b.kind == "vo" and b.text.strip()) or \
+                    (b.kind in ("stat", "paraphrase") and b.spoken and b.text.strip()):
+                spoken_before = True
+                continue
+            if b.kind == "code" and b.text.strip():
+                on_slide.append(b.text)
+                if spoken_before or silent:
+                    in_notes.append(b.text)
+        # the section's body comes first, its notes aside after it
+        want_present.extend(on_slide)
+        want_present.extend(in_notes)
     for view, path, expect in (("document", fx.out / "document" / "index.html", want),
                                ("present", fx.out / "present" / "index.html", want_present)):
         if not path.exists():

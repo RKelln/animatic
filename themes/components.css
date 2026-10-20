@@ -924,6 +924,16 @@
      reset zeroes the list padding, so the markers need their indent back. */
   .notes-panel :is(ul, ol) { margin: 0.4em 0; padding-left: 1.3em; }
   .notes-panel li { margin: 0.12em 0; }
+  /* a quote the presenter reads from the notes: the source's words, in the
+     notes' own treatment (the slide's quote plate is scoped to the slide). */
+  .notes-panel blockquote, .presenter-notes blockquote {
+    margin: 0.35em 0; padding-left: 0.9em; font-style: italic;
+    border-left: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  }
+  .notes-panel .quote-source, .presenter-notes .quote-source {
+    margin: 0.15em 0 0.35em; text-align: left; font-size: 0.8em;
+    opacity: 0.85;
+  }
   /* the reading copy: a code block the presenter reads from the notes. The
      slide's code treatment is scoped to the slide, so the notes get a plain
      one — mono, quiet, on the notes' own ground. */
@@ -1123,6 +1133,7 @@
      The deck's own notes panel styles the same list through `.notes ul`. */
   .presenter-notes .note-block :is(ul, ol) { margin: 0.35em 0; padding-left: 1.25em; }
   .presenter-notes .note-block li { margin: 0.12em 0; }
+  .presenter-notes .note-block .quote-block { max-width: none; }
   .presenter-notes pre.code-block {
     font-family: var(--font-mono); font-size: 0.85em; line-height: 1.45;
     white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4;

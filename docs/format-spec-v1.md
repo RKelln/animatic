@@ -413,34 +413,47 @@ More spoken text
 
 ### The reading copy
 
-A screen with **no spoken text of its own** shows a list or a code block and
-nothing to say about it. The speaker notes then carry that text as a **reading
-copy**: the presenter reads the slide from the notes instead of from the
-screen, and never has to look at the screen to say what is on it.
+The speaker notes are a **reading copy of the screen**. They carry:
+
+- the presenter's **voice-over** paragraphs;
+- the **payloads he reads off** — a `stat` (the number), a `paraphrase` (our
+  line under a quoted source). Both are spoken, so both are in the script; the
+  notes now show them too, so the number is in front of him;
+- the screen's **text that follows his words** — a list, a quote (with its
+  attribution), a code block — copied with the markup the slide uses: bullets,
+  the quote and its credit, the code verbatim. On a screen with **no words of
+  its own**, all of the screen's text is copied: the slide is what he has, and
+  the notes let him read it without looking at it.
 
 ```
 <!-- shot -->
-### The four things
+### Before we share
 
-- A message to their daughter about a winter visit.
-- A checklist for the week, made from something Pat said out loud.
+Ok let's show off what you've made:
+
+> Tell it: "Time to share."
+
+- make sure it plays from the start
+- write your NOTES.md with your assistant
 ```
 
-- **The trigger.** The screen's script is empty: no voice-over, no spoken role
-  payload, no spoken list. A screen that has words of its own is left alone —
-  the words are in the notes and the slide is the slide.
-- **What is copied.** The list or code block, as it stands on the slide, and
-  nothing else: the title stays the cue title (the presenter view names the
-  screen above the notes), and a quote or a table is not copied.
-- **Where it lands.** The speaker notes (the deck's own notes panel and the
-  presenter window), in the same markup the slide uses: a list as bullets, a
-  code block verbatim.
-- **It is not speech.** The copy never reaches the script, the captions or the
-  clock — it is a reading aid, exactly like a `[notes]` block, and unlike a
-  spoken list (see "Spoken lists"). The handout prints the list once, as the
-  slide does; the copy is the presenter's, and stays off the page.
-- **Check 42** (warning): a `[notes]` block that repeats a list the notes
-  already carry — read aloud, or copied as the reading copy. The copy can go.
+The notes for that screen read: the lead-in, the quote, the two bullets — the
+whole screen, in the order it stands.
+
+- **The trigger.** Spoken voice-over *before* the text: a voice-over paragraph
+  (one with words in it), or a spoken payload (a `stat`, a `paraphrase`). A
+  stage note is not voice-over. A screen with no spoken text at all copies all
+  of its text. Text that stands *before* the presenter's words is not copied:
+  the notes show what comes after the words, and the slide shows the rest.
+- **It is not speech.** A copy never reaches the script, the captions or the
+  clock — it is a reading aid, exactly like a `[notes]` block. The only text
+  that is spoken is what the spoken-list rule already speaks (see "Spoken
+  lists"). The handout prints the screen's text once, as the slide does; the
+  copies are the presenter's, and stay off the page.
+- **Order.** The notes follow the screen: his words, then the text that
+  follows them, then his `[notes]` blocks, then the stage notes.
+- **Check 42** (warning): a `[notes]` block that repeats what the notes
+  already carry. The copy can go.
 
 ### Fenced code
 

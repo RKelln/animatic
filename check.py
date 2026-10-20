@@ -943,19 +943,20 @@ def _norm_item(text: str) -> str:
 
 
 def check_42_redundant_copy(talk, resolver, report: Report) -> None:
-    """A `[notes]` block that repeats a list the notes already carry is a
-    copy of nothing.
+    """A `[notes]` block that repeats what the notes already carry is a copy
+    of nothing.
 
-    The notes carry a list twice over, in two ways: a list the speaker reads
-    aloud is in them (spec: Text — Spoken lists), and a screen with nothing
-    of its own to say copies its list there (spec: Text — The reading copy).
-    Either way the words the author wrote out again under `[notes]` would be
-    read twice: once by the list, once by the copy.  The copy can go.
+    The notes carry the screen's text in three ways: a list the speaker reads
+    aloud is in them (spec: Text — Spoken lists), a screen with nothing of
+    its own to say copies its list or quote there (spec: Text — The reading
+    copy), and a quote that follows the words is copied too. Either way the
+    words the author wrote out again under `[notes]` would be read twice:
+    once by the screen, once by the copy.  The copy can go.
     """
     for s in talk.screens:
-        said = [b for b in s.blocks if b.kind == "list" and b.spoken and b.items]
-        copy = render.reading_copy_blocks(s)
-        carried = said + [b for b in copy if b.kind == "list"]
+        carried = [b for b, _html in render.speaker_notes(s)
+                   if b.kind in ("list", "quote") and
+                   (b.items if b.kind == "list" else b.text.strip())]
         if not carried:
             continue
         for b in s.blocks:
@@ -965,7 +966,7 @@ def check_42_redundant_copy(talk, resolver, report: Report) -> None:
                 if ib.kind != "list" or not ib.items:
                     continue
                 for lb in carried:
-                    if len(ib.items) != len(lb.items):
+                    if lb.kind != "list" or len(ib.items) != len(lb.items):
                         continue
                     if [_norm_item(i) for i in ib.items] != \
                             [_norm_item(i) for i in lb.items]:

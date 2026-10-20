@@ -20,6 +20,7 @@ import json
 import re
 from html.parser import HTMLParser
 
+import talkparse
 from talkparse import plain_md
 
 from .common import ABS_PATH_RE, err
@@ -71,6 +72,10 @@ def check(fx, errors: list) -> None:
     pres_text = present.read_text(encoding="utf-8")
     presenter_text = presenter.read_text(encoding="utf-8")
     doc_text = doc.read_text(encoding="utf-8")
+    # the parse model, for the checks that need a screen's block order (the
+    # reading copy depends on where the presenter's words stand)
+    talk = talkparse.build_talk(str(fx.talkfile))
+    screens = talk.screens
 
     # -- both views: no remote assets, no machine-local paths ---------------
     for name, text in (("present", pres_text), ("presenter", presenter_text),
@@ -128,7 +133,7 @@ def check(fx, errors: list) -> None:
         err(errors, "present sections do not mirror cue ids in order")
     if len(sections) != len(ids):
         err(errors, f"present sections {len(sections)} != cues {len(ids)}")
-    for (cid, cls, mv), cue in zip(sections, cues["cues"]):
+    for (cid, cls, mv), cue, screen in zip(sections, cues["cues"], screens):
         if cls.split() and cls.split()[0] != "animatic-slide":
             err(errors, f"section {cid}: first class is not animatic-slide")
         if int(mv) != cue["movement"]:
@@ -141,28 +146,33 @@ def check(fx, errors: list) -> None:
             err(errors, f"slide {cid} is active but not the first")
         if "<aside class=\"notes\">" not in pres_text.split(f'id="{cid}"', 1)[-1].split("</section>", 1)[0]:
             err(errors, f"section {cid}: no speaker-notes aside")
-        # -- the reading copy: a screen with no script of its own carries its
-        #    list or code block in the notes (spec: Text — The reading copy)
-        if not (cue.get("script") or "").strip():
-            section = pres_text.split(f'id="{cid}"', 1)[-1].split("</section>", 1)[0]
-            nm = re.search(r'<aside class="notes">(.*?)</aside>', section, re.S)
-            notes_html = html_mod.unescape(nm.group(1)) if nm else ""
-            for t in cue.get("screen_text") or []:
-                if t.get("kind") == "list":
-                    for item in t.get("items") or []:
-                        said = plain_md(str(item))
-                        if said and said not in notes_html:
-                            err(errors, f"cue {cid}: the screen has no script, "
-                                        f"so its list belongs in the notes as "
-                                        f"the reading copy — {said[:40]!r} is "
-                                        f"missing")
-                elif t.get("kind") == "code":
-                    first = (t.get("text") or "").split("\n")[0]
-                    if first and first not in notes_html:
-                        err(errors, f"cue {cid}: the screen has no script, so "
-                                    f"its code block belongs in the notes as "
-                                    f"the reading copy — {first[:40]!r} is "
-                                    f"missing")
+        # -- the reading copy: the notes carry the screen's text that follows
+        #    the presenter's words, or all of it on a screen with no words
+        #    (spec: Text — The reading copy).  Checked against the built HTML.
+        section = pres_text.split(f'id="{cid}"', 1)[-1].split("</section>", 1)[0]
+        nm = re.search(r'<aside class="notes">(.*?)</aside>', section, re.S)
+        notes_html = html_mod.unescape(nm.group(1)) if nm else ""
+        silent = not (cue.get("script") or "").strip()
+        spoken_before = False
+        for b in screen.blocks:
+            if (b.kind == "vo" and b.text.strip()) or \
+                    (b.kind in ("stat", "paraphrase") and b.spoken and b.text.strip()):
+                spoken_before = True
+                continue
+            if b.kind == "list" and b.items:
+                probe = plain_md(str(b.items[0]))
+            elif b.kind == "quote" and b.text.strip():
+                probe = plain_md(b.text.split("\n")[0])
+            elif b.kind == "code" and b.text.strip():
+                probe = b.text.split("\n")[0].strip()
+            else:
+                continue
+            if not (spoken_before or silent):
+                continue        # the text stands before his words: not copied
+            if probe and probe not in notes_html:
+                err(errors, f"cue {cid}: the notes do not carry the screen's "
+                            f"{b.kind} ({probe[:40]!r}) — the reading copy is "
+                            f"missing")
         if cue["kind"] == "black" and "black-beat" not in cls.split():
             err(errors, f"section {cid}: black cue lacks black-beat class")
 

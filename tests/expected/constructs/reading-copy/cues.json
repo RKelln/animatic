@@ -109,6 +109,107 @@
       "script": "I show the file, and then talk about it:\n\nthe first rule\n\nthe second rule",
       "stage": null,
       "est_seconds": 6.0
+    },
+    {
+      "id": "reading-copy-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "The quote, after the words",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "The quote, after the words"
+        },
+        {
+          "kind": "quote",
+          "text": "Tell it: \"Time to share.\""
+        },
+        {
+          "kind": "source",
+          "text": "The agent, in its own words"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "make sure it plays from the start",
+            "write your NOTES.md with your assistant"
+          ],
+          "spoken": true
+        }
+      ],
+      "script": "Ok let's show off what you've made:\n\nmake sure it plays from the start\n\nwrite your NOTES.md with your assistant",
+      "stage": null,
+      "est_seconds": 8.4
+    },
+    {
+      "id": "reading-copy-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "stat",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "stat",
+          "flags": {
+            "role": "stat"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "stat",
+          "text": "57.5% of web traffic is bots, not people."
+        }
+      ],
+      "script": "57.5% of web traffic is bots, not people.",
+      "stage": null,
+      "est_seconds": 3.6
+    },
+    {
+      "id": "reading-copy-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "paraphrase",
+          "flags": {
+            "role": "paraphrase"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "I would rather address the question of how to enhance the capabilities of those involved to change the constraining rules of the game."
+        },
+        {
+          "kind": "source",
+          "text": "Elinor Ostrom, Governing the Commons, 1990"
+        },
+        {
+          "kind": "paraphrase",
+          "text": "The question is not who to blame for the game. It is who gets to change the rules."
+        }
+      ],
+      "script": "The question is not who to blame for the game. It is who gets to change the rules.",
+      "stage": null,
+      "est_seconds": 7.2
     }
   ],
   "warnings": []
