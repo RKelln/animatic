@@ -42,6 +42,7 @@ treats `*.talk.md` as decks).
 - `docs/live-capture.md` — `type: live` screens: window capture, secure-context rule, hookup panel, diagnostics dump
 - `docs/presenter-view.md` — the second window: `s` for the speaker UI, `n` for in-page notes, and why the sync is postMessage
 - `docs/engine-decision.md` — builder spike decision record (engine, PDF path, parse model)
+- `docs/web-edition-report.md` — proposal only, nothing built: what the SAgE trends page suggests for a web edition of the document view
 - `templates/` — starter media card set (style, cards, gen-log)
 - `build.py` + `talkparse.py` + `mediaresolve.py` + `render.py` + `timing.py` — the builder (E2 spike):
   one talkfile in, four views out: present view (own-pager deck, VO in
