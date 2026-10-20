@@ -3300,6 +3300,82 @@ def _figure_css(talk: Talk, override=None) -> str:
             f"max-height: {h}; object-fit: contain; }} }}</style>")
 
 
+def _screen_cite_numbers(screen: Screen, cite_no: dict) -> list[int]:
+    """The handout's source numbers this screen cites, ascending.
+
+    The prose already carries a numbered marker at each claim; this is the
+    same set, collected, so a reader at the bottom of a screen can see what it
+    rested on without scrolling to the list.  `print` blocks hold nested
+    blocks (a `[notes]` run), so the walk is recursive.
+    """
+    seen: set[int] = set()
+
+    def walk(blocks) -> None:
+        for b in blocks:
+            for rid, _tail in b.refs or ():
+                n = cite_no.get(rid)
+                if n:
+                    seen.add(n)
+            if b.kind == "print":
+                walk(b.inner)
+
+    walk(screen.blocks)
+    return sorted(seen)
+
+
+def _screen_sources_html(screen: Screen, cite_no: dict) -> str:
+    nums = _screen_cite_numbers(screen, cite_no)
+    if not nums:
+        return ""
+    links = ", ".join(f'<a href="#src-{n}">{n}</a>' for n in nums)
+    return f'<p class="screen-sources">Sources: {links}</p>'
+
+
+def _toc_html(entries: list) -> str:
+    """The contents list: the talk's own headings, in screen order.
+
+    Grouped by part, so a two-column index can break between parts and never
+    mid-part (a column that starts at "The bill" with no part title above it
+    reads as a lost item).  A second heading on the same screen points at the
+    same anchor and is left out only when it is the same label too.  Below two
+    entries a list is noise, so nothing is emitted.
+    """
+    groups: list = []          # [(part label, part anchor, [rows])]
+    for lvl, label, anchor in entries:
+        label = label.strip()
+        if not label or not anchor:
+            continue
+        row = (lvl, label, anchor)
+        if lvl == 2:
+            groups.append((label, anchor, []))
+            continue
+        if not groups:
+            groups.append(("", "", []))
+        rows = groups[-1][2]
+        if rows and rows[-1] == row:
+            continue
+        rows.append(row)
+    total = sum(len(rows) + (1 if part else 0) for part, _a, rows in groups)
+    if total < 2:
+        return ""
+    blocks = []
+    for part, part_anchor, rows in groups:
+        items = "".join(
+            f'<li class="toc-h{lvl}"><a href="#{html.escape(a)}">'
+            f"{html.escape(lab)}</a></li>"
+            for lvl, lab, a in rows
+        )
+        head = (f'<a class="toc-part" href="#{html.escape(part_anchor)}">'
+                f"{html.escape(part)}</a>") if part else ""
+        blocks.append(f'<section class="toc-group">{head}'
+                      f'<ol class="toc-list">{items}</ol></section>')
+    return (
+        '<nav class="doc-toc" aria-label="Contents">'
+        '<h2 class="toc-title">Contents</h2>'
+        f'<div class="toc-cols">{"".join(blocks)}</div></nav>'
+    )
+
+
 def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
                     figures: str | None = None) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -3331,9 +3407,11 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
     movement_sections = []
     current = {"idx": 0, "items": opening}
     last_fig = None   # slug of the figure just before: a repeat is left out
+    toc: list = []    # (level, label, anchor) for the contents list
     for screen in talk.screens:
         if is_black_screen(screen) or screen.live_only:
             continue  # black beats have no prose; live-only screens stay off paper
+        cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"   # same key nav.json uses
         if screen.movement != current["idx"]:
             m = next((m for m in talk.movements if m.index == screen.movement), None)
             current = {"idx": screen.movement, "items": []}
@@ -3341,6 +3419,10 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
                 movement_sections.append(
                     (m.label, current["items"])
                 )
+                # the part title is a chapter in the contents, anchored at the
+                # first screen under it (the movement heading has no id of its
+                # own, so this is where a jump should land)
+                toc.append((2, m.label, f"cue-{cue_id}"))
         slug = screen.media_shot.slug if screen.media_shot else None
         # A `continue` shot, or any shot naming the slug of the figure just
         # before it, is the same picture again: the handout shows it once,
@@ -3348,9 +3430,14 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
         repeat = bool(slug) and slug == last_fig
         if slug:
             last_fig = slug
-        current["items"].append(_doc_screen_blocks(
-            talk, screen, resolver, skip_deck_h1=deck_title,
-            cite_no=cite_no, skip_figure=repeat))
+        current["items"].append(
+            f'<div class="screen" id="cue-{cue_id}">'
+            + _doc_screen_blocks(
+                talk, screen, resolver, skip_deck_h1=deck_title,
+                cite_no=cite_no, skip_figure=repeat,
+                toc=toc, anchor=f"cue-{cue_id}")
+            + _screen_sources_html(screen, cite_no)
+            + "</div>")
 
     def render_flow(blocks) -> str:
         return "".join(blocks)
@@ -3381,6 +3468,16 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
     # Blank-source decks must not gain a stray blank line: emit each section
     # only when it has content, so receipt-free output stays byte-clean.
     body_sections = "\n".join(s for s in (open_html, mov_html, sources_html) if s)
+    # The contents list has three lives, all from one function: a rail on a wide
+    # screen (a 151-screen page needs an outline that stays on screen), a folded
+    # "Contents" line on a phone (an inline 38-item index owns the first screen),
+    # and the plain list on paper, where there is nothing to fold.
+    toc_html = _toc_html(toc)
+    toc_rail = toc_html.replace('class="doc-toc"', 'class="doc-toc doc-toc-rail"')
+    toc_inline = toc_html.replace('class="doc-toc"', 'class="doc-toc doc-toc-inline"')
+    toc_mobile = ('<details class="doc-toc-mobile"><summary>Contents</summary>'
+                  + toc_html.replace('class="doc-toc"', 'class="doc-toc doc-toc-mobile-body"')
+                  + "</details>") if toc_html else ""
 
     doc = f"""<!DOCTYPE html>
 <html lang="en">
@@ -3391,11 +3488,12 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
 {theme_style_blocks(theme)}
 {fig_css}</head>
 <body class="view-document">
+{toc_rail}
 <article>
 <header class="doc-head">
 <h1>{html.escape(deck_title)}</h1>
 <p class="meta">{html.escape(" · ".join(b for b in meta_bits if b))}</p>
-</header>
+</header>{toc_mobile}{toc_inline}
 {body_sections}
 </article>
 </body>
@@ -3450,9 +3548,11 @@ def _cite_links(rendered: str) -> str:
 
 def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
                        skip_deck_h1: str, cite_no: dict | None = None,
-                       skip_figure: bool = False) -> str:
+                       skip_figure: bool = False,
+                       toc: list | None = None, anchor: str = "") -> str:
     out = []
     cite_no = cite_no or {}
+    headings = toc if toc is not None else []
     media_shot = screen.media_shot
     ref = resolver.resolve(media_shot.slug) if (media_shot and media_shot.slug) else None
     if ref is not None and media_shot.flags.get("still") and ref.doc_file and not ref.live:
@@ -3470,6 +3570,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         if b.text.strip() == skip_deck_h1 and screen.movement == 0:
             continue  # deck title already in the header
         lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
+        headings.append((lvl, plain_md(strip_timer_tokens(b.text)), anchor))
         out.append(f"<h{lvl} class='screen-heading'>{_cite_links(inline_md(_with_cites(b, cite_no)))}</h{lvl}>")
     # figure first (media shot leads the screen), then flow blocks
     consumed = set()
@@ -3499,6 +3600,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             if b.text.strip() == skip_deck_h1 and screen.movement == 0:
                 continue  # deck title already in the header
             lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
+            headings.append((lvl, plain_md(strip_timer_tokens(b.text)), anchor))
             out.append(f"<h{lvl} class='screen-heading'>{timer_sub(_cite_links(inline_md(_with_cites(b, cite_no))), b, 'doc')}</h{lvl}>")
         elif b.kind == "quote":
             out.append(f"<blockquote>{timer_sub(_cite_links(quote_paras_html(_with_cites(b, cite_no))), b, 'doc')}</blockquote>")

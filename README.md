@@ -13,7 +13,7 @@ picture changes; on-screen text is rare and explicit.
 
 The same file renders as:
 - present view: cinematic slides for the live talk (image-forward, slow motion, few words)
-- document view: the spoken text as prose with visuals embedded = PDF handout and scrolling web page
+- document view: the spoken text as prose with visuals embedded = PDF handout and scrolling web page (contents rail, a per-screen anchor keyed by cue id, and per-screen sources; no script)
 - recorded narrated web version and YouTube video (audio captured live, sliced per slide by the advance timeline; no hand-timed subtitles)
 
 ## Includes

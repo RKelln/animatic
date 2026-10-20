@@ -1136,6 +1136,84 @@
   header.doc-head h1 { font-size: 2.1rem; margin: 0 0 0.5rem; }
   .doc-head .meta { color: var(--doc-muted); font-size: 0.9rem; margin: 0; }
 
+  /* ---- reading the page: one anchor per screen, a contents list built from
+     the talk's own headings, and the screen's sources under it.  No script:
+     the anchors are the cue ids nav.json already carries, so a link into the
+     handout uses the same address as a cue in the deck.  The contents list is
+     a plain two-column index, not a card: on a 75-minute talk it holds about
+     forty entries, and at that length a box reads as the page's main object. ---- */
+  div.screen:target {
+    background: color-mix(in srgb, var(--doc-accent) 6%, transparent);
+    border-radius: 3px;
+  }
+  nav.doc-toc {
+    margin: 0 0 2.4rem; font-family: var(--font-ui);
+  }
+  .doc-toc-rail { display: none; }
+  .doc-toc-inline { display: none; }
+  .doc-toc-mobile { margin: 0 0 1.8rem; font-family: var(--font-ui); }
+  .doc-toc-mobile > summary {
+    cursor: pointer; padding: 0.35rem 0;
+    font-size: 0.78rem; font-weight: 600; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--doc-muted);
+  }
+  .doc-toc-mobile[open] > summary { margin-bottom: 0.6rem; }
+  .doc-toc-mobile .toc-cols { columns: 1; }
+  .doc-toc .toc-title {
+    margin: 0 0 0.55rem;
+    font-size: 0.76rem; font-weight: 600; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--doc-muted);
+  }
+  .doc-toc .toc-cols { columns: 2; column-gap: 2.8rem; }
+  .doc-toc .toc-group { break-inside: avoid; margin: 0 0 1.15rem; }
+  .doc-toc .toc-part {
+    display: block; margin: 0 0 0.2rem;
+    font-size: 0.93rem; font-weight: 600; color: var(--doc-ink);
+    text-decoration: none;
+  }
+  .doc-toc .toc-list { list-style: none; margin: 0; padding: 0; }
+  .doc-toc li { margin: 0.08em 0; line-height: 1.28; break-inside: avoid; }
+  .doc-toc a { color: var(--doc-muted); text-decoration: none; font-size: 0.85rem; }
+  .doc-toc a:hover, .doc-toc a:focus-visible { color: var(--doc-accent); text-decoration: underline; }
+  .doc-toc .toc-part:hover, .doc-toc .toc-part:focus-visible { color: var(--doc-accent); }
+  .doc-toc .toc-h3 a { font-size: 0.86rem; }
+  .doc-toc .toc-h4 { padding-left: 1.1em; }
+  @media (max-width: 640px) {
+    .doc-toc .toc-cols { columns: 1; }
+  }
+  /* wide: the index moves into a rail that stays put while the talk scrolls
+     past it.  A 151-screen page is a book; a book has a running outline. */
+  @media (min-width: 1150px) {
+    body.view-document {
+      display: grid; grid-template-columns: 16.5rem minmax(0, 46rem);
+      column-gap: 3rem; justify-content: center; align-items: start;
+      max-width: 74rem; padding: 2.5rem 1.5rem 4rem;
+    }
+    body.view-document > article { min-width: 0; }
+    .doc-toc-inline, .doc-toc-mobile { display: none; }
+    .doc-toc-rail {
+      display: block; position: sticky; top: 2rem;
+      max-height: calc(100vh - 4rem); overflow-y: auto;
+      margin: 0; padding-right: 0.5rem; scrollbar-width: thin;
+    }
+    .doc-toc-rail .toc-cols { columns: 1; }
+    .doc-toc-rail .toc-title { margin-bottom: 0.7rem; }
+    .doc-toc-rail .toc-group { margin-bottom: 1rem; }
+    .doc-toc-rail .toc-part { font-size: 0.88rem; }
+    .doc-toc-rail a { font-size: 0.82rem; }
+    .doc-toc-rail .toc-h3 a { font-size: 0.82rem; }
+    /* the rail carries parts and sections only: at 264px the run-in headings
+       wrap into three-line stubs and cost the scan more than they give */
+    .doc-toc-rail .toc-h4 { display: none; }
+  }
+  p.screen-sources {
+    margin: 0.9em 0 0; padding-top: 0.4em;
+    border-top: 1px solid color-mix(in srgb, var(--doc-line) 45%, transparent);
+    font-family: var(--font-ui); font-size: 0.8rem; color: var(--doc-muted);
+  }
+  p.screen-sources a { color: var(--doc-accent); text-decoration: none; }
+  p.screen-sources a:hover, p.screen-sources a:focus-visible { text-decoration: underline; }
+
   .vo { margin: 1.1em 0; }
 
   h2.movement {
@@ -1253,6 +1331,11 @@
   @media print {
     @page { size: letter; margin: 16mm 15mm; }
     body.view-document { max-width: none; padding: 0; }
+    nav.doc-toc { break-inside: avoid; }
+    .doc-toc .toc-cols { columns: 1; }
+    .doc-toc-rail { display: none; }
+    .doc-toc-mobile { display: none; }
+    .doc-toc-inline { display: block; }
     h2.movement { page-break-before: always; }
     figure.shot, .stat-callout, .paraphrase-block, blockquote, .doc-credits, pre.code-block { page-break-inside: avoid; }
     ol.doc-sources li { page-break-inside: avoid; }

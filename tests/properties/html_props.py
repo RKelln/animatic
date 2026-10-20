@@ -479,3 +479,43 @@ def check(fx, errors: list) -> None:
     elif SOURCES_RE.search(doc_text):
         err(errors, "document shows a Sources section but deck.sources is "
                     "empty")
+
+    # -- the reading page's addressability -----------------------------------
+    # Every screen the document prints carries the cue id nav.json uses, so a
+    # link into the handout has the same address as a cue in the deck.  The
+    # contents list is generated from the talk's own headings, so its jumps
+    # must resolve and must run in screen order; the per-screen source lines
+    # must point at the one numbered list.  (These are the web-edition pass-1
+    # contract: render.py emits `cue-<id>` wrappers, `_toc_html`, and
+    # `_screen_sources_html`.)
+    nav = json.loads((fx.out / "nav.json").read_text(encoding="utf-8"))
+    doc_ids = re.findall(r'id="([^"]+)"', doc_text)
+    id_set = set(doc_ids)
+    dupes = sorted({i for i in doc_ids if doc_ids.count(i) > 1})
+    if dupes:
+        err(errors, f"document: duplicate id(s) {dupes[:3]} — an anchor jump "
+                    "lands on the first one")
+    want_cues = [k for k, v in nav["screens"].items() if v["document"]["present"]]
+    missing = [k for k in want_cues if f"cue-{k}" not in id_set]
+    if missing:
+        err(errors, f"document: {len(missing)} present screen(s) carry no "
+                    f"cue anchor, first {missing[:3]}")
+    if [k for k in doc_ids if k.startswith("cue-") and k[4:] not in nav["screens"]]:
+        err(errors, "document: cue anchor(s) that nav.json does not name")
+
+    toc_blocks = re.findall(r'<nav class="doc-toc[^"]*"[^>]*>(.*?)</nav>',
+                            doc_text, re.DOTALL)
+    ordinal = {k: v["ordinal"] for k, v in nav["screens"].items()}
+    for block in toc_blocks:
+        hrefs = re.findall(r'href="#([^"]+)"', block)
+        dead = [h for h in hrefs if h not in id_set]
+        if dead:
+            err(errors, f"document: contents link(s) with no target {dead[:3]}")
+        order = [ordinal[h[4:]] for h in hrefs if h.startswith("cue-") and h[4:] in ordinal]
+        if order != sorted(order):
+            err(errors, "document: contents entries are not in screen order")
+    for block in re.findall(r'<p class="screen-sources">(.*?)</p>', doc_text, re.DOTALL):
+        dead = [h for h in re.findall(r'href="#(src-\d+)"', block) if h not in id_set]
+        if dead:
+            err(errors, f"document: screen source link(s) with no target {dead[:3]}")
+
