@@ -257,7 +257,7 @@ Flags are the per-shot knobs. The top-level namespace is fixed:
 | `under` | an image slug | a still backdrop drawn beneath the shot's own media, left sharp and fitted like any slide media (contain by default, `fit=cover` to fill). For a video with a transparent ground (a credits roll, a lower-third loop) that should sit over a picture the deck already has. Backdrop and media share a 16:9 stage, so they stay registered in any window shape. The media takes the share of the stage its pixel size gives it against 1920x1080 (a 1270x880 video is 66% wide, 81% tall; with no ffprobe it takes the whole stage) and sits where `anchor` says. It takes no kb drift; `dim` darkens the backdrop, never the media. Ignored under a framed layout (`piece`, `duo`, `titled`), and the backdrop has to be a still image: both are check 32's warning |
 | `blur` | `0`–`100` | frosts a panel behind the `under` media: a blur radius in pixels over the media's box plus a margin, all edges feathered. With no `under` it has nothing to frost: check 32's warning |
 | `anchor` | `top` / `center` / `bottom` | where an `under` media smaller than the stage sits; `center` by default. A credits roll 200 px shorter than the frame and `anchor=bottom` leaves a title at the top of the picture clear. With no `under` it is check 32's warning |
-| `reveal` | `list` / `off` / `list+off` | `list`: the screen's first list appears one item per next-press (previous steps back). A list that opens the screen shows item 1 on arrival; with a title or paragraph before it, none show. Hidden items keep their space, so nothing moves. Going back into the slide from the next one lands with every item shown; jumping in lands at the start. The hash carries the step (`#5.3`). **Presentation only:** the document view and the handout PDF show every item. Needs a list of 2+ items; without one, or with another value, it warns and is ignored. On a screen whose media is a stepped-image card (a card with `steps:`, see Media, "Stepped images"), the list and the images step together. `off`: this screen's media does not step although its card has `steps:`; it shows the card's handout image alone. `list+off` is both: the list reveals, the images do not (a shot carries one `reveal` value, so the pair is spelled out). On a screen with no stepped card `off` does nothing |
+| `reveal` | (no value) / `list` / `off` / `timer`, or a `+` join (`list+off`, `list+timer`, `off+timer`, `list+off+timer`) | `list`: the screen's first list appears one item per next-press (previous steps back). A list that opens the screen shows item 1 on arrival; with a title or paragraph before it, none show. Hidden items keep their space, so nothing moves. Going back into the slide from the next one lands with every item shown; jumping in lands at the start. The hash carries the step (`#5.3`). **Presentation only:** the document view and the handout PDF show every item. Needs a list of 2+ items; without one, or with another value, it warns and is ignored. On a screen whose media is a stepped-image card (a card with `steps:`, see Media, "Stepped images"), the list and the images step together. `off`: this screen's media does not step although its card has `steps:`; it shows the card's handout image alone. `list+off` is both: the list reveals, the images do not (a shot carries one `reveal` value, so the pair is spelled out). On a screen with no stepped card `off` does nothing. `timer`: the screen's `[Timer: ...]` stays hidden and stopped until a next-press shows it and starts it (see Timer screens, "Revealed timers"); with `list` it is the press after the last item. The parts may come in any order; a repeated or unknown part warns and the whole value is ignored (check 25). **A bare `reveal` (no value)** reveals everything the screen can hide, now or in a later version of the format, one step per next-press in **document order**, the order the elements are written on the screen: today that is the first list's items (one per press) and the `[Timer: ...]` countdown. A timer written below the list is the press after the last item; a timer written above the list is the first press, and the items follow it one per press. This is exactly `reveal=list+timer`, which stays as the spelled-out form and follows the same document order. For a `corner` timer, which has no visual position, where its `[Timer: ...]` line is written decides. A timer inside the list's own items counts as after the list. A screen with only a list behaves as `reveal=list`, one with only a timer as `reveal=timer`. It never needs editing when a new revealable is added to the format: anything new opts in to the bare `reveal` by being added to the revealables list in `render.py` (`REVEALABLES`), and then steps in document order with the rest. A bare `reveal` on a screen with nothing revealable (no list of 2 or more items, no valid timer) warns (check 45) and does nothing. A stepped-image card steps on its own (see Media, "Stepped images") and does not count as something for `reveal` to reveal; with a list the images and items still step together. `reveal=list` or `reveal=timer` spelled out on a screen without that thing keeps its own warning (checks 43 and 44); a bare `reveal` never triggers those two, because it names nothing |
 | `role` | a `roles.yaml` name | the screen's text role (see "Roles") |
 | `layout` | a `layouts.yaml` name | the screen's config-driven layout |
 
@@ -473,7 +473,8 @@ written:
 a break while a picture stays up, a group activity, a question window, a short
 paper exercise. The token is written as part of the screen's own text, so it
 appears wherever it sits among the other text; there is no shot flag (`timer=`
-is an unknown flag like any other).
+is an unknown flag like any other; the one shot flag that touches a timer is
+`reveal=timer`, below).
 
 ```
 <!-- shot -->
@@ -578,8 +579,80 @@ keeps the word-count estimate; the timer adds nothing, so nothing is counted twi
 (For a stat whose payload is only the token, the token is not spoken, so the screen
 has no voice-over.)
 
+**Revealed timers.** `reveal=timer` on the screen's shot keeps the countdown
+hidden and stopped on arrival, so the facilitator can put the directions up, talk
+through them, and start the clock with one press while the room works.
+
+```
+<!-- shot: reveal=timer -->
+### Type the three lines
+[Timer: 9:00]
+```
+
+- **Arrival.** The slide shows its other text. The timer's space is kept (the plate
+  is invisible, nothing shifts when it appears) and nothing is counting. It does not
+  start on arrival, from a jump or from the hash.
+- **The press.** The first next-press (any key or button that advances: arrow,
+  space, page down, clicker, the next button) reveals the plate and starts the
+  countdown from its full duration, on the same screen. The press after that leaves
+  for the next screen as usual. `reveal=timer` is one more step on the screen's own
+  step counter, the last one, so the hash carries it (`#5.1`) and a deep link to
+  that step arrives with the timer already running.
+- **With `reveal=list`** (`reveal=list+timer`): the steps follow document order. A
+  timer written below the list comes last: the list's items appear one per press and
+  the press after the last item reveals the timer. A timer written above the list
+  comes first: the first press shows it and starts it with no item showing, then the
+  items follow one per press (a list that would open the slide with item 1 showing
+  opens empty instead, so the timer's press really is the first). A `corner` timer
+  takes its place from where its line is written. A timer inside the list's own items
+  counts as after the list. With a stepped-image card the images step with the items
+  as before; a timer-first slide shifts both one press later, a timer-last slide
+  adds its step after the last frame. The cue carries `timer_reveal_first: true` when
+  the timer comes first.
+- **Back and return.** Stepping back from the revealed step, or leaving the screen
+  and coming back to it (Back included), puts the timer back to hidden and unstarted,
+  full duration. When the timer is first, stepping back one press from step 2 to 1
+  keeps it running (it is still revealed) and only stepping back past its own press,
+  to step 0, hides and stops it; coming back into such a slide from the next one lands
+  on its start (nothing shown), because the timer's press is the first one. When the
+  timer is last, coming back lands on every step but the timer's, which is always
+  waiting for its own press. Timer controls (`p`, `0`, `+`, `-`) act on a revealed,
+  running timer and do nothing while it is hidden. Restarting the talk (`t`) hides
+  it again.
+- **Zero** is the same as any timer: alert colour, a one-second `0:00`, then `+m:ss`
+  and `over time`; the slide never advances by itself.
+- **`corner` and inline** tokens work the same way: the plate is hidden until the
+  press.
+- **Document view, handout, previews.** Unchanged: the quiet line `9 minute timer`
+  and a full-duration plate in previews. `cues.json` adds `timer_reveal: true` on the
+  cue (next to `timer`); nothing else changes, and a screen without the flag has no
+  new keys.
+- **Timing.** Unchanged (the timer's seconds still stand as the estimate for a screen
+  with no voice-over). `[next]` marks in a screen's script count the timer's press
+  (check 40).
+- **No timer, no effect.** On a screen with no valid timer the flag warns (check 44;
+  the build prints `warn : <cue id>: reveal=timer needs a [Timer: ...] on the
+  screen; ignored`) and nothing is hidden. A bad or zero duration or a second timer
+  is check 37 as always, so the screen then has no valid timer and check 44 follows.
+
+**Bare `reveal`.** Writing `reveal` with no value on the shot reveals the timer too,
+with anything else the screen can reveal, one press at a time **in document order**:
+the elements in the order they are written. Spelled out, that is `reveal=list+timer`;
+with only a timer on the screen it is `reveal=timer`. A timer written below the list
+is the last press; written above the list it is the first. See the `reveal` flag in
+Shot flags.
+
+```
+<!-- shot: reveal -->
+### Type the three lines
+- Line one
+- Line two
+[Timer: 9:00]
+```
+
 **Checks.** 37 (a token that is not a timer, or a second one), 38 (over 3 hours),
-39 (a token in a spoken paragraph).
+39 (a token in a spoken paragraph), 44 (`reveal=timer` with no valid timer), 45 (a
+bare `reveal` on a screen with nothing to reveal).
 
 ### SOUL.md
 ```text

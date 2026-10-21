@@ -92,7 +92,22 @@ KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "sile
 # `reveal=list` shows a list's items one per next-press (and steps a stepped-
 # image card's frames in lockstep); `reveal=off` turns a card's image stepping
 # off for that screen (spec: The shot directive, `reveal`).
-REVEAL_VALUES = ("list", "off", "list+off")
+# `reveal=timer` hides the screen's `[Timer: ...]` countdown until the next
+# press, which shows it and starts it (spec: Timer screens, "Revealed timers").
+# The parts combine with `+` in any order (`list+timer`, `timer+off`).
+# A bare `reveal` (no value) means everything the screen can reveal, now or
+# later: it is stored as REVEAL_ALL and expanded by render.reveal_modes.
+REVEAL_VALUES = ("list", "off", "list+off", "timer", "list+timer", "off+timer",
+                 "list+off+timer")
+REVEAL_PARTS = ("list", "off", "timer")
+REVEAL_ALL = "all"      # the stored value of a bare `reveal`; not writable as `reveal=all`
+
+
+def valid_reveal(value: str) -> bool:
+    """A `reveal=` value: one or more of list / off / timer joined with `+`,
+    none repeated."""
+    parts = str(value).split("+")
+    return all(p in REVEAL_PARTS for p in parts) and len(set(parts)) == len(parts)
 # `still=` (and a card's `still:`) picks the frame a video becomes in the
 # handout: start, end, a time in seconds (`3`, `3.5`, `3s`) or a share of the
 # clip (`25%`).  Unset, a quarter of the way in.
@@ -1213,7 +1228,10 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
             f"— token ignored"
         )
         return
-    if name == "reveal" and value not in REVEAL_VALUES:
+    if name == "reveal" and not value:
+        shot.flags[name] = REVEAL_ALL
+        return
+    if name == "reveal" and not valid_reveal(value):
         shot.warnings.append(
             f"check 25: {token!r}: reveal says what appears one by one, "
             f"reveal={', reveal='.join(REVEAL_VALUES)} — token ignored"

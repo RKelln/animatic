@@ -162,6 +162,8 @@ REGISTER = [
     (41, "pool card that cannot apply: folder missing or empty, a `pins:` file not in the folder, or a pin id that breaks the slug rule or repeats a card (a bad pin renders a placeholder or is ignored)", WARNING, "implemented: check.py + mediaresolve.py"),
     (42, "a `[notes]` block that repeats a list the notes already carry (a list read aloud, or a screen's reading copy): the copy is redundant", WARNING, "implemented"),
     (43, "`reveal=list` on a screen with no list of 2 or more items: the flag is ignored", WARNING, "implemented"),
+    (44, "`reveal=timer` on a screen with no valid `[Timer: ...]` (none written, or the token is bad, zero or a second one; check 37 says which): the flag is ignored and nothing is hidden", WARNING, "implemented: check.py + render.py"),
+    (45, "a bare `reveal` on a screen with nothing revealable on it (no list of 2 or more items, no valid timer): the flag does nothing", WARNING, "implemented: check.py + render.py"),
 ]
 
 DEFERRED = {
@@ -932,7 +934,7 @@ def check_43_reveal_without_list(talk, resolver, report: Report) -> None:
     means a clean build."""
     for s in talk.screens:
         for sh in s.shots:
-            if "list" not in render.reveal_modes(sh.flags):
+            if "list" not in render.reveal_named(sh.flags):
                 continue
             if any(b.kind == "list" and len(b.items) >= 2 for b in s.blocks):
                 break
@@ -941,6 +943,46 @@ def check_43_reveal_without_list(talk, resolver, report: Report) -> None:
                        "screen; the flag is ignored (spec: Shot flags, `reveal`)",
                        line=sh.line, screen=s.idx)
             break
+
+
+def check_44_reveal_timer_without_timer(talk, resolver, report: Report) -> None:
+    """`reveal=timer` hides the screen's countdown until a next-press. With no
+    valid timer on the screen the build warns and ignores it (nothing is
+    hidden). Say so here too, and say which of the two mistakes it is."""
+    for s in talk.screens:
+        for sh in s.shots:
+            if "timer" not in render.reveal_named(sh.flags):
+                continue
+            if s.timer is not None:
+                break
+            texts = [t for b in s.blocks for t in ([b.text or ""] + list(b.items or []))]
+            if any(talkparse.TIMER_TOKEN_RE.search(t) for t in texts):
+                why = ("the `[Timer: ...]` on it is not a valid timer (a bad or zero "
+                       "duration, an unknown word, or a second timer: check 37)")
+            else:
+                why = "there is no `[Timer: ...]` on it"
+            report.add(44, WARNING,
+                       f"`reveal=timer` needs a valid timer on the screen, but {why}; "
+                       "the flag is ignored and nothing is hidden (spec: Timer screens, "
+                       "Revealed timers)",
+                       line=sh.line, screen=s.idx)
+            break
+
+
+def check_45_bare_reveal_empty(talk, resolver, report: Report) -> None:
+    """A bare `reveal` reveals whatever the screen has that can be revealed.
+    On a screen with none of it, there is nothing to do; the build warns and
+    ignores it. A stepped-image card already steps on its own, so it does not
+    count."""
+    for s in talk.screens:
+        if not render.bare_reveal_empty(s):
+            continue
+        sh = next(sh for sh in s.shots if render.reveal_is_bare(sh.flags))
+        report.add(45, WARNING,
+                   "a bare `reveal` has nothing to reveal on this screen (no list of 2 or "
+                   "more items, no valid `[Timer: ...]`); the flag does nothing (spec: Shot "
+                   "flags, `reveal`)",
+                   line=sh.line, screen=s.idx)
 
 
 def check_41_pools(talk, resolver, report: Report) -> None:
@@ -1178,6 +1220,8 @@ def run_checks(talk, resolver, source_text: str,
     check_41_pools(talk, resolver, report)
     check_42_redundant_copy(talk, resolver, report)
     check_43_reveal_without_list(talk, resolver, report)
+    check_44_reveal_timer_without_timer(talk, resolver, report)
+    check_45_bare_reveal_empty(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

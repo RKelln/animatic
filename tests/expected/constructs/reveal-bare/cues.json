@@ -1,0 +1,300 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "reveal-bare",
+    "title": "A bare reveal shows everything the slide can hide",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "reveal-bare-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "List then timer",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "List then timer"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "first",
+            "second",
+            "third"
+          ]
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 90s]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 90.0,
+      "timer": 90,
+      "timer_in": 2,
+      "timer_reveal": true
+    },
+    {
+      "id": "reveal-bare-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Only a list",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Only a list"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "one",
+            "two"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-bare-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "Only a timer",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Only a timer"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 2:00]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 120.0,
+      "timer": 120,
+      "timer_in": 1,
+      "timer_reveal": true
+    },
+    {
+      "id": "reveal-bare-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "Nothing to reveal",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Nothing to reveal"
+        }
+      ],
+      "script": "Just a heading and a thought.",
+      "stage": null,
+      "est_seconds": 2.4
+    },
+    {
+      "id": "reveal-bare-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "card",
+      "title": "One item is not a list to reveal",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "One item is not a list to reveal"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "only one"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-bare-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "card",
+      "title": "The long way, same as bare",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "list+timer"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "The long way, same as bare"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "first",
+            "second",
+            "third"
+          ]
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 90s]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 90.0,
+      "timer": 90,
+      "timer_in": 2,
+      "timer_reveal": true
+    },
+    {
+      "id": "reveal-bare-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "card",
+      "title": "Named list, no list: check 43 not 45",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Named list, no list: check 43 not 45"
+        }
+      ],
+      "script": "Nothing here.",
+      "stage": null,
+      "est_seconds": 0.8
+    },
+    {
+      "id": "reveal-bare-008",
+      "ordinal": 8,
+      "movement": 0,
+      "kind": "card",
+      "title": "Bare with a corner timer",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Bare with a corner timer"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 45s corner]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 45.0,
+      "timer": 45,
+      "timer_in": 2,
+      "timer_corner": true,
+      "timer_reveal": true
+    }
+  ],
+  "warnings": []
+}

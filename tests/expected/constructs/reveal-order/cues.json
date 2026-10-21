@@ -1,0 +1,380 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "reveal-order",
+    "title": "Reveal steps follow the order things are written",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "reveal-order-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Timer above the list",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Timer above the list"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 9:00]"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "first",
+            "second",
+            "third"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 540.0,
+      "timer": 540,
+      "timer_in": 1,
+      "timer_reveal": true,
+      "timer_reveal_first": true
+    },
+    {
+      "id": "reveal-order-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "The long way, timer above",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "list+timer"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "The long way, timer above"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 9:00]"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "first",
+            "second",
+            "third"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 540.0,
+      "timer": 540,
+      "timer_in": 1,
+      "timer_reveal": true,
+      "timer_reveal_first": true
+    },
+    {
+      "id": "reveal-order-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "Corner timer written above",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Corner timer written above"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 2:00 corner]"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 120.0,
+      "timer": 120,
+      "timer_in": 1,
+      "timer_corner": true,
+      "timer_reveal": true,
+      "timer_reveal_first": true
+    },
+    {
+      "id": "reveal-order-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "Back in [Timer: 1:00]",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Back in [Timer: 1:00]"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "x",
+            "y"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 60.0,
+      "timer": 60,
+      "timer_in": 0,
+      "timer_reveal": true,
+      "timer_reveal_first": true
+    },
+    {
+      "id": "reveal-order-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "card",
+      "title": "Timer below the list",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Timer below the list"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "one",
+            "two"
+          ]
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 90s]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 90.0,
+      "timer": 90,
+      "timer_in": 2,
+      "timer_reveal": true
+    },
+    {
+      "id": "reveal-order-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "card",
+      "title": "Timer inside the list",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Timer inside the list"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "one",
+            "two [Timer: 30s]"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 30.0,
+      "timer": 30,
+      "timer_in": 1,
+      "timer_reveal": true
+    },
+    {
+      "id": "reveal-order-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "card",
+      "title": "Timer only, list not revealed",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "timer"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Timer only, list not revealed"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 45s]"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "plain",
+            "bullets"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 45.0,
+      "timer": 45,
+      "timer_in": 1,
+      "timer_reveal": true
+    },
+    {
+      "id": "reveal-order-008",
+      "ordinal": 8,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "timer",
+          "text": "[Timer: 2:00 corner]"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 120.0,
+      "timer": 120,
+      "timer_in": 0,
+      "timer_corner": true,
+      "timer_reveal": true,
+      "timer_reveal_first": true
+    },
+    {
+      "id": "reveal-order-009",
+      "ordinal": 9,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "list",
+          "items": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 2:00 corner]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 120.0,
+      "timer": 120,
+      "timer_in": 1,
+      "timer_corner": true,
+      "timer_reveal": true
+    }
+  ],
+  "warnings": []
+}

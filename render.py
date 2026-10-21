@@ -37,6 +37,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
+import talkparse
 import timing
 
 from talkparse import (
@@ -593,8 +594,52 @@ def under_blur(flags: dict) -> float:
 
 
 def reveal_modes(flags: dict) -> set:
-    """The parts of a shot's `reveal=` value: `list`, `off`, or `list+off`."""
-    return set(str(flags.get("reveal") or "").split("+"))
+    """What a shot's `reveal` asks for: the parts of `reveal=list`, `off`,
+    `timer` or a `+` join, and for a bare `reveal` (stored as `all`) every
+    revealable thing the screen can hide. This is the one place a new
+    revealable gets added: list it in REVEALABLES and the bare form covers it."""
+    v = str(flags.get("reveal") or "")
+    if v == talkparse.REVEAL_ALL:
+        return set(REVEALABLES)
+    return set(v.split("+"))
+
+
+# The things a bare `reveal` reveals (which of them step, not in which order:
+# the steps follow the order the elements are written on the screen). A new
+# revealable opts in by being added here and to the pager's revealOf().
+REVEALABLES = ("list", "timer")
+
+
+def reveal_named(flags: dict) -> set:
+    """Only what the author spelled out (`reveal=list+timer`): a bare `reveal`
+    names nothing, so it never trips the warnings about a named part with
+    nothing to act on."""
+    v = str(flags.get("reveal") or "")
+    return set() if v in ("", talkparse.REVEAL_ALL) else set(v.split("+"))
+
+
+def reveal_is_bare(flags: dict) -> bool:
+    return str(flags.get("reveal") or "") == talkparse.REVEAL_ALL
+
+
+def has_revealable_list(screen: "Screen") -> bool:
+    return any(b.kind == "list" and len(b.items) >= 2 for b in screen.blocks)
+
+
+def revealables_on(screen: "Screen") -> list:
+    """The revealable things this screen actually has."""
+    out = []
+    if has_revealable_list(screen):
+        out.append("list")
+    if screen.timer is not None:
+        out.append("timer")
+    return out
+
+
+def bare_reveal_empty(screen: "Screen") -> bool:
+    """A bare `reveal` on a screen with nothing revealable on it (check 45)."""
+    return (any(reveal_is_bare(sh.flags) for sh in screen.shots)
+            and not revealables_on(screen))
 
 
 def step_frames_html(frames: list, flags: dict, extra_class: str = "") -> str:
@@ -730,14 +775,23 @@ PAGER_JS = """
     if (!sl) return null;
     var st = sl.querySelector(".step-stack");
     var l = sl.querySelector("[data-reveal]");
-    if (!st && !l) return null;
+    var tr = sl.querySelector("[data-timer-reveal]");
+    if (!st && !l && !tr) return null;
     var imgs = st ? st.querySelectorAll("[data-frame]").length : 0;
     var items = l ? l.querySelectorAll("li[data-step]").length : 0;
+    // `reveal=timer` adds one last step after the others: the press that shows
+    // the countdown and starts it. A slide with only a timer opens at step 0.
+    // Document order: a timer written above the list (data-timer-reveal="first")
+    // takes the first press, and the list and the images follow it one press
+    // later; otherwise the timer is the last step.
+    var first = !!(tr && tr.getAttribute("data-timer-reveal") === "first");
     return {
-      start: l ? (parseInt(l.getAttribute("data-reveal"), 10) || 0) : 1,
-      total: Math.max(imgs, items),
+      start: first ? 0 : (l ? (parseInt(l.getAttribute("data-reveal"), 10) || 0) : (st ? 1 : 0)),
+      total: Math.max(imgs, items) + (tr ? 1 : 0),
       imgs: imgs,
-      items: items
+      items: items,
+      timer: !!tr,
+      timerFirst: first
     };
   }
   function getStep(i) {
@@ -749,14 +803,18 @@ PAGER_JS = """
     var r = revealOf(i);
     if (!r) return;
     var k = getStep(i);
+    // kl: the step as the list and the images see it (a first timer takes press 1)
+    var kl = r.timerFirst ? k - 1 : k;
     var lis = slides[i].querySelectorAll("li[data-step]");
     for (var n = 0; n < lis.length; n++) {
-      lis[n].classList.toggle("pending", n + 1 > k);
+      lis[n].classList.toggle("pending", n + 1 > kl);
     }
     // the frame on top is frame k; the one before it stays up under it, so a
     // crossfade never dips to the ground
+    var tp = slides[i].querySelector("[data-timer-reveal]");
+    if (tp) tp.classList.toggle("pending", r.timerFirst ? k < 1 : k < r.total);
     var frames = slides[i].querySelectorAll(".step-stack [data-frame]");
-    var f = Math.max(1, Math.min(frames.length, k));
+    var f = Math.max(1, Math.min(frames.length, kl));
     for (var j = 0; j < frames.length; j++) {
       frames[j].classList.toggle("on", j + 1 === f);
       frames[j].classList.toggle("prior", j + 1 === f - 1);
@@ -1174,7 +1232,10 @@ PAGER_JS = """
     var r = revealOf(cur);
     if (r && getStep(cur) > r.start) { stepAt[cur] = getStep(cur) - 1; stepped(); return; }
     var t = cur > 0 ? revealOf(cur - 1) : null;
-    go(cur - 1, true, t ? t.total : undefined);
+    // back into a slide lands with everything shown except a revealed timer,
+    // which is always waiting for its own press (hidden, not started)
+    // (a timer that comes first has nothing before its press to land on: the start)
+    go(cur - 1, true, t ? (t.timer ? (t.timerFirst ? t.start : t.total - 1) : t.total) : undefined);
   }
 
   function toggleNotes() {
@@ -1332,12 +1393,37 @@ TIMER_JS = r"""
     }
   }
 
-  function arrive(i) {
-    if (!plateOf(i) || st[i]) { paint(i, Date.now()); return; }
+  function begin(i) {
     var d = dur(i);
     st[i] = { mode: "running", endAt: Date.now() + d, left: d, dur: d, zeroed: false };
     paint(i, Date.now());
     emit();
+  }
+  // `reveal=timer`: the plate carries data-timer-reveal. It is hidden and
+  // stopped until the slide's last step (the press that reveals it) and starts
+  // then, never on arrival. Anything short of that step, including coming back
+  // to the slide or stepping back from it, puts it back to hidden and unstarted.
+  function armed(i) {
+    var p = plateOf(i);
+    return !!(p && p.hasAttribute("data-timer-reveal"));
+  }
+  function arrive(i) {
+    var p = plateOf(i);
+    if (!p) return;
+    if (armed(i)) {
+      var p0 = plateOf(i);
+      var need = p0.getAttribute("data-timer-reveal") === "first" ? 1 : A.steps();
+      if (i === A.current() && A.step() >= need) {
+        if (!st[i]) begin(i); else paint(i, Date.now());
+      } else {
+        if (st[i]) { delete st[i]; emit(); }
+        paintPlate(p, fmt(dur(i) / 1000), "idle", false);
+        p.classList.remove("pulse");
+      }
+      return;
+    }
+    if (st[i]) { paint(i, Date.now()); return; }
+    begin(i);
   }
 
   // the repaint loop only reads the clock: the time is never counted here
@@ -1411,6 +1497,7 @@ TIMER_JS = r"""
     addOnChange: function (fn) { if (typeof fn === "function") listeners.push(fn); }
   };
   A.addOnChange(arrive);
+  if (A.addOnStep) A.addOnStep(function (i) { arrive(i); });
   document.addEventListener("keydown", function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     var cmd = null;
@@ -3078,6 +3165,31 @@ def timer_plate_html(timer: tuple, shape: str) -> str:
     )
 
 
+def timer_reveal_wanted(screen: Screen) -> bool:
+    """True when any shot of the screen says `reveal=timer`."""
+    return any("timer" in reveal_modes(sh.flags) for sh in screen.shots)
+
+
+def timer_armed(screen: Screen) -> bool:
+    """A screen whose countdown stays hidden and stopped until a next-press
+    shows it and starts it: `reveal=timer` on a screen that has a valid timer.
+    Without a timer the flag is ignored (check 44)."""
+    return screen.timer is not None and timer_reveal_wanted(screen)
+
+
+def timer_first(screen: Screen) -> bool:
+    """Document order for the revealables: a revealed timer comes BEFORE the
+    revealed list's items when its `[Timer: ...]` is written above the list (a
+    corner timer has no visual position, so where the line is written decides).
+    Written below the list, or inside the list's own items, or with no revealed
+    list on the screen, the timer is the last step, as it always was."""
+    if not timer_armed(screen) or not any("list" in reveal_modes(sh.flags) for sh in screen.shots):
+        return False
+    lst = next((b for b in screen.blocks if b.kind == "list" and len(b.items) >= 2), None)
+    tb = screen.timer_block
+    return lst is not None and tb is not None and tb is not lst and tb.line < lst.line
+
+
 def timer_sub(text_html: str, b, mode: str = "present") -> str:
     """Replace the block's live `[Timer: ...]` token (the first valid one, which
     the parser accepted) inside already-rendered HTML.  Present view: the
@@ -3223,7 +3335,8 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # is showing on arrival; with a title first, none are.
         reveal_list = any("list" in reveal_modes(sh.flags) for sh in screen.shots)
         if reveal_list and not any(b.kind == "list" and len(b.items) >= 2 for b in blocks):
-            print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items on the screen; ignored")
+            if any("list" in reveal_named(sh.flags) for sh in screen.shots):
+                print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items on the screen; ignored")
             reveal_list = False
         while i < len(blocks):
             b = blocks[i]
@@ -3252,7 +3365,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 )
             elif b.kind == "list":
                 if reveal_list:
-                    body.append(timer_sub(list_html(b, True, 0 if body else 1), b))
+                    body.append(timer_sub(list_html(b, True, 0 if (body or timer_first(screen)) else 1), b))
                     reveal_list = False   # only the first list reveals
                 else:
                     body.append(timer_sub(list_html(b), b))
@@ -3351,10 +3464,24 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         cls += " over-media"
     if black:
         cls += " black-beat"
+    slide_inner = "".join(inner)
+    if bare_reveal_empty(screen):
+        print(f"warn      : {cue_id}: reveal has nothing to reveal on this screen "
+              f"(no list of 2 or more items, no timer); ignored")
+    if timer_reveal_wanted(screen):
+        if screen.timer is None:
+            if any("timer" in reveal_named(sh.flags) for sh in screen.shots):
+                print(f"warn      : {cue_id}: reveal=timer needs a [Timer: ...] on the screen; ignored")
+        else:
+            # hidden from the start (the pager's step shows it); the timer
+            # module starts it on that step, never on arrival
+            slide_inner = slide_inner.replace(
+                'class="timer-plate ',
+                f'data-timer-reveal="{"first" if timer_first(screen) else "last"}" class="timer-plate pending ', 1)
     return (
         f'<section id="{cue_id}" class="{cls}" data-movement="{mv}"'
         f' data-kind="{screen_kind(screen)}">'
-        f'{"".join(inner)}'
+        f'{slide_inner}'
         f'<aside class="notes">{notes_html}</aside>'
         f"</section>"
     )
@@ -3854,7 +3981,9 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             # a countdown (spec: Timer screens): integer seconds, the index of
             # the `screen_text` entry whose text holds the token, and `corner`
             **({"timer": screen.timer[0], "timer_in": timer_at,
-                **({"timer_corner": True} if screen.timer[2] else {})}
+                **({"timer_corner": True} if screen.timer[2] else {}),
+                **({"timer_reveal": True} if timer_armed(screen) else {}),
+                **({"timer_reveal_first": True} if timer_first(screen) else {})}
                if screen.timer is not None else {}),
         })
 
@@ -3960,15 +4089,19 @@ def next_mark_notes(talk: Talk, resolver: MediaResolver) -> list:
         if lst is not None and not any("list" in reveal_modes(sh.flags) for sh in s.shots):
             lst = None
         items = len(lst.items) if lst is not None else 0
-        if lst is None and not imgs:
+        tarm = timer_armed(s)
+        if lst is None and not imgs and not tarm:
             presses, how = 0, "nothing on it steps"
         else:
             # the list's own arrival: item 1 showing when nothing precedes it,
             # none when a title comes first; images alone open on frame 1
             first = next((b for b in s.blocks if b.kind != "vo"), None)
-            start = (1 if first is lst else 0) if lst is not None else 1
-            presses = max(imgs, items) - start
-            how = f"{max(imgs, items)} steps"
+            start = (1 if first is lst else 0) if lst is not None else (1 if imgs else 0)
+            if timer_first(s):
+                start = 0
+            steps_n = max(imgs, items) + (1 if tarm else 0)
+            presses = steps_n - start
+            how = f"{steps_n} steps"
         if marks != presses:
             line = next((b.line for b in s.blocks if b.kind == "vo" and b.nexts), s.line_range[0])
             notes.append((s, line,

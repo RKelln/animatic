@@ -24,6 +24,30 @@ One command, one exit code:
   two-line quote, a two-line list — the spans `nav.json` ranges are built
   from (a range that stops at a block's first line leaves body lines
   belonging to no screen; T13).
+  `reveal-timer.talk.md` pins `reveal=timer` (spec: Timer screens, "Revealed
+  timers"): a block timer, a corner timer, `list+timer`, `timer+list` (any order),
+  a plain timer that still starts on arrival, and the warned cases (no timer on
+  the screen, a bad timer, a repeated value).
+  `reveal-bare.talk.md` pins the bare `reveal` with the timer written below the list: list items then the timer, a
+  list-only and a timer-only screen, the long form `reveal=list+timer` beside it
+  (same markup), a corner timer, and the warned cases (nothing revealable: check
+  45; a named `reveal=list` with no list is still check 43).
+  `reveal-order.talk.md` pins document order for the reveal steps: a timer
+  written above the list is press 1 (the list opens empty), as a block, in the
+  heading above, or as a corner line with no heading; a timer below the list or
+  inside its items stays last; `reveal=list+timer` and the bare form match;
+  `reveal=timer` alone leaves an unrevealed list showing; cues carry
+  `timer_reveal_first` only when the timer comes first.
+  `browser_reveal_timer.py` is the real-browser check for both: it builds each
+  fixture, drives the present page in headless chromium with real
+  ArrowRight/ArrowLeft keydowns, and asserts hidden and stopped on arrival,
+  revealed and counting after one Next, the next slide after a second, hidden and
+  stopped again after Back, the list+timer order, for a bare `reveal` a
+  list+timer slide, a list-only slide and a timer-only slide, and for document
+  order a timer-above-list slide (press 1 shows and starts the timer with no item
+  showing, then one item per press, Back past the timer's press resets it) (run it directly; it
+  exits 77 when no chromium is installed, and needs the scratch directory inside
+  the repo because a snap chromium cannot read /tmp).
   `timing-drift.talk.md` declares `dur: 45 min` on a two-screen deck: the
   clock (check 19) must report the divergence and the deck must still build
   (spec: Timing; T15).
