@@ -5,11 +5,11 @@ content-version: 1
 slug: code-fences-wrap
 title: "Code fences, wrapping"
 theme: lecture
-status: "composite fixture (spec: Text, fenced code, Fitting) - width never shrinks a fenced block: long lines wrap, under a hanging indent for a list marker or leading space, and only height sets the size. Covers: four bullets, one long, under fit=hero with a reveal=list that has no list to step (printed, ignored); a 400-character single line; 18 short lines (shrinks to fit) and 25 (past the 75% floor: clipped and marked), the 25 also under fit=hero; and every hanging-indent shape. Clean: no warnings."
+status: "composite fixture (spec: Text, fenced code, Fitting) - width never shrinks a fenced block: long lines wrap, under a hanging indent for a list marker or leading space, and only height sets the size. Covers: four bullets, one long, under fit=hero; a 400-character single line; 18 short lines (shrinks to fit) and 25 (past the 75% floor: clipped and marked), the 25 also under fit=hero; and every hanging-indent shape. Clean: no warnings."
 ---
 # Code fences, wrapping
 
-<!-- shot: reveal=list fit=hero -->
+<!-- shot: fit=hero -->
 ### What's on the page
 
 ```

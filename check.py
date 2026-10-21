@@ -161,6 +161,7 @@ REGISTER = [
     (40, "a screen's `[next]` / `[n]` marks differ in number from its next-presses (stepped images, `reveal=list` items)", WARNING, "implemented"),
     (41, "pool card that cannot apply: folder missing or empty, a `pins:` file not in the folder, or a pin id that breaks the slug rule or repeats a card (a bad pin renders a placeholder or is ignored)", WARNING, "implemented: check.py + mediaresolve.py"),
     (42, "a `[notes]` block that repeats a list the notes already carry (a list read aloud, or a screen's reading copy): the copy is redundant", WARNING, "implemented"),
+    (43, "`reveal=list` on a screen with no list of 2 or more items: the flag is ignored", WARNING, "implemented"),
 ]
 
 DEFERRED = {
@@ -925,6 +926,23 @@ def check_34_step_counts(talk, resolver, report: Report) -> None:
         report.add(34, WARNING, msg, line=line, screen=s.idx)
 
 
+def check_43_reveal_without_list(talk, resolver, report: Report) -> None:
+    """`reveal=list` steps the screen's first list; with no list of 2 or more
+    items the build warns and ignores it. Say so here too, so a clean check
+    means a clean build."""
+    for s in talk.screens:
+        for sh in s.shots:
+            if "list" not in render.reveal_modes(sh.flags):
+                continue
+            if any(b.kind == "list" and len(b.items) >= 2 for b in s.blocks):
+                break
+            report.add(43, WARNING,
+                       "`reveal=list` needs a list of 2 or more items on the "
+                       "screen; the flag is ignored (spec: Shot flags, `reveal`)",
+                       line=sh.line, screen=s.idx)
+            break
+
+
 def check_41_pools(talk, resolver, report: Report) -> None:
     """A pool card's folder, `pins:` files and pin ids must hold up."""
     for slug, msg in resolver.pool_issues:
@@ -1159,6 +1177,7 @@ def run_checks(talk, resolver, source_text: str,
     check_40_next_marks(talk, resolver, report)
     check_41_pools(talk, resolver, report)
     check_42_redundant_copy(talk, resolver, report)
+    check_43_reveal_without_list(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

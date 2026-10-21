@@ -25,8 +25,7 @@
           "slug": null,
           "role": null,
           "flags": {
-            "fit": "hero",
-            "reveal": "list"
+            "fit": "hero"
           }
         }
       ],
