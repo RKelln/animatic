@@ -56,6 +56,14 @@ def main(argv=None) -> int:
     ap.add_argument("--handout-figures", default=None, metavar="WIDTH",
                     help="handout figure width: capped (default), full, or n%% "
                          "(overrides frontmatter handout-figures)")
+    ap.add_argument("--no-handout-pools", action="store_true",
+                    help="leave pool-card pictures (random art from a folder) "
+                         "out of the handout; slides keep them "
+                         "(frontmatter: handout-pools: off)")
+    ap.add_argument("--no-handout-placeholders", action="store_true",
+                    help="leave the grey box for a card with no picture yet "
+                         "out of the handout "
+                         "(frontmatter: handout-placeholders: off)")
     ap.add_argument("--keep", action="store_true",
                     help="do not wipe the output directory first")
     ap.add_argument("--theme", default=None,
@@ -159,7 +167,9 @@ def build(talk_path: Path, args) -> int:
 
     present = render_present(talk, resolver, out / "present")
     presenter = render_presenter(talk, resolver, out / "present")
-    document = render_document(talk, resolver, out / "document", figures=args.handout_figures)
+    document = render_document(talk, resolver, out / "document", figures=args.handout_figures,
+                               pools=False if args.no_handout_pools else None,
+                               placeholders=False if args.no_handout_placeholders else None)
     cues = render_cues(talk, resolver, out)
     nav = render_nav(talk, out)
     manifest = render_manifest(talk, resolver, out)

@@ -104,6 +104,10 @@ What the handout does (all from the one talkfile):
   a build warning.
 - Figure width: frontmatter `handout-figures:` or `--figures`; `capped` (the
   default, at most 68 mm tall), `full` (the text column), or a share like `80%`.
+- Pool art (a random pick from a folder) can stay out of the handout: frontmatter `handout-pools: off`, or `--no-handout-pools` on build.py / `--no-pools` on handout-pdf.py. Slides keep it.
+- A card with no picture yet prints a grey box naming the slug; leave it out of a copy for review with frontmatter `handout-placeholders: off`, or `--no-handout-placeholders` (`--no-placeholders` on handout-pdf.py). The text still prints.
+- A slide never splits across pages, and the contents list may run on from the title's page.
+- Print footer: the deck title on the left and "Page n of N" on the right; frontmatter `handout-footer: <text>` changes the left text, `off` removes both.
 - Print is white, 11 pt. The web page keeps the theme's paper colour.
 
 Chromium notes: a snap-packaged Chromium cannot read or write `/tmp` or hidden

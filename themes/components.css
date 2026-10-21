@@ -1367,7 +1367,9 @@
   @media print {
     @page { size: letter; margin: 16mm 15mm; }
     body.view-document { max-width: none; padding: 0; }
-    nav.doc-toc { break-inside: avoid; }
+    /* the contents list may run on from the title's page; each part's group stays whole */
+    .screen { break-inside: avoid; }
+    h2, h3, h4 { break-after: avoid; }
     .doc-toc .toc-cols { columns: 1; }
     .doc-toc-rail { display: none; }
     .doc-toc-mobile { display: none; }

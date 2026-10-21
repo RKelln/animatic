@@ -3384,6 +3384,20 @@ def _figure_css(talk: Talk, override=None) -> str:
             f"max-height: {h}; object-fit: contain; }} }}</style>")
 
 
+def _footer_css(talk: Talk, deck_title: str) -> str:
+    """Print footer: the deck title (or frontmatter `handout-footer:`) on the
+    left, "Page n of N" on the right.  `handout-footer: off` leaves it out.
+    Page margin boxes, so it needs a browser that prints them (Chromium 131+)."""
+    raw = talk.meta.get("handout-footer")
+    text = deck_title if raw is None else str(raw).strip()
+    if text.lower() in ("off", "no", "false", "0"):
+        return ""
+    esc = text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+    box = "font: 8.5pt sans-serif; color: #777;"
+    return (f'<style>@page {{ @bottom-left {{ content: "{esc}"; {box} }} '
+            f'@bottom-right {{ content: "Page " counter(page) " of " counter(pages); {box} }} }}</style>\n')
+
+
 def _screen_cite_numbers(screen: Screen, cite_no: dict) -> list[int]:
     """The handout's source numbers this screen cites, ascending.
 
@@ -3460,8 +3474,20 @@ def _toc_html(entries: list) -> str:
     )
 
 
+def _is_pool_slug(resolver: MediaResolver, slug: str | None) -> bool:
+    """True for a pool pick: a card with `pool:`, or the `<card>--NN` name a
+    pick is given once the draws are made."""
+    if not slug:
+        return False
+    m = re.fullmatch(r"(.+)--\d{2,}", slug)
+    card = resolver.card_for(m.group(1) if m else slug)
+    return bool(card and card.get("pool"))
+
+
 def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
-                    figures: str | None = None) -> Path:
+                    figures: str | None = None,
+                    pools: bool | None = None,
+                    placeholders: bool | None = None) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     theme = resolve_theme(talk)
     meta = talk.meta
@@ -3486,6 +3512,16 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
 
     fig_css = _figure_css(talk, figures)
     fig_css = fig_css + "\n" if fig_css else ""
+    fig_css += _footer_css(talk, deck_title)
+    # Pool art is decoration (a random pick from a folder), so a handout can
+    # leave it out: frontmatter `handout-pools: off`, or `--no-handout-pools`.
+    if pools is None:
+        pools = str(talk.meta.get("handout-pools", "on")).strip().lower() not in ("off", "no", "false", "0")
+    # A card with no picture yet prints a grey box naming the slug and why.
+    # For a copy that goes out for review: `handout-placeholders: off`, or
+    # `--no-handout-placeholders`.  The screen's text still prints.
+    if placeholders is None:
+        placeholders = str(talk.meta.get("handout-placeholders", "on")).strip().lower() not in ("off", "no", "false", "0")
 
     opening = []
     movement_sections = []
@@ -3518,7 +3554,11 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
             f'<div class="screen" id="cue-{cue_id}">'
             + _doc_screen_blocks(
                 talk, screen, resolver, skip_deck_h1=deck_title,
-                cite_no=cite_no, skip_figure=repeat,
+                cite_no=cite_no,
+                skip_figure=(repeat
+                             or (not pools and _is_pool_slug(resolver, slug))
+                             or (not placeholders and bool(slug)
+                                 and not resolver.resolve(slug).found)),
                 toc=toc, anchor=f"cue-{cue_id}")
             + _screen_sources_html(screen, cite_no)
             + "</div>")

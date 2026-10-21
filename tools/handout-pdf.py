@@ -3,7 +3,7 @@
 document view.  The handout carries small JPEG stills, never videos or
 originals, so the PDF stays in the single-digit MB.
 
-    python3 tools/handout-pdf.py <talkfile> <out.pdf> [--work DIR] [--figures full|n%]
+    python3 tools/handout-pdf.py <talkfile> <out.pdf> [--work DIR] [--figures full|n%] [--no-pools] [--no-placeholders]
 
 The work dir (the full build) defaults to ~/animatic-handout-build/<slug>.
 It must be under $HOME and not hidden: a snap-packaged Chromium cannot read /tmp.
@@ -22,6 +22,10 @@ def main() -> int:
     ap.add_argument("talkfile")
     ap.add_argument("pdf")
     ap.add_argument("--work")
+    ap.add_argument("--no-pools", action="store_true",
+                    help="leave pool-card art out of the handout")
+    ap.add_argument("--no-placeholders", action="store_true",
+                    help="leave the grey box for a card with no picture yet out")
     ap.add_argument("--figures", metavar="WIDTH",
                     help="figure width: capped (default), full, or n%% of the text column")
     a = ap.parse_args()
@@ -33,7 +37,9 @@ def main() -> int:
         print("error: no chromium / google-chrome on PATH", file=sys.stderr)
         return 2
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work)]
-                       + (["--handout-figures", a.figures] if a.figures else []))
+                       + (["--handout-figures", a.figures] if a.figures else [])
+                       + (["--no-handout-pools"] if a.no_pools else [])
+                       + (["--no-handout-placeholders"] if a.no_placeholders else []))
     if r.returncode:
         return r.returncode
     pdf.parent.mkdir(parents=True, exist_ok=True)
