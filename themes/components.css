@@ -590,6 +590,9 @@
     padding: 0 0 0 7vw;
   }
   .animatic-slide.duo .quote-source { text-align: right; }
+  /* a quote never runs under the framed object: the short/long tiers' wide columns stop at the text column */
+  .animatic-slide.duo .quote-block { max-width: 100%; }
+  .animatic-slide.duo blockquote { overflow-wrap: anywhere; }   /* a long URL breaks rather than running under the object */
   .media-zone.piece.duo,
   .media-zone.piece.duo-left {
     inset: auto; top: 50%;
