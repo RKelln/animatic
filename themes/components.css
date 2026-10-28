@@ -655,6 +655,9 @@
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   }
   .live-start[disabled] { opacity: 0.45; cursor: not-allowed; }
+  /* While the presenter window is open, Share and Stop live there and the
+     projected slide shows none (the deck sets body.presenter-open). */
+  body.presenter-open .live-start, body.presenter-open .live-stop { display: none; }
   /* While the capture is live the controls sit BELOW the frame, in the stage's
      own shadow rather than over the picture: they are presenter tools, and the
      projected slide should be the shared window and nothing else. They were
@@ -1143,9 +1146,9 @@
     border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
     border-radius: 0.4em;
   }
-  /* the live control: presenter-side state and a Stop. It only appears on a
-     screen that actually carries a live capture, so it costs nothing on the
-     other 23. Start is deliberately absent — see fillLive in the module. */
+  /* the live control: presenter-side state, Share and Stop. It only appears on
+     a screen that actually carries a live capture, so it costs nothing on the
+     other 23. See fillLive in the module for how Share reaches the deck. */
   .presenter-live {
     display: none; flex: 0 0 auto;
     align-items: center; gap: 0.8rem; flex-wrap: wrap;

@@ -222,3 +222,23 @@ comment. The marks track the stepping: pressed ones fade and strike through, the
 Check 40 (warning) compares a screen's mark count with the next-presses that stay on it:
 stepped-image frames and `reveal=list` items, less the one showing on arrival. A screen
 with marks and nothing that steps warns too.
+
+## Share and Stop follow the presenter window
+
+While the presenter window is open, a live screen's **Share a window** and
+**Stop** buttons are hidden on the slide (`body.presenter-open`, set by the deck
+from the window handle) and sit in the presenter panel instead, so a dropped
+capture is fixed from the laptop, not the projected slide. Close the window and
+the slide's buttons come back. The stream itself is always on the slide.
+
+`getDisplayMedia` needs a click in the document that calls it, so the
+**presenter window does the capture** and sends it to the deck over a local
+`RTCPeerConnection` with no ICE servers: offer out
+(`animatic-live-offer`), answer back (`animatic-live-answer`), both over
+`postMessage`. The deck adopts the stream as the session for that screen's
+group, same as a capture it made itself. Consequences: closing the presenter
+window ends a share it started (the deck falls back to the idle state with its
+buttons back); if the link cannot form within 10 s the panel says so and the
+slide button is the fallback. Verified in headless Chromium with a canvas
+stand-in for the picker; the real picker (and Wayland's portal) is still a
+one-time check on the presenting machine.

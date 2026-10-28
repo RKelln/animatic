@@ -1581,6 +1581,7 @@ LIVE_JS = r"""
     var video = videoOf(host);
     if (!session || !video) return;
     if (video.srcObject !== session.stream) video.srcObject = session.stream;
+    status(host, "");
     fitFrame(host);
     if (video.readyState === 0 || !video.videoWidth) {
       video.addEventListener("loadedmetadata", function () { fitFrame(host); }, { once: true });
@@ -1629,6 +1630,7 @@ LIVE_JS = r"""
     window.animatic.live = {
       hosts: function () { return hosts.slice(); },
       fit: fitFrame,
+      accept: accept,
       states: function () {
         return hosts.map(function (h) { return h.getAttribute("data-live-state"); });
       }
@@ -1677,6 +1679,7 @@ LIVE_JS = r"""
       try {
         session.stream.getTracks().forEach(function (t) { t.stop(); });
       } catch (err) {}
+      if (session.pc) { try { session.pc.close(); } catch (err) {} }
       delete sessions[key];
     }
     var group = byKey[key] || [];
@@ -1687,6 +1690,71 @@ LIVE_JS = r"""
       if (message) status(group[i], message);
     }
     paint();
+  }
+
+  // Register a stream as the session for `key` and watch its track. Shared by
+  // hook() (this window captured it) and accept() (the presenter window did).
+  function adopt(key, stream, track, label, pc) {
+    sessions[key] = { stream: stream, track: track, label: label, pc: pc };
+    if (track && track.addEventListener) {
+      track.addEventListener("ended", function () {
+        syncVisibility();   // isEnded() sees it and tears the session down
+      });
+      track.addEventListener("mute", function () {
+        syncVisibility();   // stalled, control handed back, session kept
+      });
+      track.addEventListener("unmute", function () {
+        syncVisibility();   // came back: attach again
+      });
+    }
+    syncVisibility();
+  }
+
+  // Resolve once the connection has gathered its candidates (or a moment
+  // later): the two windows exchange one offer and one answer over postMessage,
+  // so there is no trickle channel to send candidates late.
+  function gathered(pc) {
+    return new Promise(function (resolve) {
+      if (pc.iceGatheringState === "complete") { resolve(); return; }
+      var done = function () { pc.removeEventListener("icegatheringstatechange", check); resolve(); };
+      var check = function () { if (pc.iceGatheringState === "complete") done(); };
+      pc.addEventListener("icegatheringstatechange", check);
+      setTimeout(done, 2500);
+    });
+  }
+
+  // The presenter window picked the window (the browser only starts a capture
+  // from a click in the document that calls getDisplayMedia, and the deck
+  // cannot be clicked from there) and sends it here over a local peer
+  // connection: its offer in, our answer out. Same session as hook() makes.
+  function accept(slug, offer, label) {
+    var host = null;
+    for (var i = 0; i < hosts.length; i++) {
+      if (hosts[i].getAttribute("data-live-slug") === slug) { host = hosts[i]; break; }
+    }
+    if (!host || host.getAttribute("data-live-state") === "unavailable" ||
+        typeof RTCPeerConnection !== "function") {
+      return Promise.reject(new Error("no live host for " + slug));
+    }
+    var key = keyOf(host);
+    if (sessions[key]) teardown(key, "");
+    status(host, "");
+    var pc = new RTCPeerConnection({ iceServers: [] });
+    pc.ontrack = function (ev) {
+      if (sessions[key] && sessions[key].pc === pc) return;
+      var stream = ev.streams && ev.streams[0] ? ev.streams[0] : new MediaStream([ev.track]);
+      adopt(key, stream, ev.track, label || "", pc);
+    };
+    pc.onconnectionstatechange = function () {
+      if (pc.connectionState !== "failed" && pc.connectionState !== "closed") return;
+      var s = sessions[key];
+      if (s && s.pc === pc) teardown(key, "the shared window closed; hook up again");
+    };
+    return pc.setRemoteDescription({ type: "offer", sdp: offer })
+      .then(function () { return pc.createAnswer(); })
+      .then(function (answer) { return pc.setLocalDescription(answer); })
+      .then(function () { return gathered(pc); })
+      .then(function () { return pc.localDescription.sdp; });
   }
 
   function hook(key) {
@@ -1706,19 +1774,7 @@ LIVE_JS = r"""
       var track = stream.getVideoTracks()[0];
       var label = "";
       try { label = (track && track.label) || ""; } catch (err) {}
-      sessions[key] = { stream: stream, track: track, label: label };
-      if (track && track.addEventListener) {
-        track.addEventListener("ended", function () {
-          syncVisibility();   // isEnded() sees it and tears the session down
-        });
-        track.addEventListener("mute", function () {
-          syncVisibility();   // stalled, control handed back, session kept
-        });
-        track.addEventListener("unmute", function () {
-          syncVisibility();   // came back: attach again
-        });
-      }
-      syncVisibility();
+      adopt(key, stream, track, label, null);
     }).catch(function (err) {
       var name = err && err.name ? err.name : "error";
       status(group[0], "capture refused: " + name);
@@ -1738,6 +1794,9 @@ LIVE_JS = r"""
   }
 
   function paint() {
+    // every state change ends here: tell the presenter window, which would
+    // otherwise show the state as of the last slide change
+    try { document.dispatchEvent(new Event("animatic-live-state")); } catch (err) {}
     if (!rowsEl) return;
     rowsEl.textContent = "";
     var keys = Object.keys(byKey);
@@ -1983,6 +2042,7 @@ PRESENTER_JS = r"""
     if (!host) return null;
     return {
       slug: host.getAttribute("data-live-slug"),
+      key: host.getAttribute("data-live-group") || host.getAttribute("data-live-slug"),
       state: host.getAttribute("data-live-state"),
       status: (host.querySelector(".live-status") || {}).textContent || ""
     };
@@ -2026,8 +2086,19 @@ PRESENTER_JS = r"""
     }
   }
 
+  // The slide's Share / Stop buttons give way to the presenter window's while
+  // it is open (body.presenter-open hides them), so the projector shows the
+  // slide and the controls sit with the notes. The window handle is the only
+  // truth: sync it wherever it can change.
+  function syncOpen() {
+    if (win && win.closed) win = null;
+    document.body.classList.toggle("presenter-open", !!win);
+  }
+  document.addEventListener("animatic-live-state", function () { push(); });
+  window.setInterval(syncOpen, 2000);   // a window closed with no goodbye
+
   function push() {
-    if (!win || win.closed) { win = null; return; }
+    if (!win || win.closed) { win = null; syncOpen(); return; }
     try { win.postMessage(payload(), "*"); }
     catch (err) { win = null; }
   }
@@ -2043,6 +2114,7 @@ PRESENTER_JS = r"""
       return;
     }
     win = w;
+    syncOpen();
     say("");
     push();
   }
@@ -2050,6 +2122,7 @@ PRESENTER_JS = r"""
   function closePresenter() {
     if (win && !win.closed) { try { win.close(); } catch (err) {} }
     win = null;
+    syncOpen();
   }
 
   function togglePresenter() {
@@ -2067,11 +2140,23 @@ PRESENTER_JS = r"""
       // a deck reload), carrying the deck run it last heard from. Answer only
       // when it is new to us or out of date, so a steady hello costs nothing.
       var fresh = !win || win.closed;
-      if (fresh && e.source && e.source !== window) win = e.source;
+      if (fresh && e.source && e.source !== window) { win = e.source; syncOpen(); }
       if (fresh || d.have !== startedAt) push();
       return;
     }
     if (!win || e.source !== win || !window.animatic) return;
+    if (d.type === "animatic-presenter-closed") { win = null; syncOpen(); return; }
+    if (d.type === "animatic-live-offer" && d.slug && typeof d.sdp === "string") {
+      var peer = e.source;
+      var reply = function (m) { try { peer.postMessage(m, "*"); } catch (err) {} };
+      if (!window.animatic.live) { reply({ type: "animatic-live-answer", slug: d.slug, error: "no live screens" }); return; }
+      window.animatic.live.accept(d.slug, d.sdp, d.label).then(function (sdp) {
+        reply({ type: "animatic-live-answer", slug: d.slug, sdp: sdp });
+      }, function (err) {
+        reply({ type: "animatic-live-answer", slug: d.slug, error: String(err && err.message || err) });
+      });
+      return;
+    }
     if (d.type === "animatic-next") window.animatic.next();
     else if (d.type === "animatic-prev") window.animatic.prev();
     else if (d.type === "animatic-reload-media") window.animatic.reloadMedia();
@@ -2347,36 +2432,131 @@ PRESENTER_UI_JS = r"""
 
   function liveLabel(state_) {
     return state_ === "live" ? "sharing a window"
-      : state_ === "stalled" ? "share stopped \u2014 press d in the deck to re-hook"
+      : state_ === "stalled" ? "share stopped"
       : state_ === "armed" ? "hooked, on another screen"
-      : "not hooked up \u2014 press d in the deck to share";
+      : state_ === "unavailable" ? "window capture is not available here"
+      : "not hooked up";
   }
 
-  // The presenter window can STOP a capture but never start one: getDisplayMedia
-  // wants transient user activation in the document that calls it, and this
-  // window is opened by `s`, so it has none. The deck owns the picker; this is
-  // the release valve you want within reach mid-talk.
+  // Share and Stop live here while this window is open (the deck hides its own
+  // slide buttons then). getDisplayMedia wants a click in the document that
+  // calls it, so THIS window captures and sends the stream to the deck over a
+  // local peer connection: offer out, answer back, both over postMessage. The
+  // deck owns the session either way; this window only owns the capture.
+  var cap = null;        // { key, stream, pc } while this window holds a capture
+  var liveNote = "";
+  var liveSig = null;
+  var canShare = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia &&
+                    typeof RTCPeerConnection === "function");
+
+  function releaseCapture() {
+    if (!cap) return;
+    var c = cap;
+    cap = null;
+    try { c.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (err) {}
+    try { c.pc.close(); } catch (err) {}
+  }
+  function noteLive(msg) {
+    liveNote = msg || "";
+    liveSig = null;
+    if (state) fillLive(state.liveCue);
+  }
+  function gathered(pc) {
+    return new Promise(function (resolve) {
+      if (pc.iceGatheringState === "complete") { resolve(); return; }
+      var done = function () { pc.removeEventListener("icegatheringstatechange", check); resolve(); };
+      var check = function () { if (pc.iceGatheringState === "complete") done(); };
+      pc.addEventListener("icegatheringstatechange", check);
+      setTimeout(done, 2500);
+    });
+  }
+  function giveUp(mine, msg) {
+    if (cap !== mine) return;
+    releaseCapture();
+    post({ type: "animatic-live", action: "stop", slug: mine.slug });
+    noteLive(msg);
+  }
+
+  function shareLive(cue) {
+    releaseCapture();
+    noteLive("");
+    navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: "window" },
+      audio: false,
+      selfBrowserSurface: "exclude",
+      surfaceSwitching: "include"
+    }).then(function (stream) {
+      var track = stream.getVideoTracks()[0];
+      var pc = new RTCPeerConnection({ iceServers: [] });
+      var mine = { key: cue.key, slug: cue.slug, stream: stream, pc: pc };
+      cap = mine;
+      pc.addTrack(track, stream);
+      // the browser's own "stop sharing" bar ends the track here, not in the deck
+      track.addEventListener("ended", function () { giveUp(mine, ""); });
+      pc.onconnectionstatechange = function () {
+        if (pc.connectionState === "failed") {
+          giveUp(mine, "could not link to the deck window; close this window and share from the slide");
+        }
+      };
+      setTimeout(function () {
+        if (cap === mine && pc.connectionState !== "connected") {
+          giveUp(mine, "could not link to the deck window; close this window and share from the slide");
+        }
+      }, 10000);
+      return pc.createOffer().then(function (o) { return pc.setLocalDescription(o); })
+        .then(function () { return gathered(pc); })
+        .then(function () {
+          post({ type: "animatic-live-offer", slug: cue.slug,
+                 sdp: pc.localDescription.sdp, label: (track && track.label) || "" });
+        });
+    }).catch(function (err) {
+      releaseCapture();
+      noteLive("capture refused: " + (err && err.name ? err.name : "error"));
+    });
+  }
+
   function fillLive(cue) {
     var node = el.live;
     if (!node) return;
+    // The deck pushes constantly (clock, timers). Rebuilding the buttons under
+    // a click in progress would swallow it, so only repaint on a change.
+    var sig = cue ? [cue.slug, cue.state, liveNote, !!cap].join("|") : "";
+    if (sig === liveSig) return;
+    liveSig = sig;
     node.textContent = "";
     if (!cue) { node.classList.remove("open"); return; }
+    // the deck dropped the session (its d panel, a closed window): let go of
+    // the capture so the browser's sharing indicator goes out with it
+    if (cap && cap.key === cue.key && cue.state === "idle" &&
+        cap.pc.connectionState === "connected") {
+      releaseCapture();
+      sig = [cue.slug, cue.state, liveNote, false].join("|");
+      liveSig = sig;
+    }
     node.classList.add("open");
     // NOT label(): that helper makes a `.preview-note`, which is absolutely
     // positioned to cover the preview box — it would swallow the whole pane
     var text = document.createElement("span");
     text.className = "presenter-live-state";
-    text.textContent = liveLabel(cue.state);
+    text.textContent = liveNote || liveLabel(cue.state);
     node.appendChild(text);
-    if (cue.state === "live" || cue.state === "stalled") {
+    function add(cls, label, onClick) {
       var b = document.createElement("button");
       b.type = "button";
-      b.className = "presenter-live-stop";
-      b.textContent = "Stop sharing";
-      b.addEventListener("click", function () {
+      b.className = cls;
+      b.textContent = label;
+      b.addEventListener("click", onClick);
+      node.appendChild(b);
+    }
+    if (canShare && cue.state !== "unavailable" && cue.state !== "live" && cue.state !== "armed") {
+      add("presenter-live-start", cue.state === "stalled" ? "Share again" : "Share a window",
+          function () { shareLive(cue); });
+    }
+    if (cue.state === "live" || cue.state === "stalled" || cue.state === "armed") {
+      add("presenter-live-stop", "Stop sharing", function () {
+        releaseCapture();
         post({ type: "animatic-live", action: "stop", slug: cue.slug });
       });
-      node.appendChild(b);
     }
   }
 
@@ -2395,11 +2575,27 @@ PRESENTER_UI_JS = r"""
 
   window.addEventListener("message", function (e) {
     var d = e.data;
-    if (!d || typeof d !== "object" || d.type !== "animatic-state") return;
+    if (!d || typeof d !== "object") return;
     if (window.opener && e.source !== window.opener) return;
+    if (d.type === "animatic-live-answer") {
+      if (!cap || cap.slug !== d.slug) return;
+      var mine = cap;
+      if (d.error) { giveUp(mine, "the deck could not take the share: " + d.error); return; }
+      mine.pc.setRemoteDescription({ type: "answer", sdp: d.sdp }).catch(function () {
+        giveUp(mine, "could not link to the deck window; close this window and share from the slide");
+      });
+      return;
+    }
+    if (d.type !== "animatic-state") return;
     state = d;
     paint();
     tick();
+  });
+
+  // tell the deck we are gone so its slide gets its own buttons back
+  window.addEventListener("pagehide", function () {
+    releaseCapture();
+    post({ type: "animatic-presenter-closed" });
   });
 
   var restartBtn = document.getElementById("presenter-restart");
