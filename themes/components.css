@@ -655,9 +655,11 @@
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   }
   .live-start[disabled] { opacity: 0.45; cursor: not-allowed; }
-  /* While the presenter window is open, Share and Stop live there and the
-     projected slide shows none (the deck sets body.presenter-open). */
-  body.presenter-open .live-start, body.presenter-open .live-stop { display: none; }
+  /* While the presenter window is open, Share, Stop and the "sharing a window"
+     chip live there and the projected slide shows none (the deck sets
+     body.presenter-open). */
+  body.presenter-open .live-start, body.presenter-open .live-stop,
+  body.presenter-open .live-chip { display: none; }
   /* While the capture is live the controls sit BELOW the frame, in the stage's
      own shadow rather than over the picture: they are presenter tools, and the
      projected slide should be the shared window and nothing else. They were
