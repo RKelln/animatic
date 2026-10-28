@@ -1,0 +1,12 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "reveal-list-title",
+  "referenced": [],
+  "unreferenced_cards": [
+    "sample-art",
+    "second-art",
+    "cons-a",
+    "cons-b",
+    "junk-host"
+  ]
+}

@@ -232,13 +232,25 @@
   }
   .animatic-slide blockquote {
     max-width: 22em;
-    font-size: 1.3em;
+    font-size: 1.5em;   /* the list size: a quote beside a list must not read smaller */
     font-style: italic;
     line-height: 1.5;
     text-align: left;
     color: var(--stage-ink);
     text-shadow: var(--stage-text-glow);
   }
+  /* type-in: a quote that is one `code span` is text for the audience to type, so it
+     looks like a text field: mono, boxed, upright (any theme; wins over a theme's quote rule) */
+  .animatic-slide blockquote.type-in {
+    font-style: normal;
+    font-family: var(--font-mono, monospace);
+    font-size: 1.3em;
+    padding: 0.35em 0.9em;
+    background: color-mix(in srgb, var(--stage-ink) 9%, transparent);
+    border: 2px solid color-mix(in srgb, var(--stage-ink) 35%, transparent);
+    border-radius: 0.5em;
+  }
+  .animatic-slide blockquote.type-in code { font: inherit; }
   .animatic-slide blockquote p { margin: 0; text-wrap: pretty; }
   .animatic-slide blockquote p + p { margin-top: 0.7em; }
   /* quote attribution (grammar: a "Source: ..." line under a quote) */
@@ -448,8 +460,8 @@
   .timer-plate.is-zero .timer-state { color: var(--stage-alert); }
   .timer-plate.is-paused .timer-digits { opacity: 0.4; }
   .timer-block { margin: 1.3em 0 -0.2em; }
-  .timer-block .timer-digits { font-size: 7.4em; }
-  .animatic-slide.text-fit .timer-block .timer-digits { font-size: clamp(7.4em, 26vmin, 14em); }
+  .timer-block .timer-digits { font-size: 6em; }
+  .animatic-slide.text-fit .timer-block .timer-digits { font-size: clamp(6em, 21vmin, 11.5em); }
   .timer-inline { display: inline-block; }
   .timer-inline .timer-state { display: none; }
   .timer-inline .timer-digits { font-size: 1em; }
@@ -1282,6 +1294,12 @@
     color: var(--doc-muted); font-size: 0.85rem; margin-top: 0.5rem;
   }
 
+  body.view-document blockquote.type-in {
+    font-style: normal; font-family: var(--font-mono, monospace);
+    padding: 0.4em 0.9em; border: 1px solid var(--doc-muted); border-radius: 0.4em;
+    background: color-mix(in srgb, var(--doc-ink) 6%, transparent);
+  }
+  body.view-document blockquote.type-in code { font: inherit; }
   body.view-document blockquote {
     margin: 1.4em 0; padding: 0.2em 0 0.2em 1.1em;
     border-left: 3px solid var(--doc-accent);

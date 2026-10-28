@@ -47,7 +47,18 @@
     color: var(--stage-ink);
     text-shadow: none;
   }
-  .animatic-slide blockquote { color: var(--stage-ink); text-shadow: none; }
+  /* quotes: upright, a thick accent rule on a pale tint, so they read as a quote without
+     italics. (A type-in quote keeps its text-field box from components.css.) */
+  .animatic-slide blockquote:not(.type-in) {
+    color: var(--stage-ink); text-shadow: none;
+    font-style: normal;
+    border-left: 6px solid var(--stage-accent);
+    padding: 0.15em 0.8em;
+    background: color-mix(in srgb, var(--stage-accent) 12%, transparent);
+    border-radius: 0 0.3em 0.3em 0;
+  }
+  .animatic-slide blockquote.type-in { color: var(--stage-ink); text-shadow: none; }
+  .animatic-slide.over-media blockquote:not(.type-in) { background: none; }
   .animatic-slide .stat { color: var(--stage-ink); text-shadow: none; }
   .stat::after {
     content: ""; display: block;

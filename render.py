@@ -231,7 +231,7 @@ def screen_script(screen: Screen) -> str:
 def notes_quote_html(b: Block, source: Optional[Block] = None) -> str:
     """A quote for the speaker notes: the quote and its attribution, in the
     notes' own treatment (no slide plate)."""
-    inner = f"<blockquote>{quote_paras_html(b.text)}</blockquote>"
+    inner = f"<blockquote{quote_kind_attr(b.text)}>{quote_paras_html(b.text)}</blockquote>"
     if source is not None and source.text.strip():
         inner += f'<p class="quote-source">{inline_md(source.text)}</p>'
     return f'<div class="quote-block">{inner}</div>'
@@ -3326,6 +3326,15 @@ QUOTE_SHORT_MAX = 60
 QUOTE_LONG_MIN = 320
 
 
+# A quote that is only one `code span` is text to type in, not words someone said
+# (`> `Hi.``): the views give its blockquote the type-in class.
+TYPE_IN_RE = re.compile(r"^`[^`\n]+`$")
+
+
+def quote_kind_attr(text: str) -> str:
+    return ' class="type-in"' if TYPE_IN_RE.match(text.strip()) else ""
+
+
 def quote_size_class(text: str) -> str:
     n = len(re.sub(r"[*`]", "", text).replace("\n\n", " "))
     if n <= QUOTE_SHORT_MAX:
@@ -3560,7 +3569,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 body.append(
                     f'<div class="quote-block{quote_size_class(b.text)}">'
                     f'<div class="quote-plate" aria-hidden="true"></div>'
-                    f"<blockquote>{timer_sub(quote_paras_html(b.text), b)}</blockquote>"
+                    f"<blockquote{quote_kind_attr(b.text)}>{timer_sub(quote_paras_html(b.text), b)}</blockquote>"
                     f"{src}</div>"
                 )
             elif b.kind == "list":
@@ -4054,7 +4063,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             headings.append((lvl, plain_md(strip_timer_tokens(b.text)), anchor))
             out.append(f"<h{lvl} class='screen-heading'>{timer_sub(_cite_links(inline_md(_with_cites(b, cite_no))), b, 'doc')}</h{lvl}>")
         elif b.kind == "quote":
-            out.append(f"<blockquote>{timer_sub(_cite_links(quote_paras_html(_with_cites(b, cite_no))), b, 'doc')}</blockquote>")
+            out.append(f"<blockquote{quote_kind_attr(b.text)}>{timer_sub(_cite_links(quote_paras_html(_with_cites(b, cite_no))), b, 'doc')}</blockquote>")
         elif b.kind == "quote-source":
             out.append(f'<p class="doc-quote-source">{inline_md(b.text)}</p>')
         elif b.kind == "list":
@@ -4295,7 +4304,8 @@ def next_mark_notes(talk: Talk, resolver: MediaResolver) -> list:
         else:
             # the list's own arrival: item 1 showing when nothing precedes it,
             # none when a title comes first; images alone open on frame 1
-            first = next((b for b in s.blocks if b.kind != "vo"), None)
+            # (a handout-only heading, written before the shot comment, is not on the slide)
+            first = next((b for b in s.blocks if b.kind not in ("vo", "handout-heading")), None)
             start = (1 if first is lst else 0) if lst is not None else (1 if imgs else 0)
             if timer_first(s):
                 start = 0

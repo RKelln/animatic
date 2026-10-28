@@ -1,0 +1,84 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "reveal-list-title",
+    "title": "Reveal a list: the title above or below the shot",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "reveal-list-title-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Title on the slide",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Title on the slide"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "first",
+            "second",
+            "third"
+          ]
+        }
+      ],
+      "script": "Three items, nothing showing yet. This is the first one. This is the second one. This is the third one.",
+      "stage": null,
+      "est_seconds": 8.0
+    },
+    {
+      "id": "reveal-list-title-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Title above the shot, handout only",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "list",
+          "items": [
+            "first",
+            "second",
+            "third"
+          ]
+        }
+      ],
+      "script": "Item one is already up. This is the opening line. This is the second one. This is the third one.",
+      "stage": null,
+      "est_seconds": 8.0
+    }
+  ],
+  "warnings": []
+}
