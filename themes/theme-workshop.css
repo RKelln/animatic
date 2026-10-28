@@ -100,6 +100,13 @@
     text-shadow: none;
   }
 
+  /* fit=hero with a list, stat or table: the block is the hero and scales to
+     the slide (fitHeroCode), so the title steps down to leave it room */
+  .animatic-slide.text-fit:has(.screen-body > :is(ul, ol, .stat, .md-table, .paraphrase-block)) .slide-title {
+    font-size: 2em;
+    line-height: 1.15;
+  }
+
   /* fenced code (daylight room): a paper plate with a hairline edge and an
      olive-clay rule, ink on paper, no glow. Left-aligned inside a centred body. */
   .animatic-slide .code-block {

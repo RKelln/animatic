@@ -944,9 +944,13 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
             flush_para()
             end = idx
             while end + 1 < len(lines) and lines[end + 1].strip() \
-                    and (end + 1) not in fenced \
                     and not lines[end + 1].lstrip().startswith("<!--"):
-                end += 1
+                if (end + 1) in fences:      # a fence is part of the run
+                    end = fences[end + 1]["end"]
+                elif (end + 1) in fenced:
+                    break
+                else:
+                    end += 1
             print_ranges.append((lineno + 1, end + 1 + line_offset))
             continue
 

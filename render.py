@@ -937,9 +937,10 @@ PAGER_JS = """
   function codeBlocks(sl) { return sl.querySelectorAll(".code-block, .quote-block"); }
   // On a slide with a fenced block the content must also stay inside the
   // body's padding, so a block sized to the last pixel never touches the edge.
-  function overflows(sl, body) {
+  // `pad` forces the padding check on a hero list, stat or table as well.
+  function overflows(sl, body, pad) {
     if (body.scrollHeight > body.clientHeight + 1) return true;
-    if (!codeBlocks(sl).length) return false;
+    if (!pad && !codeBlocks(sl).length) return false;
     var r = body.getBoundingClientRect(), cs = getComputedStyle(body);
     var top = r.top + parseFloat(cs.paddingTop), bot = r.bottom - parseFloat(cs.paddingBottom);
     for (var k = 0; k < body.children.length; k++) {
@@ -969,18 +970,21 @@ PAGER_JS = """
       }
     }
   }
-  // fit=hero with a fenced block or a quote: the block takes the biggest size
-  // at which the whole slide still fits, between the 75% floor and 300% of its
-  // normal size, by height alone (long lines wrap). The title sizes itself
-  // (hero text), and only the block scales. A slide still too tall at the floor is
+  // fit=hero with a fenced block, a quote, a list, a stat or a table: that
+  // block takes the biggest size at which the whole slide still fits, between
+  // the 75% floor and 300% of its normal size, by height alone (long lines
+  // wrap). The title sizes itself (hero text, stepping down beside a list or
+  // table, see the themes), and only the block scales. A slide still too tall at the floor is
   // marked data-fit="floor", as above.
   var HERO_CODE_MAX = 3;
+  var HERO_BLOCKS = ".code-block, .quote-block, :scope > ul, :scope > ol, " +
+    ":scope > .stat, :scope > .md-table, :scope > .paraphrase-block";
   function fitHeroCode() {
     for (var i = 0; i < slides.length; i++) {
       var sl = slides[i];
       var body = sl.querySelector(".screen-body");
       var pre = body && sl.classList.contains("text-fit") &&
-        body.querySelector(".code-block, .quote-block");
+        body.querySelector(HERO_BLOCKS);
       if (!pre) continue;
       var bq = pre.querySelector("blockquote");
       if (bq) bq.style.fontSize = "";   // fitQuotes may have shrunk it
@@ -989,7 +993,7 @@ PAGER_JS = """
       var base = parseFloat(getComputedStyle(pre).fontSize);
       var parent = parseFloat(getComputedStyle(pre.parentNode).fontSize) || 1;
       var set = function (sc) { pre.style.fontSize = (base * sc / parent).toFixed(3) + "em"; };
-      var fits = function () { return !overflows(sl, body); };
+      var fits = function () { return !overflows(sl, body, true); };
       var scale = 1;
       if (fits()) {
         var lo = 1, hi = HERO_CODE_MAX;

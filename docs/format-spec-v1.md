@@ -727,7 +727,8 @@ a floor of 75% (the pager's rule for overflowing slide text); the content must
 also stay inside the slide body's padding. A slide still too tall at the floor
 stays at the floor, is marked `data-fit="floor"`, and logs a console warning:
 its top and bottom are clipped by the slide edge, so shorten or split the block
-(a `continue` screen carries on). Under `fit=hero` the title steps down to a
+(a `continue` screen carries on). Under `fit=hero` (on a fence, a quote, a list, a
+table or a stat) the title steps down to a
 heading size (the block is the hero), and the block takes the **largest size at
 which the wrapped block fits the available height, from the 75% floor up to 300%
 of its normal size**; a short block grows to fill the slide, and a long line
@@ -868,8 +869,9 @@ out of the handout.)
 This paragraph is still spoken.
 ```
 
-- **Scope.** The consecutive non-blank lines after the marker (a blank line,
-  a shot comment or a fence ends it). Anything inside can be a list, table,
+- **Scope.** The consecutive non-blank lines after the marker (a blank line
+  or a shot comment ends it; a fence right under the marker belongs to the run,
+  whole, so a pasted prompt in a code block stays off the slide). Anything inside can be a list, table,
   quote, heading or paragraph.
 - **Kind.** The block is kind `print` (wrapping `inner` blocks), never in
   cues.json; `onscreen_blocks` skips it, so `dim` still warns on a screen whose

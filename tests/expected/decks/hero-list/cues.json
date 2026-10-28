@@ -1,0 +1,224 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "hero-list",
+    "title": "Hero list",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "lecture",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "hero-list-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Use it, skip it, or refuse it",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero",
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Use it, skip it, or refuse it"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Use it",
+            "Skip it",
+            "Refuse it"
+          ],
+          "ordered": true
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "hero-list-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Use it, skip it, or refuse it, normal size",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Use it, skip it, or refuse it, normal size"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Use it",
+            "Skip it",
+            "Refuse it"
+          ],
+          "ordered": true
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "hero-list-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "Bulleted, with a sub-point",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Bulleted, with a sub-point"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Say what it is",
+            "in a sentence",
+            "Say what it is not",
+            "Say who to ask"
+          ],
+          "depths": [
+            0,
+            1,
+            0,
+            0
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "hero-list-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "A table",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A table"
+        },
+        {
+          "kind": "table",
+          "header": true,
+          "rows": [
+            [
+              "Tool",
+              "Where it runs"
+            ],
+            [
+              "Chatbot",
+              "In a browser"
+            ],
+            [
+              "Agent",
+              "On your machine"
+            ]
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "hero-list-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "card",
+      "title": "Tall, past the floor",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Tall, past the floor"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "One",
+            "Two",
+            "Three",
+            "Four",
+            "Five",
+            "Six",
+            "Seven",
+            "Eight",
+            "Nine",
+            "Ten",
+            "Eleven",
+            "Twelve",
+            "Thirteen",
+            "Fourteen",
+            "Fifteen"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": []
+}
