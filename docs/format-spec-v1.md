@@ -570,8 +570,9 @@ item is simply removed).
 (`cues.json` carries it like any timer), but the audience's slide draws no clock. Use it
 where the room gets time to work without a visible countdown. Only a paragraph that is
 nothing but the parenthesised token counts; elsewhere `( … )` is an ordinary stage note.
-It is the screen's one timer: `reveal=timer` or a second timer on the same screen is a
-fatal error (check 47), since the presenter window shows one timer per screen.
+It is the screen's one timer: `reveal=timer` or a second timer on the same screen warns
+(check 47), since the presenter window shows one timer per screen: the first timer wins,
+and a presenter-only timer is never revealed.
 
 **`cues.json`.** A screen with a timer carries `timer` (integer seconds), `timer_in`
 (the index of the `screen_text` entry whose text holds the token) and, with `corner`,

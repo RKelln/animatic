@@ -164,7 +164,7 @@ REGISTER = [
     (43, "`reveal=list` on a screen with no list of 2 or more items: the flag is ignored", WARNING, "implemented"),
     (44, "`reveal=timer` on a screen with no valid `[Timer: ...]` (none written, or the token is bad, zero or a second one; check 37 says which): the flag is ignored and nothing is hidden", WARNING, "implemented: check.py + render.py"),
     (45, "a bare `reveal` on a screen with nothing revealable on it (no list of 2 or more items, no valid timer): the flag does nothing", WARNING, "implemented: check.py + render.py"),
-    (47, "a presenter-only `([Timer: ...])` on a screen that also has `reveal=timer` or another timer: the presenter window shows one timer per screen", FATAL, "implemented: check.py"),
+    (47, "a presenter-only `([Timer: ...])` on a screen that also has `reveal=timer` or another timer: the presenter window shows one timer per screen; the first timer on the screen wins and `reveal=timer` is ignored for a presenter-only one", WARNING, "implemented: check.py"),
     (46, "an unclosed `(` parenthetical: the rest of the paragraph is read as spoken text and prints in the handout", WARNING, "enforced: talkparse.py"),
 ]
 
@@ -1000,10 +1000,10 @@ def check_47_private_timer(talk, resolver, report: Report) -> None:
         if n > 1 or revealed:
             why = ("`reveal=timer` shows a timer on the slide" if revealed
                    else "the screen has a second timer")
-            report.add(47, FATAL,
+            report.add(47, WARNING,
                        f"a presenter-only `([Timer: ...])` cannot share a screen with another "
                        f"timer: {why}, and the presenter window shows one timer per screen "
-                       "(spec: Timer screens)",
+                       "; the first timer on the screen wins and a presenter-only one is never revealed (spec: Timer screens)",
                        line=priv.line, screen=s.idx)
 
 
