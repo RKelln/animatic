@@ -612,8 +612,7 @@
           "slug": null,
           "role": null,
           "flags": {
-            "layout": "piece",
-            "reveal": "timer"
+            "layout": "piece"
           }
         }
       ],
@@ -633,8 +632,7 @@
       "stage": null,
       "est_seconds": 1.6,
       "timer": 180,
-      "timer_in": 1,
-      "timer_reveal": true
+      "timer_in": 1
     }
   ],
   "warnings": []

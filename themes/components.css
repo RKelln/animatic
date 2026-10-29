@@ -1291,6 +1291,7 @@
   figure.shot { margin: 1.6em 0; text-align: center; }
   figure.shot img, figure.shot video { max-width: 100%; border-radius: 4px; margin: 0 auto; }
   /* the timer's one quiet line (the clock itself is present-view only) */
+  .animatic-slide .timer-private { display: none; }
   .timer-note-inline { font-style: italic; color: var(--doc-muted); }
   .timer-note { margin: 0.5em 0; color: var(--doc-muted); font-size: 0.85rem; font-style: italic; }
   figure.shot figcaption, .screen-caption {

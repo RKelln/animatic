@@ -3416,7 +3416,7 @@ def timer_sub(text_html: str, b, mode: str = "present") -> str:
         elif mode == "present":
             rep_ = timer_plate_html(b.timer, "inline")
         else:
-            rep_ = f'<span class="timer-note-inline">{html.escape(b.timer[1])} timer</span>'
+            rep_ = ""       # the reading copy never prints a timer
         return text_html[:m.start()] + rep_ + text_html[m.end():]
     return text_html
 
@@ -3496,7 +3496,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     sflags = screen.shots[0].flags if screen.shots else {}
     has_body = any(b.kind in ("heading", "stat", "quote", "list", "table")
                    or (b.kind == "code" and b.text.strip())
-                   or (b.kind == "timer" and not (b.timer and b.timer[2]))
+                   or (b.kind == "timer" and not (b.timer and (b.timer[2] or b.timer_quiet)))
                    for b in screen.blocks)
     tm = screen.timer
 
@@ -3600,6 +3600,11 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 # invalid or second token is left as literal text
                 if b.timer is None:
                     body.append(f'<p class="timer-literal">{html.escape(b.text)}</p>')
+                elif b.timer_quiet:
+                    # `([Timer: 5m])`: runs for the presenter window only; the
+                    # audience's slide draws nothing
+                    body.append(timer_plate_html(b.timer, "block").replace(
+                        'class="timer-plate ', 'class="timer-plate timer-private ', 1))
                 elif not b.timer[2]:
                     body.append(timer_plate_html(b.timer, "block"))
             # lower / credits overlays are positioned (below); credits entries
@@ -4082,8 +4087,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             # comes last, below the screen's content)
             if b.timer is None:
                 out.append(f'<p class="vo">{html.escape(b.text)}</p>')
-            elif not b.timer[2] and not b.timer_quiet:
-                out.append(f'<p class="timer-note">{html.escape(b.timer[1])} timer</p>')
+            # a timer is the room's clock: the reading copy prints nothing
         elif b.kind == "stat":
             if b.text.strip():
                 out.append(f'<div class="stat-callout"><p>{timer_sub(_cite_links(inline_md(_with_cites(b, cite_no))), b, "doc")}</p></div>')
@@ -4106,9 +4110,6 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             for b in credits_entries_
         )
         out.append(f'<div class="doc-credits">{items}</div>')
-    tm = screen.timer
-    if tm is not None and tm[2]:
-        out.append(f'<p class="timer-note">{html.escape(tm[1])} timer</p>')
     return "".join(out)
 
 

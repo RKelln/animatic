@@ -561,16 +561,15 @@ theme's display face with fixed-width cells (so they never jiggle): `m:ss`, or
   stays live; it reuses the existing postMessage channel and adds one request type,
   `animatic-timer`, from the presenter to the deck.
 
-**Document view and handout.** No clock. A token alone on its line (or a `corner`
-one, below the screen's content) prints one quiet line, `<duration> timer`; an inline
-token prints inline as the same words (`Back in 8 minute timer`). The words use the
-duration as written, singular: `8 minute`, `90 second`, `1 hour 30 minute`, `5:00` is
-`5 minute`, `12:30` is `12 minute 30 second`.
+**Document view and handout.** No clock, and no timer line: a timer is the room's
+clock, so the reading copy prints nothing for it (an inline token in a heading or list
+item is simply removed).
 
-**Quiet timer.** A token alone in a paragraph inside parentheses, `([Timer: 5m])`, is the
-same timer on the slide and in `cues.json`, but the document view and handout print no
-`<duration> timer` line for it. Only a paragraph that is nothing but the parenthesised
-token counts; elsewhere `( … )` is an ordinary stage note.
+**Presenter-only timer.** A token alone in a paragraph inside parentheses,
+`([Timer: 5m])`, runs in the presenter window and counts toward the timing estimate
+(`cues.json` carries it like any timer), but the audience's slide draws no clock. Use it
+where the room gets time to work without a visible countdown. Only a paragraph that is
+nothing but the parenthesised token counts; elsewhere `( … )` is an ordinary stage note.
 
 **`cues.json`.** A screen with a timer carries `timer` (integer seconds), `timer_in`
 (the index of the `screen_text` entry whose text holds the token) and, with `corner`,

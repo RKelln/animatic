@@ -92,7 +92,7 @@ def main() -> int:
     for c in vis:
         blob = json.dumps(c.get("screen_text") or [])
         if re.search(r"timer", blob, re.I):
-            print(f"- {c['ordinal']:>3} {c.get('title') or ''!r}: has a timer; probably `live`")
+            print(f"- {c['ordinal']:>3} {c.get('title') or ''!r}: has a timer: a room beat? consider `live` (timers never print)")
     print()
 
     print("## Page leaks")

@@ -209,7 +209,7 @@ def split_next_tokens(text: str) -> tuple:
     return clean, [min(o, len(clean)) for o in offsets]
 
 
-# `([Timer: 5m])` alone in a paragraph: the timer runs, the reading copy omits it.
+# `([Timer: 5m])` alone in a paragraph: a timer only the presenter window shows.
 QUIET_TIMER_RE = re.compile(r"\(\s*(\[\s*timer\s*:[^\]]*\])\s*\)", re.IGNORECASE)
 
 
@@ -458,8 +458,9 @@ class Block:
     # kind "timer" is a token alone on its line; in a heading, list item, quote
     # or stat/paraphrase payload the token sits inside the text.
     timer: Optional[tuple] = None
-    # kind "timer" only: written `([Timer: ...])`.  The countdown runs on the
-    # slide as usual; the handout and web page print no "N minute timer" line.
+    # kind "timer" only: written `([Timer: ...])`.  A presenter-only timer: it
+    # runs in the presenter window and counts toward the timing estimate, and
+    # the audience's slide draws nothing.
     timer_quiet: bool = False
     # vo only: offsets in `text` where the author wrote `[n]` / `[next]`, the
     # point the presenter presses next.  Speaker notes show them; nothing else does.
@@ -1890,7 +1891,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
             clean = strip_footnote_refs(rb["text"], talk.footnote_ids, pmarks)
             qm = QUIET_TIMER_RE.fullmatch(clean.strip())
             if qm:
-                # `([Timer: 5m])`: a live timer the reading copy does not print
+                # `([Timer: 5m])`: a timer for the presenter window only
                 qb = Block(kind="timer", text=qm.group(1), line=rb.get("line", 0),
                            line_end=rb.get("line_end", 0) or rb.get("line", 0),
                            spoken=False, timer_quiet=True)

@@ -32,10 +32,10 @@ style file (`STYLE_WORKSHOP.md` or `STYLE_LECTURE.md`) before touching a sentenc
   `<!-- shot: live -->`. The slide and the presenter view keep it; the reading copy and any video drop it.
   Whole-slide `live` is the default answer. Do not mark a screen `live` if its spoken text carries an idea a
   reader needs.
-- **Timer lines.** A timer prints in the reading copy as "N minute timer". On a screen that stays in the
-  reading copy, wrap the timer line in parentheses: `([timer:5m])`. The countdown still runs on the slide;
-  the reading copy prints nothing. Use it on every kept screen whose timer is only the room's clock. (A
-  screen that is `live` needs no wrapping.)
+- **Timer lines.** Timers never print; nothing to fix. Leave `[timer:5m]` as written. (`([timer:5m])` is a
+  different thing: a timer only the presenter window shows. Do not add it to a talk to hide a timer.)
+- **Anything odd in print.** When the audit or the PDF shows something that reads strangely on paper and you
+  are not sure it should print, ask the author. It probably belongs only in the room.
 - **References to a break or the room.** Once a Break screen is `live` it is gone from the reading copy, so
   reword lines that point at it ("after the break", "before the break", "we'll come back to it after") to
   something that holds without the break ("when it finishes", "earlier", "then"). A question-for-the-room line

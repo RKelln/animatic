@@ -114,7 +114,7 @@ Welcome back.
 
 Thank you. Questions?
 
-<!-- shot: layout=piece reveal=timer -->
+<!-- shot: layout=piece -->
 ### Quiet timer
 Work on it together.
 

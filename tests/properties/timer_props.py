@@ -72,7 +72,7 @@ def check(fx, errors: list) -> None:
         cid = c["id"]
         entries = c.get("screen_text") or []
         sec = _section(present, cid)
-        plates = re.findall(r'class="timer-plate(?: pending)? timer-(\w+)"[^>]*data-timer="(\d+)"', sec)
+        plates = re.findall(r'class="timer-plate(?: pending| timer-private)? timer-(\w+)"[^>]*data-timer="(\d+)"', sec)
         m_armed = re.search(r'data-timer-reveal="(first|last)" class="timer-plate pending ', sec)
         armed_attr = m_armed is not None
         want = _first_valid(entries)
@@ -128,13 +128,9 @@ def check(fx, errors: list) -> None:
                 if t["text"].replace("&", "&amp;") not in sec:
                     err(errors, f"{cid}: literal token {t['text']!r} is not shown on screen")
 
-        # document view: never a clock, always the quiet words
-        if "timer" in c:
-            phrase = want[2] if want else None
-            quiet = re.search(r"\(\s*" + re.escape(entries[c["timer_in"]].get("text", "\0")) + r"\s*\)",
-                              fx.source_text) if entries else None
-            if phrase and not quiet and f"{phrase} timer" not in doc:
-                err(errors, f"{cid}: document view lacks {phrase!r} timer")
+        # document view: a timer is the room's clock, never printed
+        if "timer" in c and re.search(r"\d timer\b", re.sub(r"<[^>]+>", " ", _section(doc, cid))):
+            err(errors, f"{cid}: document view prints a timer line")
 
         # the clock
         words = timing.word_count(c.get("script") or "")
