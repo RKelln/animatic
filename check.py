@@ -164,6 +164,7 @@ REGISTER = [
     (43, "`reveal=list` on a screen with no list of 2 or more items: the flag is ignored", WARNING, "implemented"),
     (44, "`reveal=timer` on a screen with no valid `[Timer: ...]` (none written, or the token is bad, zero or a second one; check 37 says which): the flag is ignored and nothing is hidden", WARNING, "implemented: check.py + render.py"),
     (45, "a bare `reveal` on a screen with nothing revealable on it (no list of 2 or more items, no valid timer): the flag does nothing", WARNING, "implemented: check.py + render.py"),
+    (47, "a presenter-only `([Timer: ...])` on a screen that also has `reveal=timer` or another timer: the presenter window shows one timer per screen", FATAL, "implemented: check.py"),
     (46, "an unclosed `(` parenthetical: the rest of the paragraph is read as spoken text and prints in the handout", WARNING, "enforced: talkparse.py"),
 ]
 
@@ -986,6 +987,26 @@ def check_45_bare_reveal_empty(talk, resolver, report: Report) -> None:
                    line=sh.line, screen=s.idx)
 
 
+def check_47_private_timer(talk, resolver, report: Report) -> None:
+    """A presenter-only `([Timer: ...])` is the screen's one timer: the presenter
+    window shows one per screen, and a revealed timer is a visible one."""
+    for s in talk.screens:
+        priv = next((b for b in s.blocks if b.kind == "timer" and b.timer_quiet), None)
+        if priv is None:
+            continue
+        texts = [t for b in s.blocks for t in ([b.text or ""] + list(b.items or []))]
+        n = sum(len(talkparse.TIMER_TOKEN_RE.findall(t)) for t in texts)
+        revealed = any("timer" in render.reveal_named(sh.flags) for sh in s.shots)
+        if n > 1 or revealed:
+            why = ("`reveal=timer` shows a timer on the slide" if revealed
+                   else "the screen has a second timer")
+            report.add(47, FATAL,
+                       f"a presenter-only `([Timer: ...])` cannot share a screen with another "
+                       f"timer: {why}, and the presenter window shows one timer per screen "
+                       "(spec: Timer screens)",
+                       line=priv.line, screen=s.idx)
+
+
 def check_41_pools(talk, resolver, report: Report) -> None:
     """A pool card's folder, `pins:` files and pin ids must hold up."""
     for slug, msg in resolver.pool_issues:
@@ -1223,6 +1244,7 @@ def run_checks(talk, resolver, source_text: str,
     check_43_reveal_without_list(talk, resolver, report)
     check_44_reveal_timer_without_timer(talk, resolver, report)
     check_45_bare_reveal_empty(talk, resolver, report)
+    check_47_private_timer(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:
