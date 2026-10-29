@@ -1,0 +1,641 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "web-formats",
+    "title": "Web and print formats",
+    "date": "2026-10-28",
+    "venue": "Fixture",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": [
+      {
+        "id": "one",
+        "source": "working receipt, never printed"
+      }
+    ]
+  },
+  "movements": [
+    {
+      "index": 1,
+      "label": "Movement 1 - Spoken words",
+      "title": "Spoken words",
+      "cue_ids": [
+        "web-formats-003",
+        "web-formats-004",
+        "web-formats-005",
+        "web-formats-006",
+        "web-formats-007",
+        "web-formats-008",
+        "web-formats-009",
+        "web-formats-010",
+        "web-formats-011",
+        "web-formats-012",
+        "web-formats-013",
+        "web-formats-014",
+        "web-formats-015",
+        "web-formats-016"
+      ]
+    },
+    {
+      "index": 2,
+      "label": "Movement 2 - Closing",
+      "title": "Closing",
+      "cue_ids": [
+        "web-formats-017",
+        "web-formats-018"
+      ]
+    }
+  ],
+  "cues": [
+    {
+      "id": "web-formats-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "media",
+      "title": "Web and print formats",
+      "shots": [
+        {
+          "slug": "still-one",
+          "role": null,
+          "flags": {
+            "live": ""
+          }
+        }
+      ],
+      "media": {
+        "slug": "still-one",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/still-one.png",
+        "source": "cards",
+        "alt": "a single picture",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "Web and print formats"
+        },
+        {
+          "kind": "quote",
+          "text": "Oct 28, 4pm\nRyan Kelln"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0,
+      "live_only": true
+    },
+    {
+      "id": "web-formats-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "still-one",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "still-one",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/still-one.png",
+        "source": "cards",
+        "alt": "a single picture",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "web-formats-003",
+      "ordinal": 3,
+      "movement": 1,
+      "kind": "card",
+      "title": null,
+      "shots": [],
+      "media": null,
+      "screen_text": null,
+      "script": "This is plain voice-over. It should read as a paragraph on the web page and in the PDF, without any stage feel.\n\nA second paragraph, with a source. And a long link: https://example.com/a/very/long/path/that/keeps/going/and/going/and/going/until/it/must/break?with=query&and=more",
+      "stage": [
+        "Stage note: pause here and look at the room."
+      ],
+      "est_seconds": 21.6
+    },
+    {
+      "id": "web-formats-004",
+      "ordinal": 4,
+      "movement": 1,
+      "kind": "card",
+      "title": "Raise your hand",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "live": ""
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Raise your hand"
+        }
+      ],
+      "script": "Who has used an AI assistant this week?",
+      "stage": null,
+      "est_seconds": 3.2,
+      "live_only": true
+    },
+    {
+      "id": "web-formats-005",
+      "ordinal": 5,
+      "movement": 1,
+      "kind": "card",
+      "title": "Things to remember",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Things to remember"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Check the source",
+            "Keep private things private",
+            "Ask it to show its work"
+          ],
+          "spoken": true
+        }
+      ],
+      "script": "Here are three things to keep in mind. Say them out loud.\n\nCheck the source\n\nKeep private things private\n\nAsk it to show its work\n\nAnd the line after the list, spoken.",
+      "stage": null,
+      "est_seconds": 12.8
+    },
+    {
+      "id": "web-formats-006",
+      "ordinal": 6,
+      "movement": 1,
+      "kind": "card",
+      "title": "Steps, one per press",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Steps, one per press"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "First, open the page",
+            "Second, type the question",
+            "Third, read the answer"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "web-formats-007",
+      "ordinal": 7,
+      "movement": 1,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "diagram-steps",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "diagram-steps",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/diagram-steps.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": null,
+      "script": "This picture builds in three steps in the room. On paper only the last frame prints.",
+      "stage": null,
+      "est_seconds": 6.4
+    },
+    {
+      "id": "web-formats-008",
+      "ordinal": 8,
+      "movement": 1,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "diagram-steps",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "diagram-steps",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/diagram-steps.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      },
+      "screen_text": null,
+      "script": "The same picture, said another way.",
+      "stage": null,
+      "est_seconds": 2.4
+    },
+    {
+      "id": "web-formats-009",
+      "ordinal": 9,
+      "movement": 1,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "The best way out is always through."
+        },
+        {
+          "kind": "source",
+          "text": "Robert Frost"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "web-formats-010",
+      "ordinal": 10,
+      "movement": 1,
+      "kind": "stat",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": "stat",
+          "flags": {
+            "role": "stat"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "stat",
+          "text": "1,000 students"
+        }
+      ],
+      "script": "1,000 students",
+      "stage": null,
+      "est_seconds": 1.2
+    },
+    {
+      "id": "web-formats-011",
+      "ordinal": 11,
+      "movement": 1,
+      "kind": "lower",
+      "title": "Nearly 1,000 students. Three groups.",
+      "shots": [
+        {
+          "slug": null,
+          "role": "lower",
+          "flags": {
+            "role": "lower"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "lower",
+          "text": "Bastani et al., PNAS, 2025"
+        },
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Nearly 1,000 students. Three groups."
+        },
+        {
+          "kind": "list",
+          "items": [
+            "No AI",
+            "A plain chatbot",
+            "A guarded tutor"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "web-formats-012",
+      "ordinal": 12,
+      "movement": 1,
+      "kind": "card",
+      "title": "Type this into the chat",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Type this into the chat"
+        },
+        {
+          "kind": "code",
+          "text": "Ask me one question at a time. Do not give me the answer."
+        }
+      ],
+      "script": "Type it exactly. Then press enter.",
+      "stage": null,
+      "est_seconds": 2.4
+    },
+    {
+      "id": "web-formats-013",
+      "ordinal": 13,
+      "movement": 1,
+      "kind": "card",
+      "title": "Compare the tools",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Compare the tools"
+        },
+        {
+          "kind": "table",
+          "header": true,
+          "rows": [
+            [
+              "Tool",
+              "Free",
+              "Account"
+            ],
+            [
+              "Gemini",
+              "yes",
+              "Google"
+            ],
+            [
+              "Claude",
+              "yes",
+              "email"
+            ]
+          ]
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Pick one",
+            "Try the same question in both"
+          ],
+          "ordered": true
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "web-formats-014",
+      "ordinal": 14,
+      "movement": 1,
+      "kind": "media",
+      "title": "Break",
+      "shots": [
+        {
+          "slug": "still-one",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "still-one",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/still-one.png",
+        "source": "cards",
+        "alt": "a single picture",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Break"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 8:00]"
+        }
+      ],
+      "script": "",
+      "stage": [
+        "Stage note: start the timer when they stand."
+      ],
+      "est_seconds": 480.0,
+      "timer": 480,
+      "timer_in": 1
+    },
+    {
+      "id": "web-formats-015",
+      "ordinal": 15,
+      "movement": 1,
+      "kind": "card",
+      "title": "Back in the room",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Back in the room"
+        }
+      ],
+      "script": "Welcome back.",
+      "stage": null,
+      "est_seconds": 0.8
+    },
+    {
+      "id": "web-formats-016",
+      "ordinal": 16,
+      "movement": 1,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "still-one",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "still-one",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/still-one.png",
+        "source": "cards",
+        "alt": "a single picture",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "web-formats-017",
+      "ordinal": 17,
+      "movement": 2,
+      "kind": "card",
+      "title": null,
+      "shots": [],
+      "media": null,
+      "screen_text": null,
+      "script": "Thank you. Questions?",
+      "stage": null,
+      "est_seconds": 1.2
+    },
+    {
+      "id": "web-formats-018",
+      "ordinal": 18,
+      "movement": 2,
+      "kind": "card",
+      "title": "Quiet timer",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "layout": "piece",
+            "reveal": "timer"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Quiet timer"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 3m]"
+        }
+      ],
+      "script": "Work on it together.",
+      "stage": null,
+      "est_seconds": 1.6,
+      "timer": 180,
+      "timer_in": 1,
+      "timer_reveal": true
+    }
+  ],
+  "warnings": []
+}

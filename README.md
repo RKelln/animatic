@@ -114,6 +114,31 @@ Chromium notes: a snap-packaged Chromium cannot read or write `/tmp` or hidden
 directories, so the tool builds into `~/animatic-handout-build/<deck>/`
 (override with `--work`, which must be under `$HOME` and not hidden).
 
+### Web page
+
+    python3 tools/web-export.py <talkfile> <out-dir>
+
+Writes the document view as one self-contained folder: `index.html` plus
+`media/` holding only the web-sized images the page uses. Every link is
+relative, so the folder drops into a Hugo `static/` directory or any file
+server. It adds `description` / `og:` tags from the title and `logline`, and
+refuses to export a page that links outside its folder or shows a local path
+(`/home/...`, `~/Documents/...`). Screens flagged `live` are not in it.
+
+Sources: a deck's `[^id]` refs print as a Sources list only when the deck
+declares `cites:` (public citations). With only `sources:` (working receipts)
+the page and the PDF print no list and the build warns; `handout-sources:
+working` in the frontmatter opts a draft copy back in.
+
+### Reading-copy audit and skill
+
+    python3 tools/reading-audit.py <talkfile>
+
+One compact report on a talk's web page and PDF: checker findings, Sources status, screens that
+print as a bare heading, spoken text aimed at the room, timers, and anything in the page that should not be
+public. `skills/reading-copy/SKILL.md` is the skill that runs it and fixes a talk from the report; it is
+written to run on one talk per subagent.
+
 ### Check
 
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]

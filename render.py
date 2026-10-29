@@ -245,8 +245,9 @@ def speaker_notes(screen: Screen) -> list:
     follows his words — or all of the screen's text, on a screen with no
     words of its own (spec: Text — Spoken lists, The reading copy).
 
-    A `[notes]` block and the stage notes keep their own places: the block
-    where the author wrote it, the stage notes at the end.
+    A `[notes]` block and the stage notes keep their own places: each is
+    emitted where the author wrote it, a stage note right after the words of
+    the paragraph it sits in.
     """
     out = []
     silent = not screen_script(screen).strip()   # nothing said on this screen
@@ -270,7 +271,7 @@ def speaker_notes(screen: Screen) -> list:
                 src = nxt if (nxt is not None and nxt.kind == "quote-source") else None
                 out.append((b, notes_quote_html(b, src)))
         elif b.kind == "quote-source":
-            continue        # it travels with its quote, never on its own
+            pass            # it travels with its quote, never on its own
         elif b.kind == "code" and b.text.strip():
             if spoken_before or silent:
                 out.append((b, code_html(b)))
@@ -285,7 +286,6 @@ def speaker_notes(screen: Screen) -> list:
                     inner.append(f'<p class="print-note">{inline_md(ib.text)}</p>')
             if inner:
                 out.append((b, "".join(inner)))
-    for b in blocks:
         for st in b.stage:
             out.append((b, f'<p class="stage-note">({html.escape(st)})</p>'))
     return out
@@ -3844,6 +3844,10 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
     if isinstance(cites, dict):
         cited = [{"id": c["id"], "source": str(cites[c["id"]])}
                  for c in cited if str(cites.get(c["id"], "")).strip()]
+    elif str(talk.meta.get("handout-sources", "")).strip().lower() != "working":
+        # No public citations declared: the working receipts never print.
+        # `handout-sources: working` opts a draft copy back in.
+        cited = []
     cite_no = {c["id"]: n for n, c in enumerate(cited, start=1)}
 
     fig_css = _figure_css(talk, figures)
@@ -4078,7 +4082,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             # comes last, below the screen's content)
             if b.timer is None:
                 out.append(f'<p class="vo">{html.escape(b.text)}</p>')
-            elif not b.timer[2]:
+            elif not b.timer[2] and not b.timer_quiet:
                 out.append(f'<p class="timer-note">{html.escape(b.timer[1])} timer</p>')
         elif b.kind == "stat":
             if b.text.strip():

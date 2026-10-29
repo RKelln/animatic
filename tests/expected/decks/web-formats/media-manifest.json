@@ -1,0 +1,47 @@
+{
+  "schema": "animatic.media.v1",
+  "deck_slug": "web-formats",
+  "referenced": [
+    {
+      "slug": "still-one",
+      "first_cue": "web-formats-001",
+      "media": {
+        "slug": "still-one",
+        "type": "image",
+        "status": "approved",
+        "found": true,
+        "file": "_media/still-one.png",
+        "source": "cards",
+        "alt": "a single picture",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": ""
+      }
+    },
+    {
+      "slug": "diagram-steps",
+      "first_cue": "web-formats-007",
+      "media": {
+        "slug": "diagram-steps",
+        "type": "image",
+        "status": "have",
+        "found": true,
+        "file": "_media/diagram-steps.png",
+        "source": "deckdir",
+        "alt": "a diagram built in three steps",
+        "credit": "",
+        "licence": "",
+        "note": "",
+        "reason": "",
+        "steps": [
+          "frame-1",
+          "frame-2",
+          "frame-3"
+        ],
+        "handout": "frame-3"
+      }
+    }
+  ],
+  "unreferenced_cards": []
+}

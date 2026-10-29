@@ -131,7 +131,9 @@ def check(fx, errors: list) -> None:
         # document view: never a clock, always the quiet words
         if "timer" in c:
             phrase = want[2] if want else None
-            if phrase and f"{phrase} timer" not in doc:
+            quiet = re.search(r"\(\s*" + re.escape(entries[c["timer_in"]].get("text", "\0")) + r"\s*\)",
+                              fx.source_text) if entries else None
+            if phrase and not quiet and f"{phrase} timer" not in doc:
                 err(errors, f"{cid}: document view lacks {phrase!r} timer")
 
         # the clock

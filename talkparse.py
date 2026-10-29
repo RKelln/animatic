@@ -209,6 +209,10 @@ def split_next_tokens(text: str) -> tuple:
     return clean, [min(o, len(clean)) for o in offsets]
 
 
+# `([Timer: 5m])` alone in a paragraph: the timer runs, the reading copy omits it.
+QUIET_TIMER_RE = re.compile(r"\(\s*(\[\s*timer\s*:[^\]]*\])\s*\)", re.IGNORECASE)
+
+
 def strip_timer_tokens(text: str) -> str:
     """The text with every `[Timer: ...]` token removed and the gap closed."""
     out = TIMER_TOKEN_RE.sub(" ", text)
@@ -454,6 +458,9 @@ class Block:
     # kind "timer" is a token alone on its line; in a heading, list item, quote
     # or stat/paraphrase payload the token sits inside the text.
     timer: Optional[tuple] = None
+    # kind "timer" only: written `([Timer: ...])`.  The countdown runs on the
+    # slide as usual; the handout and web page print no "N minute timer" line.
+    timer_quiet: bool = False
     # vo only: offsets in `text` where the author wrote `[n]` / `[next]`, the
     # point the presenter presses next.  Speaker notes show them; nothing else does.
     nexts: list = field(default_factory=list)
@@ -628,6 +635,21 @@ def nested_paren_at(text: str) -> Optional[int]:
             if depth:
                 depth -= 1
     return None
+
+
+def unclosed_paren_at(text: str) -> Optional[int]:
+    """Index of the `(` that opens a parenthetical and never closes, or None.
+    Register check 46 (spec: Text): an unclosed `(` makes the rest of the
+    paragraph, often a whole stage note, read as spoken text and print in the
+    handout.
+    """
+    opener = None
+    for i, ch in enumerate(text):
+        if ch == "(" and opener is None:
+            opener = i
+        elif ch == ")" and opener is not None:
+            opener = None
+    return opener
 
 
 def strip_footnote_refs(text: str, collected: list, marks: Optional[list] = None) -> str:
@@ -1866,6 +1888,15 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         if kind == "para":
             pmarks: list = []
             clean = strip_footnote_refs(rb["text"], talk.footnote_ids, pmarks)
+            qm = QUIET_TIMER_RE.fullmatch(clean.strip())
+            if qm:
+                # `([Timer: 5m])`: a live timer the reading copy does not print
+                qb = Block(kind="timer", text=qm.group(1), line=rb.get("line", 0),
+                           line_end=rb.get("line_end", 0) or rb.get("line", 0),
+                           spoken=False, timer_quiet=True)
+                scan_timer(qb, qb.text, qb.line)
+                cur.blocks.append(qb)
+                continue
             spoken, stage = split_parens(clean)
             np = nested_paren_at(clean)
             if np is not None:
@@ -1876,6 +1907,13 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                     f"line {rb.get('line', 0)}: check 23: parentheticals do "
                     f"not nest — '...{clean[max(0, np - 12):np + 12].strip()}...'; "
                     f"rewrite the parenthetical flat (spec: Text)"
+                )
+            uc = unclosed_paren_at(clean)
+            if uc is not None:
+                talk.warnings.append(
+                    f"line {rb.get('line', 0)}: check 46: unclosed parenthetical "
+                    f"'{clean[uc:uc + 30].strip()}...' is read as spoken text and "
+                    f"prints in the handout; close it with ')' (spec: Text)"
                 )
             bkind = "vo"
             is_spoken = False

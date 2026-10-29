@@ -567,6 +567,11 @@ token prints inline as the same words (`Back in 8 minute timer`). The words use 
 duration as written, singular: `8 minute`, `90 second`, `1 hour 30 minute`, `5:00` is
 `5 minute`, `12:30` is `12 minute 30 second`.
 
+**Quiet timer.** A token alone in a paragraph inside parentheses, `([Timer: 5m])`, is the
+same timer on the slide and in `cues.json`, but the document view and handout print no
+`<duration> timer` line for it. Only a paragraph that is nothing but the parenthesised
+token counts; elsewhere `( … )` is an ordinary stage note.
+
 **`cues.json`.** A screen with a timer carries `timer` (integer seconds), `timer_in`
 (the index of the `screen_text` entry whose text holds the token) and, with `corner`,
 `timer_corner: true`. A block token is a `screen_text` entry `{"kind": "timer", "text":
@@ -888,6 +893,8 @@ Parentheses are never spoken and never on screen. Every parenthetical is
 stripped identically and travels as a stage note (speaker notes in the present
 view, `stage` in cues.json). Parentheticals do not nest — a nested `(` warns.
 
+In the speaker notes a stage note stays in place: it appears right after the words of the paragraph it was written in, not gathered at the end of the screen. So `( … )` is the way to mark room-only text inside a slide that otherwise reads as prose: it is spoken by no one, shown on no slide, printed in no handout, and the presenter sees it at the spot.
+
 One exception, and it predates the spoken lists: a parenthetical *inside* a
 list item is part of the item, which is screen text, so it stays on the slide.
 If that list is read aloud, the parenthetical comes out of the speech and
@@ -944,6 +951,7 @@ to the frontmatter `sources:` registry:
   ends with a **Sources** list carrying every referenced registry entry in
   first-appearance order; cues.json mirrors the same payload as `deck.sources`.
 - A `[^id]` with no `sources:` entry is a warning.
+- The Sources list prints only a deck's public `cites:` entries. A deck with `sources:` but no `cites:` prints no list (the working receipts never reach the handout or the web page) and the build warns; `handout-sources: working` opts a draft copy back in.
 
 ---
 

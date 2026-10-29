@@ -492,7 +492,14 @@ def check(fx, errors: list) -> None:
 
     # Sources section mirrors deck.sources (spec: Text: one citation list)
     sources = deck.get("sources") or []
-    if sources:
+    # no `cites:` map: the working receipts never print (unless the deck opts in)
+    prints = (isinstance(fx.meta.get("cites"), dict)
+              or str(fx.meta.get("handout-sources", "")).strip().lower() == "working")
+    if sources and not prints:
+        if SOURCES_RE.search(doc_text):
+            err(errors, "deck has `sources:` but no `cites:`, yet the document "
+                        "prints a Sources section")
+    elif sources:
         m = SOURCES_LI_RE.search(doc_text)
         if not m or not SOURCES_RE.search(doc_text):
             err(errors, "deck cites sources but document has no Sources "

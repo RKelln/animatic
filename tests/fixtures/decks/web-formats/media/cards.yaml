@@ -1,0 +1,10 @@
+- slug: diagram-steps
+  status: approved
+  type: image
+  alt: a diagram built in three steps
+  steps: [frame-1, frame-2, frame-3]
+- slug: still-one
+  status: approved
+  type: image
+  alt: a single picture
+  file: media/frame-4.png

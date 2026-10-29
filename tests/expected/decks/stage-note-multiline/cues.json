@@ -118,5 +118,7 @@
       "est_seconds": 3.2
     }
   ],
-  "warnings": []
+  "warnings": [
+    "line 16: check 46: unclosed parenthetical '(...' is read as spoken text and prints in the handout; close it with ')' (spec: Text)"
+  ]
 }

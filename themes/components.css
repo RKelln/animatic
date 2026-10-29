@@ -1272,7 +1272,7 @@
   p.screen-sources a { color: var(--doc-accent); text-decoration: none; }
   p.screen-sources a:hover, p.screen-sources a:focus-visible { text-decoration: underline; }
 
-  .vo { margin: 1.1em 0; }
+  .vo { margin: 1.1em 0; overflow-wrap: anywhere; }   /* a long URL breaks rather than running off a phone */
 
   h2.movement {
     font-size: 1.35rem; margin: 2.6rem 0 0; padding-top: 1.2rem;

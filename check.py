@@ -164,6 +164,7 @@ REGISTER = [
     (43, "`reveal=list` on a screen with no list of 2 or more items: the flag is ignored", WARNING, "implemented"),
     (44, "`reveal=timer` on a screen with no valid `[Timer: ...]` (none written, or the token is bad, zero or a second one; check 37 says which): the flag is ignored and nothing is hidden", WARNING, "implemented: check.py + render.py"),
     (45, "a bare `reveal` on a screen with nothing revealable on it (no list of 2 or more items, no valid timer): the flag does nothing", WARNING, "implemented: check.py + render.py"),
+    (46, "an unclosed `(` parenthetical: the rest of the paragraph is read as spoken text and prints in the handout", WARNING, "enforced: talkparse.py"),
 ]
 
 DEFERRED = {

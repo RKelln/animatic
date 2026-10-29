@@ -1,5 +1,6 @@
 ---
 title: Multi-line stage note
+test-expect: warned
 ---
 ## Movement 1
 <!-- shot: layout=piece -->

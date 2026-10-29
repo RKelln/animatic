@@ -165,6 +165,11 @@ def build(talk_path: Path, args) -> int:
             print(f"warn      : handout Sources omits {len(bare)} cited id(s) "
                   f"with no `cites:` entry: {', '.join(bare)}")
 
+    elif cited_sources(talk) and str(talk.meta.get("handout-sources", "")).strip().lower() != "working":
+        print(f"warn      : handout prints no Sources list: {len(cited_sources(talk))} cited id(s) "
+              f"but no `cites:` map (working receipts never print; `handout-sources: working` "
+              f"for a draft copy)")
+
     present = render_present(talk, resolver, out / "present")
     presenter = render_presenter(talk, resolver, out / "present")
     document = render_document(talk, resolver, out / "document", figures=args.handout_figures,
