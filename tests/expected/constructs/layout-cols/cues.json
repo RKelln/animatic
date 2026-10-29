@@ -1,0 +1,132 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "layout-cols",
+    "title": "layout=cols",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "layout-cols-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Six terms",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero",
+            "layout": "cols",
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Six terms"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Model",
+            "LLM",
+            "Agent",
+            "Chatbot",
+            "Prompt",
+            "Token"
+          ]
+        }
+      ],
+      "script": "Spoken line for the six.",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "layout-cols-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Five items",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "layout": "cols"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Five items"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "A model is the brain",
+            "An LLM reads a lot of writing",
+            "An agent can act",
+            "A chatbot waits for you",
+            "A prompt is what you type"
+          ]
+        }
+      ],
+      "script": "Spoken line for the five.",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "layout-cols-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "One column, for contrast",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "fit": "hero",
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "One column, for contrast"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "Model",
+            "LLM",
+            "Agent"
+          ]
+        }
+      ],
+      "script": "Spoken line for the three.",
+      "stage": null,
+      "est_seconds": 2.0
+    }
+  ],
+  "warnings": []
+}

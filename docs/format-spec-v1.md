@@ -279,7 +279,20 @@ layouts:
   piece: {description: "media floats as a framed object"}
   duo: {description: "object + text layout; implies piece"}
   titled: {description: "heading centred at the top, framed media centred below; implies piece"}
+  cols: {description: "the screen's first list runs in two balanced columns under the title"}
 ```
+
+`layout=cols` sets the screen's first list (bulleted or numbered) as a
+two-column grid, filled down the left column and then the right: the top-level
+items split in half, rounded up. Each item wraps inside its own column, the
+columns sit a wide gutter apart, and items in the same row share a line. It
+suits a list of 4 to 8 items, short terms or one-line definitions. With
+`fit=hero` the list scales to the slide, by height and by width: a word that
+does not fit its column shrinks the list rather than running into its
+neighbour, so the same list comes out smaller in a narrow window. With
+`reveal=list` the items step in reading order, down the left column and then the
+right, and hidden items keep their space. The document view and the handout show
+the list as usual.
 
 Layouts are config, not grammar: the vocabulary grows by adding entries to
 `layouts.yaml` (`duo_right`, `duo_left`, …), never by editing the parser. A

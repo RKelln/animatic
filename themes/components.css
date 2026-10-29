@@ -407,6 +407,22 @@
   .animatic-slide li { margin: 0.3em 0; line-height: 1.25; }
   /* reveal=list: items not yet shown keep their space (nothing jumps) */
   .animatic-slide li.pending { visibility: hidden; }
+  /* layout=cols: the screen's list as a two-column grid (render.py sets
+     --cols-rows to half the items, rounded up), filled down the left column and
+     then the right. Each cell wraps its own text, markers hang in a wide gutter,
+     and a word wider than its cell shrinks the list (fitHeroCode checks the
+     cells' width as well as the height). Spacing sits below each item so both
+     columns start on one line. */
+  .animatic-slide.cols .screen-body > [data-cols] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(var(--cols-rows, 1), auto);
+    grid-auto-flow: column;
+    column-gap: max(8vw, 2.2em);
+    padding-left: 1.2em; text-align: left;
+    width: min(100%, 90vw);
+  }
+  .animatic-slide.cols .screen-body > [data-cols] > li { margin: 0 0 0.6em; }
   /* reveal=timer: the countdown keeps its space but is hidden and stopped until its press */
   .animatic-slide .timer-plate.pending { visibility: hidden; }
   .animatic-slide ol { padding-left: 1.4em; }

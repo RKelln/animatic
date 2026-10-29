@@ -940,6 +940,12 @@ PAGER_JS = """
   // `pad` forces the padding check on a hero list, stat or table as well.
   function overflows(sl, body, pad) {
     if (body.scrollHeight > body.clientHeight + 1) return true;
+    // layout=cols: a column cell is only as wide as its share, so a word that
+    // does not fit it (a narrow window, a long term) makes the text shrink
+    var cells = body.querySelectorAll("[data-cols] > li");
+    for (var c = 0; c < cells.length; c++) {
+      if (cells[c].scrollWidth > cells[c].clientWidth + 1) return true;
+    }
     if (!pad && !codeBlocks(sl).length) return false;
     var r = body.getBoundingClientRect(), cs = getComputedStyle(body);
     var top = r.top + parseFloat(cs.paddingTop), bot = r.bottom - parseFloat(cs.paddingBottom);
@@ -3421,7 +3427,7 @@ def timer_sub(text_html: str, b, mode: str = "present") -> str:
     return text_html
 
 
-def list_html(b, reveal: bool = False, start: int = 0) -> str:
+def list_html(b, reveal: bool = False, start: int = 0, cols: bool = False) -> str:
     """A list block: `<ol>` for numbered items, `<ul>` otherwise.  Sub-points
     (`b.depths`) nest as `<ul>` inside the item above.
 
@@ -3429,10 +3435,16 @@ def list_html(b, reveal: bool = False, start: int = 0) -> str:
     with its step number in document order and the list with `data-reveal`;
     `start` items are showing when the slide opens.  The pager hides the rest
     and shows one more per next-press.
+
+    `cols` (shot flag `layout=cols`) sets the list as a two-column grid: the
+    top-level items fill the left column first, so `--cols-rows` is half of
+    them, rounded up (the stylesheet does the rest).
     """
     tag = "ol" if b.ordered else "ul"
     depths = list(b.depths) or [0] * len(b.items)
-    out = [f"<{tag}" + (f' data-reveal="{start}"' if reveal else "") + ">"]
+    top = sum(1 for dp in depths if dp == 0) or 1
+    out = [f"<{tag}" + (f' data-reveal="{start}"' if reveal else "")
+           + (f' data-cols style="--cols-rows:{-(-top // 2)}"' if cols else "") + ">"]
     d = 0
     for n, (text, depth) in enumerate(zip(b.items, depths), 1):
         depth = min(depth, d + 1) if n > 1 else 0
@@ -3542,6 +3554,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # `reveal=list` (any shot of the screen): the first list's items appear
         # one per next-press.  With nothing on screen before the list, item 1
         # is showing on arrival; with a title first, none are.
+        cols_done = False
         reveal_list = any("list" in reveal_modes(sh.flags) for sh in screen.shots)
         if reveal_list and not any(b.kind == "list" and len(b.items) >= 2 for b in blocks):
             if any("list" in reveal_named(sh.flags) for sh in screen.shots):
@@ -3573,11 +3586,13 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                     f"{src}</div>"
                 )
             elif b.kind == "list":
+                as_cols = sflags.get("layout") == "cols" and not cols_done
+                cols_done = cols_done or as_cols   # only the first list takes the columns
                 if reveal_list:
-                    body.append(timer_sub(list_html(b, True, 0 if (body or timer_first(screen)) else 1), b))
+                    body.append(timer_sub(list_html(b, True, 0 if (body or timer_first(screen)) else 1, as_cols), b))
                     reveal_list = False   # only the first list reveals
                 else:
-                    body.append(timer_sub(list_html(b), b))
+                    body.append(timer_sub(list_html(b, cols=as_cols), b))
             elif b.kind == "table":
                 body.append(table_html(b))
             elif b.kind == "code":
@@ -3665,6 +3680,8 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
             cls += " duo-live"
     if layout_name == "titled" and screen.media_shot is not None:
         cls += " titled"
+    if layout_name == "cols":
+        cls += " cols"
     # per-slide text mode (shot flag `text=light|dark`): the author picks the
     # text colour for the ground — light glyphs for dark imagery, ink for
     # bright. Defaults to the room's identity colour (theme handles it).
