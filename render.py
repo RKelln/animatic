@@ -989,16 +989,27 @@ PAGER_JS = """
     for (var i = 0; i < slides.length; i++) {
       var sl = slides[i];
       var body = sl.querySelector(".screen-body");
-      var pre = body && sl.classList.contains("text-fit") &&
-        body.querySelector(HERO_BLOCKS);
-      if (!pre) continue;
-      var bq = pre.querySelector("blockquote");
-      if (bq) bq.style.fontSize = "";   // fitQuotes may have shrunk it
-      pre.style.fontSize = "";
+      var blocks = body && sl.classList.contains("text-fit") ?
+        Array.prototype.slice.call(body.querySelectorAll(HERO_BLOCKS)) : [];
+      if (!blocks.length) continue;
+      // every hero block on the slide scales by the same factor, so stacked
+      // quotes (or a list beside a quote) keep their sizes relative to each other
+      var bases = [], parents = [];
+      blocks.forEach(function (pre) {
+        var bq = pre.querySelector("blockquote");
+        if (bq) bq.style.fontSize = "";   // fitQuotes may have shrunk it
+        pre.style.fontSize = "";
+      });
+      blocks.forEach(function (pre) {
+        bases.push(parseFloat(getComputedStyle(pre).fontSize));
+        parents.push(parseFloat(getComputedStyle(pre.parentNode).fontSize) || 1);
+      });
       sl.removeAttribute("data-fit");
-      var base = parseFloat(getComputedStyle(pre).fontSize);
-      var parent = parseFloat(getComputedStyle(pre.parentNode).fontSize) || 1;
-      var set = function (sc) { pre.style.fontSize = (base * sc / parent).toFixed(3) + "em"; };
+      var set = function (sc) {
+        blocks.forEach(function (pre, k) {
+          pre.style.fontSize = (bases[k] * sc / parents[k]).toFixed(3) + "em";
+        });
+      };
       var fits = function () { return !overflows(sl, body, true); };
       var scale = 1;
       if (fits()) {
