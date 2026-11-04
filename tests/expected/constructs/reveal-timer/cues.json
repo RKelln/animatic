@@ -289,6 +289,6 @@
   ],
   "warnings": [
     "line 45: check 37: '[Timer: 0:00]' is not a timer: write a duration like 90s, 8m, 1h30m or 5:00 (not zero), then optionally 'corner' — left as text",
-    "line 47: check 25: 'reveal=timer+timer': reveal says what appears one by one, reveal=list, reveal=off, reveal=list+off, reveal=timer, reveal=list+timer, reveal=off+timer, reveal=list+off+timer — token ignored"
+    "line 47: check 25: 'reveal=timer+timer': reveal says what appears one by one, reveal=list, reveal=quote, reveal=source, reveal=off, reveal=timer, or a + join of them, e.g. quote+source — token ignored"
   ]
 }

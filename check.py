@@ -161,7 +161,7 @@ REGISTER = [
     (40, "a screen's `[next]` / `[n]` marks differ in number from its next-presses (stepped images, `reveal=list` items)", WARNING, "implemented"),
     (41, "pool card that cannot apply: folder missing or empty, a `pins:` file not in the folder, or a pin id that breaks the slug rule or repeats a card (a bad pin renders a placeholder or is ignored)", WARNING, "implemented: check.py + mediaresolve.py"),
     (42, "a `[notes]` block that repeats a list the notes already carry (a list read aloud, or a screen's reading copy): the copy is redundant", WARNING, "implemented"),
-    (43, "`reveal=list` on a screen with no list of 2 or more items: the flag is ignored", WARNING, "implemented"),
+    (43, "`reveal=list` on a screen with no list of 2 or more items, or `reveal=quote` with fewer than 2 quotes: the flag is ignored", WARNING, "implemented"),
     (44, "`reveal=timer` on a screen with no valid `[Timer: ...]` (none written, or the token is bad, zero or a second one; check 37 says which): the flag is ignored and nothing is hidden", WARNING, "implemented: check.py + render.py"),
     (45, "a bare `reveal` on a screen with nothing revealable on it (no list of 2 or more items, no valid timer): the flag does nothing", WARNING, "implemented: check.py + render.py"),
     (47, "a presenter-only `([Timer: ...])` on a screen that also has `reveal=timer` or another timer: the presenter window shows one timer per screen; the first timer on the screen wins and `reveal=timer` is ignored for a presenter-only one", WARNING, "implemented: check.py"),
@@ -931,20 +931,26 @@ def check_34_step_counts(talk, resolver, report: Report) -> None:
 
 
 def check_43_reveal_without_list(talk, resolver, report: Report) -> None:
-    """`reveal=list` steps the screen's first list; with no list of 2 or more
-    items the build warns and ignores it. Say so here too, so a clean check
-    means a clean build."""
+    """`reveal=list` steps the screen's first list and `reveal=quote` its stacked
+    quotes; with no list of 2 or more items (or fewer than 2 quotes) the build
+    warns and ignores it. Say so here too, so a clean check means a clean
+    build."""
     for s in talk.screens:
-        for sh in s.shots:
-            if "list" not in render.reveal_named(sh.flags):
-                continue
-            if render.reveal_first_block(s) is not None:
+        for part, has, need in (
+                ("list", render.reveal_list_block(s) is not None, "a list of 2 or more items"),
+                ("quote", bool(render.reveal_quote_blocks(s)), "2 or more quotes"),
+                ("source", any(render.quote_source_block(s, q) is not None
+                               for q in s.blocks if q.kind == "quote"),
+                 "a quote with a `~` source line")):
+            for sh in s.shots:
+                if part not in render.reveal_named(sh.flags):
+                    continue
+                if not has:
+                    report.add(43, WARNING,
+                               f"`reveal={part}` needs {need} on the screen; the flag is "
+                               f"ignored (spec: Shot flags, `reveal`)",
+                               line=sh.line, screen=s.idx)
                 break
-            report.add(43, WARNING,
-                       "`reveal=list` needs a list of 2 or more items (or 2 or more quotes) on the "
-                       "screen; the flag is ignored (spec: Shot flags, `reveal`)",
-                       line=sh.line, screen=s.idx)
-            break
 
 
 def check_44_reveal_timer_without_timer(talk, resolver, report: Report) -> None:
@@ -982,7 +988,7 @@ def check_45_bare_reveal_empty(talk, resolver, report: Report) -> None:
         sh = next(sh for sh in s.shots if render.reveal_is_bare(sh.flags))
         report.add(45, WARNING,
                    "a bare `reveal` has nothing to reveal on this screen (no list of 2 or "
-                   "more items, no valid `[Timer: ...]`); the flag does nothing (spec: Shot "
+                   "more items, no 2 quotes, no valid `[Timer: ...]`); the flag does nothing (spec: Shot "
                    "flags, `reveal`)",
                    line=sh.line, screen=s.idx)
 

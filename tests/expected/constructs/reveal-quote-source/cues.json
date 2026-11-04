@@ -1,0 +1,273 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "reveal-quote-source",
+    "title": "reveal=quote and reveal=source step quotes and their citations",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "reveal-quote-source-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "source"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "A smooth I am sure is not evidence."
+        },
+        {
+          "kind": "source",
+          "text": "Ryan Kelln"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-quote-source-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "Stacked quotes",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "quote"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Stacked quotes"
+        },
+        {
+          "kind": "quote",
+          "text": "one"
+        },
+        {
+          "kind": "source",
+          "text": "a"
+        },
+        {
+          "kind": "quote",
+          "text": "two"
+        },
+        {
+          "kind": "source",
+          "text": "b"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-quote-source-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "Quote then source",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "quote+source"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Quote then source"
+        },
+        {
+          "kind": "quote",
+          "text": "one"
+        },
+        {
+          "kind": "source",
+          "text": "a"
+        },
+        {
+          "kind": "quote",
+          "text": "two"
+        },
+        {
+          "kind": "source",
+          "text": "b"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-quote-source-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "Bare reveal",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "all"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Bare reveal"
+        },
+        {
+          "kind": "quote",
+          "text": "one"
+        },
+        {
+          "kind": "source",
+          "text": "a"
+        },
+        {
+          "kind": "quote",
+          "text": "two"
+        },
+        {
+          "kind": "source",
+          "text": "b"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-quote-source-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "card",
+      "title": "List part leaves quotes alone",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "list"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "List part leaves quotes alone"
+        },
+        {
+          "kind": "quote",
+          "text": "one\ntwo"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "l1",
+            "l2"
+          ]
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-quote-source-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "card",
+      "title": "One quote only",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "quote"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "One quote only"
+        },
+        {
+          "kind": "quote",
+          "text": "alone"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "reveal-quote-source-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "card",
+      "title": null,
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "source"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "quote",
+          "text": "no citation"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    }
+  ],
+  "warnings": []
+}

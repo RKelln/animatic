@@ -432,7 +432,8 @@
   .animatic-slide li { margin: 0.3em 0; line-height: 1.25; }
   /* reveal=list: items not yet shown keep their space (nothing jumps) */
   .animatic-slide li.pending,
-  .animatic-slide .quote-block.pending { visibility: hidden; }   /* stacked quotes step too */
+  .animatic-slide .quote-block.pending,
+  .animatic-slide .quote-source.pending { visibility: hidden; }   /* stacked quotes and their sources step too */
   /* layout=cols: the screen's list as a two-column grid (render.py sets
      --cols-rows to half the items, rounded up), filled down the left column and
      then the right. Each cell wraps its own text, markers hang in a wide gutter,

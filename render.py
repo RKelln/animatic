@@ -607,7 +607,7 @@ def reveal_modes(flags: dict) -> set:
 # The things a bare `reveal` reveals (which of them step, not in which order:
 # the steps follow the order the elements are written on the screen). A new
 # revealable opts in by being added here and to the pager's revealOf().
-REVEALABLES = ("list", "timer")
+REVEALABLES = ("list", "quote", "timer")   # `source` is opt-in: not part of a bare `reveal`
 
 
 def reveal_named(flags: dict) -> set:
@@ -628,31 +628,84 @@ def reveal_list_block(screen: "Screen"):
 
 
 def reveal_quote_blocks(screen: "Screen") -> list:
-    """The quote blocks `reveal=list` steps when the screen has no list of 2 or
-    more items: two or more quotes stacked on one screen, each with its
-    citation, one per press. A list wins when there is one."""
-    if reveal_list_block(screen) is not None:
-        return []
+    """The screen's quote blocks when there are two or more (each steps as one,
+    its `~` citation with it), else none."""
     qs = [b for b in screen.blocks if b.kind == "quote"]
     return qs if len(qs) >= 2 else []
 
 
-def reveal_first_block(screen: "Screen"):
-    """The block whose items step: the first list, else the first stacked quote."""
-    lst = reveal_list_block(screen)
-    if lst is not None:
-        return lst
-    qs = reveal_quote_blocks(screen)
-    return qs[0] if qs else None
+def screen_reveal_modes(screen: "Screen") -> set:
+    """Every `reveal` part any shot of the screen asks for (a bare `reveal` asks
+    for all of them)."""
+    out = set()
+    for sh in screen.shots:
+        out |= reveal_modes(sh.flags)
+    return out
+
+
+def quote_source_block(screen: "Screen", q) -> Optional[object]:
+    """The `~` citation block right under quote block `q`, or None."""
+    for n, b in enumerate(screen.blocks):
+        if b is q:
+            nxt = screen.blocks[n + 1] if n + 1 < len(screen.blocks) else None
+            if nxt is not None and nxt.kind == "quote-source" and nxt.text.strip():
+                return nxt
+            return None
+    return None
+
+
+def reveal_steps(screen: "Screen") -> list:
+    """What steps, one press each, in document order, as (block, part) pairs:
+    the first list (`list`, one step per item), each quote when there are two or
+    more (`quote`), each quote's citation (`source`, shown on its own press
+    after the quote when both step). Whichever the screen's reveal asks for and
+    has."""
+    modes = screen_reveal_modes(screen)
+    out = []
+    if "list" in modes:
+        lst = reveal_list_block(screen)
+        if lst is not None:
+            out.append((lst, "list"))
+    quotes = [b for b in screen.blocks if b.kind == "quote"]
+    if "quote" in modes and len(quotes) >= 2:
+        out.extend((q, "quote") for q in quotes)
+    if "source" in modes:
+        out.extend((q, "source") for q in quotes if quote_source_block(screen, q) is not None)
+    order = {id(b): n for n, b in enumerate(screen.blocks)}
+    # a quote before its own citation; otherwise document order
+    return sorted(out, key=lambda e: (order[id(e[0])], e[1] == "source"))
+
+
+def reveal_stepped(screen: "Screen") -> list:
+    """The blocks that step, in document order (a quote appears twice when its
+    citation steps separately)."""
+    return [b for b, _ in reveal_steps(screen)]
 
 
 def reveal_item_count(screen: "Screen") -> int:
-    lst = reveal_list_block(screen)
-    return len(lst.items) if lst is not None else len(reveal_quote_blocks(screen))
+    """Steps: one per list item (sub-points included, as list_html numbers
+    them), one per quote, one per separately revealed citation."""
+    return sum(len(b.items) if part == "list" else 1 for b, part in reveal_steps(screen))
+
+
+def reveal_arrival(screen: "Screen") -> int:
+    """Steps already showing when the screen opens: 1 when the first thing that
+    steps is a list or quote that opens the screen, else 0 (a title comes first,
+    or the first step is a citation, whose quote is already up)."""
+    steps = reveal_steps(screen)
+    if not steps or timer_first(screen):
+        return 0
+    blk, part = steps[0]
+    first = next((b for b in screen.blocks if b.kind not in ("vo", "handout-heading")), None)
+    return 1 if (part != "source" and first is blk) else 0
 
 
 def has_revealable_list(screen: "Screen") -> bool:
-    return reveal_first_block(screen) is not None
+    return reveal_list_block(screen) is not None
+
+
+def has_revealable_quotes(screen: "Screen") -> bool:
+    return bool(reveal_quote_blocks(screen))
 
 
 def revealables_on(screen: "Screen") -> list:
@@ -660,6 +713,8 @@ def revealables_on(screen: "Screen") -> list:
     out = []
     if has_revealable_list(screen):
         out.append("list")
+    if has_revealable_quotes(screen):
+        out.append("quote")
     if screen.timer is not None:
         out.append("timer")
     return out
@@ -807,7 +862,7 @@ PAGER_JS = """
     var tr = sl.querySelector("[data-timer-reveal]");
     if (!st && !l && !tr) return null;
     var imgs = st ? st.querySelectorAll("[data-frame]").length : 0;
-    var items = l ? sl.querySelectorAll("li[data-step], .quote-block[data-step]").length : 0;
+    var items = l ? sl.querySelectorAll("li[data-step], .quote-block[data-step], .quote-source[data-step]").length : 0;
     // `reveal=timer` adds one last step after the others: the press that shows
     // the countdown and starts it. A slide with only a timer opens at step 0.
     // Document order: a timer written above the list (data-timer-reveal="first")
@@ -834,7 +889,7 @@ PAGER_JS = """
     var k = getStep(i);
     // kl: the step as the list and the images see it (a first timer takes press 1)
     var kl = r.timerFirst ? k - 1 : k;
-    var lis = slides[i].querySelectorAll("li[data-step], .quote-block[data-step]");
+    var lis = slides[i].querySelectorAll("li[data-step], .quote-block[data-step], .quote-source[data-step]");
     for (var n = 0; n < lis.length; n++) {
       lis[n].classList.toggle("pending", n + 1 > kl);
     }
@@ -3438,9 +3493,10 @@ def timer_first(screen: Screen) -> bool:
     corner timer has no visual position, so where the line is written decides).
     Written below the list, or inside the list's own items, or with no revealed
     list on the screen, the timer is the last step, as it always was."""
-    if not timer_armed(screen) or not any("list" in reveal_modes(sh.flags) for sh in screen.shots):
+    if not timer_armed(screen):
         return False
-    lst = reveal_first_block(screen)
+    stepped = reveal_stepped(screen)
+    lst = stepped[0] if stepped else None
     tb = screen.timer_block
     return lst is not None and tb is not None and tb is not lst and tb.line < lst.line
 
@@ -3467,14 +3523,18 @@ def timer_sub(text_html: str, b, mode: str = "present") -> str:
     return text_html
 
 
-def list_html(b, reveal: bool = False, start: int = 0, cols: bool = False) -> str:
+def list_html(b, reveal: bool = False, start: Optional[int] = 0, cols: bool = False,
+              offset: int = 0) -> str:
     """A list block: `<ol>` for numbered items, `<ul>` otherwise.  Sub-points
     (`b.depths`) nest as `<ul>` inside the item above.
 
     `reveal` (shot flag `reveal=list`) marks each item, sub-points included,
     with its step number in document order and the list with `data-reveal`;
-    `start` items are showing when the slide opens.  The pager hides the rest
-    and shows one more per next-press.
+    `start` items are showing when the slide opens (None: this list is not the
+    first thing that steps, so the marker is on the element before it).  The
+    pager hides the rest and shows one more per next-press.  `offset` is the
+    number of steps before this list on the screen (stacked quotes written
+    above it), so step numbers run in document order across the screen.
 
     `cols` (shot flag `layout=cols`) sets the list as a two-column grid: the
     top-level items fill the left column first, so `--cols-rows` is half of
@@ -3483,7 +3543,7 @@ def list_html(b, reveal: bool = False, start: int = 0, cols: bool = False) -> st
     tag = "ol" if b.ordered else "ul"
     depths = list(b.depths) or [0] * len(b.items)
     top = sum(1 for dp in depths if dp == 0) or 1
-    out = [f"<{tag}" + (f' data-reveal="{start}"' if reveal else "")
+    out = [f"<{tag}" + (f' data-reveal="{start}"' if reveal and start is not None else "")
            + (f' data-cols style="--cols-rows:{-(-top // 2)}"' if cols else "") + ">"]
     d = 0
     for n, (text, depth) in enumerate(zip(b.items, depths), 1):
@@ -3495,7 +3555,7 @@ def list_html(b, reveal: bool = False, start: int = 0, cols: bool = False) -> st
         else:
             out.append("</li>" + "</ul></li>" * (d - depth))
         d = depth
-        out.append(f'<li data-step="{n}">' if reveal else "<li>")
+        out.append(f'<li data-step="{offset + n}">' if reveal else "<li>")
         out.append(inline_md(text))
     out.append("</li>" + "</ul></li>" * d + f"</{tag}>")
     return "".join(out)
@@ -3595,16 +3655,27 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # one per next-press.  With nothing on screen before the list, item 1
         # is showing on arrival; with a title first, none are.
         cols_done = False
-        reveal_list = any("list" in reveal_modes(sh.flags) for sh in screen.shots)
-        # with no list of 2 or more items, two or more stacked quotes step instead
-        reveal_quotes = False
-        if reveal_list and not any(b.kind == "list" and len(b.items) >= 2 for b in blocks):
-            if sum(1 for b in blocks if b.kind == "quote") >= 2:
-                reveal_quotes = True
-            elif any("list" in reveal_named(sh.flags) for sh in screen.shots):
-                print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items (or 2 or more quotes) on the screen; ignored")
-            reveal_list = False
-        quote_step = 0
+        modes = screen_reveal_modes(screen)
+        named = set()
+        for sh in screen.shots:
+            named |= reveal_named(sh.flags)
+        step_list = "list" in modes and any(b.kind == "list" and len(b.items) >= 2 for b in blocks)
+        step_quotes = "quote" in modes and sum(1 for b in blocks if b.kind == "quote") >= 2
+        step_sources = "source" in modes and any(
+            b.kind == "quote" and quote_source_block(screen, b) is not None for b in blocks)
+        if "list" in named and not step_list:
+            print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items on the screen; ignored")
+        if "quote" in named and not step_quotes:
+            print(f"warn      : {cue_id}: reveal=quote needs 2 or more quotes on the screen; ignored")
+        if "source" in named and not step_sources:
+            print(f"warn      : {cue_id}: reveal=source needs a quote with a ~ source line on the screen; ignored")
+        # `reveal=list` / `reveal=quote` (a bare `reveal` does both): the first
+        # list's items and the stacked quotes step one per press, numbered in
+        # document order.  The first thing that steps carries the arrival marker:
+        # none showing when a title (or anything) is written before it, else its
+        # first step.
+        step_n = 0
+        first_step = True
         while i < len(blocks):
             b = blocks[i]
             # VO never renders on the slide body (cinematic slides; VO is
@@ -3624,17 +3695,28 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 # quote + its attribution share one centered block, with the
                 # credit line hugging the block's right edge
                 nxt = blocks[i + 1] if i + 1 < len(blocks) else None
-                if nxt is not None and nxt.kind == "quote-source" and nxt.text.strip():
-                    src = f'<p class="quote-source">{inline_md(nxt.text)}</p>'
+                has_src = nxt is not None and nxt.kind == "quote-source" and nxt.text.strip()
+                if has_src:
                     i += 1
-                else:
-                    src = ""
+                # reveal=quote / reveal=source: the quote's own press, then its
+                # citation's. The first thing that steps carries the arrival
+                # marker (a citation that steps first has its quote already up).
                 qattr = ""
-                if reveal_quotes:
-                    quote_step += 1
-                    qattr = f' data-step="{quote_step}"'
-                    if quote_step == 1:
+                if step_quotes:
+                    step_n += 1
+                    qattr = f' data-step="{step_n}"'
+                    if first_step:
                         qattr += f' data-reveal="{0 if (body or timer_first(screen)) else 1}"'
+                        first_step = False
+                sattr = ""
+                if has_src and step_sources:
+                    step_n += 1
+                    sattr = f' data-step="{step_n}"'
+                    if first_step:
+                        sattr += ' data-reveal="0"'
+                        first_step = False
+                src = (f'<p class="quote-source"{sattr}>{inline_md(nxt.text)}</p>'
+                       if has_src else "")
                 body.append(
                     f'<div class="quote-block{quote_size_class(b.text)}"{qattr}>'
                     f'<div class="quote-plate" aria-hidden="true"></div>'
@@ -3644,9 +3726,12 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
             elif b.kind == "list":
                 as_cols = sflags.get("layout") == "cols" and not cols_done
                 cols_done = cols_done or as_cols   # only the first list takes the columns
-                if reveal_list:
-                    body.append(timer_sub(list_html(b, True, 0 if (body or timer_first(screen)) else 1, as_cols), b))
-                    reveal_list = False   # only the first list reveals
+                if step_list:
+                    start = (0 if (body or timer_first(screen)) else 1) if first_step else None
+                    body.append(timer_sub(list_html(b, True, start, as_cols, offset=step_n), b))
+                    step_n += len(b.items)
+                    first_step = False
+                    step_list = False   # only the first list reveals
                 else:
                     body.append(timer_sub(list_html(b, cols=as_cols), b))
             elif b.kind == "table":
@@ -4350,11 +4435,11 @@ def step_count_notes(talk: Talk, resolver: MediaResolver) -> list:
     notes = []
     for s in talk.screens:
         ref = screen_steps(s, resolver)
-        if ref is None or not any("list" in reveal_modes(sh.flags) for sh in s.shots):
+        if ref is None or not reveal_stepped(s):
             continue
-        lst = reveal_first_block(s)
+        lst = reveal_stepped(s)
         n_items = reveal_item_count(s)
-        if lst is not None and n_items != len(ref.steps):
+        if lst and n_items != len(ref.steps):
             notes.append((s, s.media_shot.line,
                 f"'{ref.slug}' has {len(ref.steps)} image steps and the reveal=list list "
                 f"has {n_items} items: they advance together, and the shorter one "
@@ -4373,10 +4458,9 @@ def next_mark_notes(talk: Talk, resolver: MediaResolver) -> list:
             continue
         ref = screen_steps(s, resolver)
         imgs = len(ref.steps) if ref is not None else 0
-        lst = reveal_first_block(s)
-        if lst is not None and not any("list" in reveal_modes(sh.flags) for sh in s.shots):
-            lst = None
-        items = reveal_item_count(s) if lst is not None else 0
+        stepped = reveal_stepped(s)
+        lst = stepped[0] if stepped else None
+        items = reveal_item_count(s)
         tarm = timer_armed(s)
         if lst is None and not imgs and not tarm:
             presses, how = 0, "nothing on it steps"
@@ -4384,8 +4468,7 @@ def next_mark_notes(talk: Talk, resolver: MediaResolver) -> list:
             # the list's own arrival: item 1 showing when nothing precedes it,
             # none when a title comes first; images alone open on frame 1
             # (a handout-only heading, written before the shot comment, is not on the slide)
-            first = next((b for b in s.blocks if b.kind not in ("vo", "handout-heading")), None)
-            start = (1 if first is lst else 0) if lst is not None else (1 if imgs else 0)
+            start = reveal_arrival(s) if lst is not None else (1 if imgs else 0)
             if timer_first(s):
                 start = 0
             steps_n = max(imgs, items) + (1 if tarm else 0)

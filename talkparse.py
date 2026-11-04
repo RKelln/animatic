@@ -97,14 +97,13 @@ KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "sile
 # The parts combine with `+` in any order (`list+timer`, `timer+off`).
 # A bare `reveal` (no value) means everything the screen can reveal, now or
 # later: it is stored as REVEAL_ALL and expanded by render.reveal_modes.
-REVEAL_VALUES = ("list", "off", "list+off", "timer", "list+timer", "off+timer",
-                 "list+off+timer")
-REVEAL_PARTS = ("list", "off", "timer")
+REVEAL_VALUES = ("list", "quote", "source", "off", "timer", "or a + join of them, e.g. quote+source")
+REVEAL_PARTS = ("list", "quote", "source", "off", "timer")
 REVEAL_ALL = "all"      # the stored value of a bare `reveal`; not writable as `reveal=all`
 
 
 def valid_reveal(value: str) -> bool:
-    """A `reveal=` value: one or more of list / off / timer joined with `+`,
+    """A `reveal=` value: one or more of list / quote / source / off / timer joined with `+`,
     none repeated."""
     parts = str(value).split("+")
     return all(p in REVEAL_PARTS for p in parts) and len(set(parts)) == len(parts)
@@ -1261,7 +1260,7 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
     if name == "reveal" and not valid_reveal(value):
         shot.warnings.append(
             f"check 25: {token!r}: reveal says what appears one by one, "
-            f"reveal={', reveal='.join(REVEAL_VALUES)} — token ignored"
+            f"reveal={', reveal='.join(REVEAL_VALUES[:-1])}, {REVEAL_VALUES[-1]} — token ignored"
         )
         return
     if name == "anchor" and value not in ANCHOR_VALUES:

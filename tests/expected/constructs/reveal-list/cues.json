@@ -217,6 +217,6 @@
     }
   ],
   "warnings": [
-    "line 30: check 25: 'reveal=images': reveal says what appears one by one, reveal=list, reveal=off, reveal=list+off, reveal=timer, reveal=list+timer, reveal=off+timer, reveal=list+off+timer — token ignored"
+    "line 30: check 25: 'reveal=images': reveal says what appears one by one, reveal=list, reveal=quote, reveal=source, reveal=off, reveal=timer, or a + join of them, e.g. quote+source — token ignored"
   ]
 }
