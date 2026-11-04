@@ -332,6 +332,19 @@
   .animatic-slide .quote-block.quote-long { max-width: 46em; }
   .animatic-slide .quote-block.quote-short blockquote,
   .animatic-slide .quote-block.quote-long blockquote { max-width: 100%; }
+  /* Stacked type-in prompts share a column instead of sizing each box to
+     its own text. Keep the single pull-quote length tiers above unchanged. */
+  .animatic-slide .screen-body:has(> .quote-block + .quote-block)
+    > .quote-block:has(> blockquote.type-in) {
+    width: 100%;
+    max-width: 40em;
+  }
+  .animatic-slide .screen-body:has(> .quote-block + .quote-block)
+    > .quote-block > blockquote.type-in {
+    width: 100%;
+    max-width: 100%;
+  }
+  .animatic-slide .quote-block + .quote-block { margin-top: 0.7em; }
   .animatic-slide .quote-block.quote-long blockquote {
     font-size: 1.05em;
     line-height: 1.42;
