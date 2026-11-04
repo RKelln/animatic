@@ -108,6 +108,7 @@
      the slide (fitHeroCode), so the title steps down to leave it room */
   .animatic-slide.text-fit:has(.screen-body > :is(ul, ol, .stat, .md-table, .paraphrase-block)) .slide-title {
     font-size: 2em;
+    font-weight: 700;
     line-height: 1.15;
   }
   /* fit=hero with a quote: centred like the title, no left rule */
@@ -117,6 +118,22 @@
      down to a heading size and leaves the slide to the text */
   .animatic-slide.has-code.text-fit .slide-title {
     font-size: 2em;
+    font-weight: 700;
     line-height: 1.15;
+  }
+
+  /* subtitle: a heading right after a shallower one (render.py adds the
+     class). Same size as its title, regular weight, italic, so the pair reads
+     title + subtitle without small type. Declared after the fit rules so it
+     wins on every fit variant. */
+  .animatic-slide .slide-title.subtitle {
+    font-weight: 400; font-style: italic; margin-top: 0;
+  }
+  .animatic-slide.text-fit .slide-title.subtitle {
+    font-size: clamp(2.4em, 9vmin, 6em);
+  }
+  .animatic-slide.text-fit:has(.screen-body > :is(ul, ol, .stat, .md-table, .paraphrase-block)) .slide-title.subtitle,
+  .animatic-slide.has-code.text-fit .slide-title.subtitle {
+    font-size: 2em; font-weight: 400;
   }
 }

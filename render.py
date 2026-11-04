@@ -3569,7 +3569,12 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 continue
             if b.kind == "heading":
                 lvl = min(b.level or 2, 3)
-                body.append(f"<h{lvl} class='slide-title'>{timer_sub(inline_md(b.text), b)}</h{lvl}>")
+                # a heading right after a shallower one is its subtitle
+                prev = blocks[i - 1] if i > 0 else None
+                sub = (prev is not None and prev.kind == "heading"
+                       and (b.level or 2) > (prev.level or 2))
+                cls = "slide-title subtitle" if sub else "slide-title"
+                body.append(f"<h{lvl} class='{cls}'>{timer_sub(inline_md(b.text), b)}</h{lvl}>")
             elif b.kind == "quote":
                 # quote + its attribution share one centered block, with the
                 # credit line hugging the block's right edge
