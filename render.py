@@ -622,8 +622,37 @@ def reveal_is_bare(flags: dict) -> bool:
     return str(flags.get("reveal") or "") == talkparse.REVEAL_ALL
 
 
+def reveal_list_block(screen: "Screen"):
+    """The screen's first list of 2 or more items, or None."""
+    return next((b for b in screen.blocks if b.kind == "list" and len(b.items) >= 2), None)
+
+
+def reveal_quote_blocks(screen: "Screen") -> list:
+    """The quote blocks `reveal=list` steps when the screen has no list of 2 or
+    more items: two or more quotes stacked on one screen, each with its
+    citation, one per press. A list wins when there is one."""
+    if reveal_list_block(screen) is not None:
+        return []
+    qs = [b for b in screen.blocks if b.kind == "quote"]
+    return qs if len(qs) >= 2 else []
+
+
+def reveal_first_block(screen: "Screen"):
+    """The block whose items step: the first list, else the first stacked quote."""
+    lst = reveal_list_block(screen)
+    if lst is not None:
+        return lst
+    qs = reveal_quote_blocks(screen)
+    return qs[0] if qs else None
+
+
+def reveal_item_count(screen: "Screen") -> int:
+    lst = reveal_list_block(screen)
+    return len(lst.items) if lst is not None else len(reveal_quote_blocks(screen))
+
+
 def has_revealable_list(screen: "Screen") -> bool:
-    return any(b.kind == "list" and len(b.items) >= 2 for b in screen.blocks)
+    return reveal_first_block(screen) is not None
 
 
 def revealables_on(screen: "Screen") -> list:
@@ -778,7 +807,7 @@ PAGER_JS = """
     var tr = sl.querySelector("[data-timer-reveal]");
     if (!st && !l && !tr) return null;
     var imgs = st ? st.querySelectorAll("[data-frame]").length : 0;
-    var items = l ? l.querySelectorAll("li[data-step]").length : 0;
+    var items = l ? sl.querySelectorAll("li[data-step], .quote-block[data-step]").length : 0;
     // `reveal=timer` adds one last step after the others: the press that shows
     // the countdown and starts it. A slide with only a timer opens at step 0.
     // Document order: a timer written above the list (data-timer-reveal="first")
@@ -805,7 +834,7 @@ PAGER_JS = """
     var k = getStep(i);
     // kl: the step as the list and the images see it (a first timer takes press 1)
     var kl = r.timerFirst ? k - 1 : k;
-    var lis = slides[i].querySelectorAll("li[data-step]");
+    var lis = slides[i].querySelectorAll("li[data-step], .quote-block[data-step]");
     for (var n = 0; n < lis.length; n++) {
       lis[n].classList.toggle("pending", n + 1 > kl);
     }
@@ -3411,7 +3440,7 @@ def timer_first(screen: Screen) -> bool:
     list on the screen, the timer is the last step, as it always was."""
     if not timer_armed(screen) or not any("list" in reveal_modes(sh.flags) for sh in screen.shots):
         return False
-    lst = next((b for b in screen.blocks if b.kind == "list" and len(b.items) >= 2), None)
+    lst = reveal_first_block(screen)
     tb = screen.timer_block
     return lst is not None and tb is not None and tb is not lst and tb.line < lst.line
 
@@ -3567,10 +3596,15 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # is showing on arrival; with a title first, none are.
         cols_done = False
         reveal_list = any("list" in reveal_modes(sh.flags) for sh in screen.shots)
+        # with no list of 2 or more items, two or more stacked quotes step instead
+        reveal_quotes = False
         if reveal_list and not any(b.kind == "list" and len(b.items) >= 2 for b in blocks):
-            if any("list" in reveal_named(sh.flags) for sh in screen.shots):
-                print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items on the screen; ignored")
+            if sum(1 for b in blocks if b.kind == "quote") >= 2:
+                reveal_quotes = True
+            elif any("list" in reveal_named(sh.flags) for sh in screen.shots):
+                print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items (or 2 or more quotes) on the screen; ignored")
             reveal_list = False
+        quote_step = 0
         while i < len(blocks):
             b = blocks[i]
             # VO never renders on the slide body (cinematic slides; VO is
@@ -3595,8 +3629,14 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                     i += 1
                 else:
                     src = ""
+                qattr = ""
+                if reveal_quotes:
+                    quote_step += 1
+                    qattr = f' data-step="{quote_step}"'
+                    if quote_step == 1:
+                        qattr += f' data-reveal="{0 if (body or timer_first(screen)) else 1}"'
                 body.append(
-                    f'<div class="quote-block{quote_size_class(b.text)}">'
+                    f'<div class="quote-block{quote_size_class(b.text)}"{qattr}>'
                     f'<div class="quote-plate" aria-hidden="true"></div>'
                     f"<blockquote{quote_kind_attr(b.text)}>{timer_sub(quote_paras_html(b.text), b)}</blockquote>"
                     f"{src}</div>"
@@ -4312,11 +4352,12 @@ def step_count_notes(talk: Talk, resolver: MediaResolver) -> list:
         ref = screen_steps(s, resolver)
         if ref is None or not any("list" in reveal_modes(sh.flags) for sh in s.shots):
             continue
-        lst = next((b for b in s.blocks if b.kind == "list" and len(b.items) >= 2), None)
-        if lst is not None and len(lst.items) != len(ref.steps):
+        lst = reveal_first_block(s)
+        n_items = reveal_item_count(s)
+        if lst is not None and n_items != len(ref.steps):
             notes.append((s, s.media_shot.line,
                 f"'{ref.slug}' has {len(ref.steps)} image steps and the reveal=list list "
-                f"has {len(lst.items)} items: they advance together, and the shorter one "
+                f"has {n_items} items: they advance together, and the shorter one "
                 f"holds on its last until the longer finishes"))
     return notes
 
@@ -4332,10 +4373,10 @@ def next_mark_notes(talk: Talk, resolver: MediaResolver) -> list:
             continue
         ref = screen_steps(s, resolver)
         imgs = len(ref.steps) if ref is not None else 0
-        lst = next((b for b in s.blocks if b.kind == "list" and len(b.items) >= 2), None)
+        lst = reveal_first_block(s)
         if lst is not None and not any("list" in reveal_modes(sh.flags) for sh in s.shots):
             lst = None
-        items = len(lst.items) if lst is not None else 0
+        items = reveal_item_count(s) if lst is not None else 0
         tarm = timer_armed(s)
         if lst is None and not imgs and not tarm:
             presses, how = 0, "nothing on it steps"

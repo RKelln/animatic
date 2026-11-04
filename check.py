@@ -938,10 +938,10 @@ def check_43_reveal_without_list(talk, resolver, report: Report) -> None:
         for sh in s.shots:
             if "list" not in render.reveal_named(sh.flags):
                 continue
-            if any(b.kind == "list" and len(b.items) >= 2 for b in s.blocks):
+            if render.reveal_first_block(s) is not None:
                 break
             report.add(43, WARNING,
-                       "`reveal=list` needs a list of 2 or more items on the "
+                       "`reveal=list` needs a list of 2 or more items (or 2 or more quotes) on the "
                        "screen; the flag is ignored (spec: Shot flags, `reveal`)",
                        line=sh.line, screen=s.idx)
             break
