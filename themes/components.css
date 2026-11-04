@@ -255,7 +255,7 @@
   .animatic-slide blockquote p + p { margin-top: 0.7em; }
   /* quote attribution (grammar: a "Source: ..." line under a quote) */
   .quote-source {
-    margin-top: 1.1em;
+    margin-top: 0.6em;      /* hugs its quote; the gap AFTER it is the larger one */
     width: 100%;
     text-align: right;
     font-family: var(--font-ui);
@@ -345,6 +345,9 @@
     max-width: 100%;
   }
   .animatic-slide .quote-block + .quote-block { margin-top: 0.7em; }
+  /* a block that ends in a citation: more air before the next one, so the
+     citation groups with the quote above it, not the one below */
+  .animatic-slide .quote-block:has(> .quote-source) + .quote-block { margin-top: 1.6em; }
   .animatic-slide .quote-block.quote-long blockquote {
     font-size: 1.05em;
     line-height: 1.42;
