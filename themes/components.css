@@ -363,8 +363,8 @@
   .animatic-slide.text-fit .quote-block blockquote p { text-wrap: balance; }
   .animatic-slide.text-fit .quote-source {
     text-align: center;
-    font-size: 0.85em; font-weight: 600;   /* a label the room reads from the back */
-    color: var(--stage-ink);
+    font-size: 0.85em;   /* a label the room reads from the back, still secondary to its quote */
+    color: color-mix(in srgb, var(--stage-ink) 78%, transparent);
   }
   /* fit=hero with two or more quotes: one shared look, whatever each one's
      length tier (a short and a long quote would otherwise differ in width and
