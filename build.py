@@ -40,7 +40,7 @@ import yaml
 
 import render
 import talkparse
-from mediaresolve import MediaResolver, expand_pools, shelf_media_errors
+from mediaresolve import UNCREDITED, MediaResolver, expand_pools, shelf_media_errors, uncredited_shared
 from render import (cited_sources, render_cues, render_document, render_manifest, render_nav,
                     render_present, render_presenter)
 
@@ -166,8 +166,10 @@ def build(talk_path: Path, args) -> int:
         print(f"warn      : check 33: {msg}")
     for _slug, msg in resolver.pool_issues:
         print(f"warn      : check 41: {msg}")
-    for _slug, msg in resolver.shared_issues:
+    for msg in dict.fromkeys(m for _slug, m in resolver.shared_issues):
         print(f"warn      : check 50: {msg}")
+    for label in uncredited_shared(talk, resolver):
+        print(f"warn      : check 51: {UNCREDITED.format(label)}")
     for scr, _line, msg in render.step_count_notes(talk, resolver):
         print(f"warn      : check 34: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
     for scr, _line, msg in render.next_mark_notes(talk, resolver):

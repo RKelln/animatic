@@ -71,6 +71,10 @@ One command, one exit code:
   unresolved shelf slug fatal (check 48, section file named, in build.py and check.py) against the
   same section included, which stays a placeholder with the check 11 warning; and
   `--quick-sections` pointing outside the deck's parent (media still from the deck's `_media/`).
+  It also holds the `--lib` name through a `continue` screen, a stepped card's frames, a pingpong
+  video, the document view and `--no-handout-pools`; pins alt falling back to the slug as written;
+  an entry as the card of a slide with none; checks 50 (missing `file:`) and 51 (no credit); and a
+  deck's stand-in not filling a section's `--lib`.
   `fixtures/waypoints/` is the waypoint deck (docs/waypoints.md): four marked screens
   (one with the directive between a heading and its shot), a shelf, a `waypoints.url`.
   `properties/waypoint_props.py` pins the parse, check 49 (every case, with its line),

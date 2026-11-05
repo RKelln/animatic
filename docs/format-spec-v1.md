@@ -1108,7 +1108,8 @@ is that card steps, with no shot flag.
 4. shared media, `_media/` beside the deck dir: a `library.yaml` entry with a
    `file:`, else a file named for the slug, `_media/<slug>.<ext>` or
    `_media/<slug>/<slug>.<ext>` (no entry needed; the entry carries alt, credit,
-   licence, type overrides, `pool:`; two matching files warn, check 50)
+   licence, type overrides, `pool:`, and is the card when the deck has none; two
+   matching files or a missing `file:` warn, check 50; no credit warns, check 51)
 5. `--media-remap` stand-in (deliberately last — real art always wins)
 6. placeholder (a grey box carrying slug, status, and reason)
 
@@ -1275,7 +1276,7 @@ that is not a list (check 48) · a malformed waypoint directive or `waypoints:` 
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[notes]` block that repeats a list the notes already carry (check 42) · two files in `_media/` matching one slug (check 50).
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[notes]` block that repeats a list the notes already carry (check 42) · two files in `_media/` matching one slug, or a library entry whose `file:` is not there (check 50) · a file from `_media/` with no credit (check 51).
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 

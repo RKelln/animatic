@@ -18,7 +18,12 @@ A throwaway tree under /tmp: `decks/<deck>/` beside `decks/_media/` and a
   check.py, naming the section; in an ordinary include it stays a placeholder
   and a warning;
 - `--quick-sections DIR` with a directory outside the deck's parent: the shared
-  library is still the one beside the DECK, never one beside DIR.
+  library is still the one beside the DECK, never one beside DIR;
+- the `--lib` name holds wherever a shot goes: a `continue` screen, a stepped
+  card and its frames, a video and its pingpong, the document view, and
+  `--no-handout-pools`; a picture with no alt falls back to the slug as written;
+- a library entry is the card of a deck slide that has none; a missing `file:` is
+  check 50; no credit is check 51; a deck's stand-in never fills a section's `--lib`.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ from __future__ import annotations
 import io
 import json
 import shutil
+import subprocess
 import tempfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -323,5 +329,216 @@ Words.
         code, _, stderr = _build(talk, tmp / "out-far2", "--quick-sections", str(elsewhere / "sections"))
         if code == 0 or "far.section.md" not in stderr:
             err(errors, f"outside dir: a _media beside the section directory was used (code {code})")
+        _check_lib_names(errors, tmp / "lib")
+        _check_entries(errors, tmp / "entries")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _check_lib_names(errors: list, root: Path) -> None:
+    decks = root / "decks"
+    deck, shared = decks / "deck", decks / "_media"
+    deck_pic = _png(deck / "media" / "pic.png", (200, 0, 0))
+    lib_pic = _png(shared / "pic.png", (0, 0, 200))
+    _png(deck / "media" / "stepped.png", (200, 0, 0))
+    _png(deck / "media" / "f1.png", (200, 0, 0))               # the deck's frame of that name
+    f1 = _png(shared / "f1.png", (0, 90, 0))
+    f2 = _png(shared / "f2.png", (0, 120, 0))
+    _png(deck / "media" / "art.png", (200, 0, 0))
+    _png(shared / "artfolder" / "a1.png", (10, 10, 10))
+    _png(shared / "artfolder" / "a2.png", (240, 240, 240))
+    _write(shared / "library.yaml", """
+- slug: stepped
+  type: image
+  status: file
+  credit: Someone
+  steps: [f1, f2]
+- slug: art
+  type: image
+  status: have
+  credit: Someone
+  pool: ../_media/artfolder
+""")
+    _write(decks / "sections" / "s.section.md", """---
+timing:
+  minutes: 1
+---
+<!-- shot: pic -->
+### Section pic
+
+Words.
+
+<!-- shot: continue -->
+### Carried on
+
+Words.
+
+<!-- shot: stepped -->
+### Stepped
+
+Words.
+
+<!-- shot: art -->
+### Pool
+
+Words.
+""")
+    deck_slides = "<!-- shot: pic -->\n# Deck pic\n\nWords.\n\n<!-- shot: stepped -->\n### Deck stepped\n\nWords.\n\n<!-- shot: art -->\n### Deck art\n\nWords.\n\n"
+    talk = deck / "talk.md"
+    _write(talk, HEAD.format(extra="") + deck_slides + "<!-- include: ../sections/s.section.md -->\n")
+    out = root / "out"
+    code, _, stderr = _build(talk, out)
+    if code != 0:
+        err(errors, f"--lib names: build exited {code}: {stderr[-300:]}")
+        return
+    cues = [c for c in _json(out, "cues.json")["cues"] if c.get("media")]
+    slugs = [c["media"]["slug"] for c in cues]
+    if slugs.count("pic--lib") != 2:
+        err(errors, f"--lib names: a continue screen should carry pic--lib on: {slugs}")
+    if (out / "_media" / "pic--lib.png").read_bytes() != lib_pic or (out / "_media" / "pic.png").read_bytes() != deck_pic:
+        err(errors, "--lib names: pic and pic--lib did not keep their own files")
+    stepped = next((c["media"] for c in cues if c["media"]["slug"] == "stepped--lib"), None)
+    if not stepped or len(stepped.get("steps") or []) != 2:
+        err(errors, f"--lib names: the section's stepped card lost its frames: {stepped}")
+    else:
+        got = [(out / "_media" / Path(s).name).read_bytes() if (out / "_media" / Path(s).name).is_file()
+               else next((out / "_media").glob(f"{s}.*")).read_bytes() for s in stepped["steps"]]
+        if got != [f1, f2]:
+            err(errors, f"--lib names: frames {stepped['steps']} are not the shared files")
+    page = (out / "present" / "index.html").read_text(encoding="utf-8")
+    doc = (out / "document" / "index.html").read_text(encoding="utf-8")
+    for name, text in (("deck", page), ("document", doc)):
+        if 'alt="pic--lib"' in text:
+            err(errors, f"--lib names: the {name} view shows pic--lib as alt text")
+    if 'alt="pic"' not in doc:
+        err(errors, "--lib names: a picture with no alt should fall back to `pic`")
+    if not any(s.startswith("art--lib--") for s in slugs):
+        err(errors, f"--lib names: the section's pool use has no --lib name: {slugs}")
+    # --no-handout-pools drops a section's `art--lib--01` as it drops a deck's pool pick
+    out2 = root / "out-nopools"
+    code, _, stderr = _build(talk, out2, "--no-handout-pools")
+    doc2 = (out2 / "document" / "index.html").read_text(encoding="utf-8")
+    if code != 0 or "art--lib--" in doc2:
+        err(errors, f"--lib names: --no-handout-pools kept a section's pool pick (code {code})")
+
+    # a deck's stand-in stays the deck's; a stand-in named for the --lib slug is used
+    standin = _png(root / "standin.png", (77, 77, 77))
+    _write(deck / "talk.md", HEAD.format(extra="") + "<!-- shot: gone -->\n# Deck\n\nWords.\n\n"
+           "<!-- include: ../sections/gone.section.md -->\n")
+    _write(decks / "sections" / "gone.section.md", "<!-- shot: gone -->\n### Section\n\nWords.\n")
+    _png(deck / "media" / "gone.png", (1, 1, 1))
+    remap = root / "remap.yaml"
+    _write(remap, f"gone: {root / 'standin.png'}\n")
+    out3 = root / "out-remap"
+    _build(talk, out3, "--media-remap", str(remap))
+    man = {e["slug"]: e["media"] for e in _json(out3, "media-manifest.json")["referenced"]}
+    if man.get("gone--lib", {}).get("found"):
+        err(errors, f"--lib names: the deck's stand-in filled the section's gone--lib: {man.get('gone--lib')}")
+    _write(remap, f"gone--lib: {root / 'standin.png'}\n")
+    out4 = root / "out-remap2"
+    _build(talk, out4, "--media-remap", str(remap))
+    if not next((out4 / "_media").glob("gone--lib.*"), None) \
+            or next((out4 / "_media").glob("gone--lib.*")).read_bytes() != standin:
+        err(errors, "--lib names: a stand-in named gone--lib was not used")
+
+    # video and its pingpong
+    if not shutil.which("ffmpeg"):
+        return
+    clip = shared / "vid.mp4"
+    (deck / "media" / "vid.mp4").parent.mkdir(parents=True, exist_ok=True)
+    made = subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc=s=160x90:r=24:d=1",
+                           "-pix_fmt", "yuv420p", "-c:v", "libx264", str(clip)], capture_output=True, timeout=120)
+    if made.returncode != 0:
+        return
+    shutil.copy(clip, deck / "media" / "vid.mp4")
+    _write(shared / "library.yaml", """
+- slug: vid
+  type: video
+  status: file
+  credit: Someone
+  playback: pingpong
+""")
+    _write(decks / "sections" / "v.section.md", "<!-- shot: vid -->\n### Clip\n\nWords.\n")
+    _write(talk, HEAD.format(extra="") + "<!-- shot: vid -->\n# Deck clip\n\nWords.\n\n"
+           "<!-- include: ../sections/v.section.md -->\n")
+    out5 = root / "out-video"
+    code, _, stderr = _build(talk, out5)
+    if code != 0:
+        err(errors, f"--lib names: video build exited {code}: {stderr[-300:]}")
+        return
+    media = out5 / "_media"
+    if not (media / "vid--lib-pingpong.mp4").is_file():
+        err(errors, f"--lib names: no vid--lib-pingpong.mp4: {sorted(p.name for p in media.iterdir())}")
+    if not (media / "vid.mp4").is_file():
+        err(errors, "--lib names: the deck's own loop clip was not published as vid.mp4")
+    if not list((media / "doc").glob("vid--lib.*")):
+        err(errors, "--lib names: the section's clip has no handout still of its own")
+
+
+def _check_entries(errors: list, root: Path) -> None:
+    decks = root / "decks"
+    deck, shared = decks / "deck", decks / "_media"
+    _png(shared / "plain.png", (9, 9, 9))
+    _png(shared / "fine.png", (8, 8, 8))
+    _png(shared / "broken.png", (7, 7, 7))
+    _png(shared / "owned.png", (6, 6, 6))
+    _png(shared / "twice.png", (5, 5, 5))
+    _png(shared / "twice.webp", (4, 4, 4))
+    _write(shared / "library.yaml", """
+- slug: fine
+  status: file
+  alt: Library alt
+  credit: Library credit
+  licence: CC BY
+- slug: broken
+  status: file
+  file: nowhere/broken.png
+  credit: Library credit
+- slug: noted
+  status: file
+  file: fine.png
+  alt: Library alt
+  credit: Library credit
+  note: The entry's note
+- slug: twice
+  status: file
+  file: nowhere/twice.png
+  credit: Library credit
+- slug: owned
+  status: file
+  alt: Library alt
+  credit: Library credit
+""")
+    _write(deck / "media" / "cards.yaml", """
+- slug: owned
+  status: to-find
+  alt: The deck's alt
+  credit: The deck's credit
+""")
+    talk = deck / "talk.md"
+    _write(talk, HEAD.format(extra="") + "".join(
+        f"<!-- shot: {s} -->\n### {s}\n\nWords.\n\n" for s in ("plain", "fine", "broken", "owned", "noted", "twice")))
+    _, r = _resolver(talk)
+    fine = r.resolve("fine")
+    if (fine.alt, fine.credit) != ("Library alt", "Library credit"):
+        err(errors, f"entries: a slide with no card did not take the entry's words: {fine.alt!r} {fine.credit!r}")
+    owned = r.resolve("owned")
+    if (owned.alt, owned.credit) != ("The deck's alt", "The deck's credit"):
+        err(errors, f"entries: a deck's card lost its words to the entry: {owned.alt!r} {owned.credit!r}")
+    if r.resolve("noted").note != "The entry's note":
+        err(errors, f"entries: a slide with no card lost the entry's note: {r.resolve('noted').note!r}")
+    if not r.resolve("broken").found:
+        err(errors, "entries: a missing file: should fall through to the file named for the slug")
+    rep = check_mod.check_file(talk)
+    w50 = [f.message for f in rep.findings if f.check == 50]
+    w51 = [f.message for f in rep.findings if f.check == 51]
+    for want in ("nowhere/broken.png", "nowhere/twice.png", "'twice' matches 2 files"):
+        if not any(want in m for m in w50):
+            err(errors, f"entries: check 50 should say {want!r}: {w50}")
+    if len(w50) != 3:
+        err(errors, f"entries: check 50 should give 3 warnings: {w50}")
+    if len(w51) != 1 or "'plain'" not in w51[0]:
+        err(errors, f"entries: check 51 should name only the uncredited file: {w51}")
+    stdout = _build(talk, root / "out")[1]
+    if "check 50" not in stdout or "check 51" not in stdout:
+        err(errors, "entries: build.py does not print checks 50 and 51")

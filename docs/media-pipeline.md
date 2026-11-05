@@ -36,8 +36,11 @@ The shared stage reads, in this order:
 
 An entry is optional. Write one for what a bare file cannot say: `alt`,
 `credit`, `licence`, a `type` override (`live`), `playback`/`sound`/`still` for
-video, `steps:`, or `pool:`. Missing alt or credit is whatever the existing media
-checks make of it (check 11 warns for a slide with no card or entry).
+video, `steps:`, or `pool:`. The entry is the card for a section's shot and for a
+slide with no card of its own; a deck's own card keeps its words. A file with no
+credit, entry or not, warns (check 51), because nothing else would notice the handout
+credits nobody. An entry whose `file:` is not there warns (check 50) and the file
+named for the slug is tried instead.
 If two files match one slug (`_media/hero.png` and `_media/hero.webp`, or the
 flat file and the folder one) the flat file wins, then the extension order of
 `MEDIA_EXTS`, and check 50 warns. Keep one.
@@ -51,8 +54,8 @@ then named file, then a `--media-remap` stand-in), so a section looks the same i
 every deck. That holds for pool slugs too: `ryan-art` is a library pool, and a
 deck card of the same name does not replace it inside a section. For a
 section's shot the entry is the card: its alt, credit, licence, type and
-playback apply. (A slide in the talk itself keeps using its own card, or none,
-exactly as before.)
+playback apply. A `--media-remap` stand-in for the deck's `pic` does not fill a
+section's `pic--lib`; name that one to stand in for it.
 
 A section slug with no shared media is, in an ordinary include, a placeholder
 plus the usual warnings. On the shelf it is fatal (check 48): nobody pages

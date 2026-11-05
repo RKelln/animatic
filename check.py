@@ -80,7 +80,8 @@ import yaml
 import talkparse
 import render
 import timing
-from mediaresolve import MEDIA_EXTS, MediaResolver, expand_pools, shelf_media_errors
+from mediaresolve import (MEDIA_EXTS, UNCREDITED, MediaResolver, expand_pools, shelf_media_errors,
+                          uncredited_shared)
 
 # ---------------------------------------------------------------------------
 # Severity + register
@@ -168,7 +169,8 @@ REGISTER = [
     (46, "an unclosed `(` parenthetical: the rest of the paragraph is read as spoken text and prints in the handout", WARNING, "enforced: talkparse.py"),
     (48, "quick select: `quick_sections:` (or `--quick-sections`) names a missing directory, a section's `quick:` block has no `title:` or a `keywords:` that is not a list, or a shelf screen's media does not resolve from the shared `_media/` (nobody pages to a hidden slide, so no placeholder)", FATAL, "enforced: talkparse.py (directory, block) + mediaresolve.py (media)"),
     (49, "waypoints: a `<!-- waypoint: word -->` with a bad word (lowercase letters, digits and hyphens, up to 24), a word used twice, a directive inside a section, a directive with no screen after it, or directives (or a `waypoints:` block) without a valid `waypoints.url`", FATAL, "enforced: talkparse.py"),
-    (50, "shared media: two files in `_media/` match one slug (`_media/<slug>.<ext>` and `_media/<slug>/<slug>.<ext>`, or two extensions); the flat file, then the first extension in the resolver's order, is used", WARNING, "implemented: check.py + mediaresolve.py"),
+    (50, "shared media: two files in `_media/` match one slug (`_media/<slug>.<ext>` and `_media/<slug>/<slug>.<ext>`, or two extensions), the flat file, then the first extension in the resolver's order, is used; or a library entry's `file:` is not there", WARNING, "implemented: check.py + mediaresolve.py"),
+    (51, "shared media with no credit: a file from `_media/` has no library entry or one with no `credit:`, so the handout credits nobody", WARNING, "implemented: check.py"),
 ]
 
 DEFERRED = {
@@ -1025,17 +1027,14 @@ def check_41_pools(talk, resolver, report: Report) -> None:
 
 
 def check_50_shared_media(talk, resolver, report: Report) -> None:
-    """A slug matched by more than one file in the shared `_media/` folder."""
-    seen = set()
-    for scr in talk.screens:
-        for sh in scr.shots:
-            for slug in (sh.slug if sh.is_media else None, sh.flags.get("under")):
-                if slug:
-                    resolver.resolve(slug)        # the match happens on resolution
-    for slug, msg in resolver.shared_issues:
-        if slug not in seen:
-            seen.add(slug)
-            report.add(50, WARNING, f"{msg} (spec: Media, shared media)")
+    """Shared `_media/` problems found on resolution: a slug matched by more than
+    one file (50), an entry's missing `file:` (50), a file with no credit (51)."""
+    uncredited = uncredited_shared(talk, resolver)   # resolves every shot
+    for msg in dict.fromkeys(m for _, m in resolver.shared_issues):
+        report.add(50, WARNING, f"{msg} (spec: Media, shared media)")
+    for label, line in uncredited.items():
+        report.add(51, WARNING, f"{UNCREDITED.format(label)} (spec: Media, shared media)",
+                   line=line)
 
 
 def check_40_next_marks(talk, resolver, report: Report) -> None:

@@ -386,7 +386,7 @@ def live_host_html(ref: MediaRef, css_class: str = "slide-media") -> str:
         poster_src = ref.poster if Path(ref.poster).is_absolute() else "../" + ref.poster
         poster = (
             f'<img class="live-poster media-image" src="{html.escape(poster_src)}" '
-            f'alt="{html.escape(ref.alt or ref.slug)}">'
+            f'alt="{html.escape(ref.alt or ref.label)}">'
         )
     group_attr = (
         f' data-live-group="{html.escape(ref.group)}"' if ref.group else ""
@@ -396,7 +396,7 @@ def live_host_html(ref: MediaRef, css_class: str = "slide-media") -> str:
         f'data-live-state="idle" data-live-slug="{html.escape(ref.slug)}"{group_attr}>'
         f"{poster}"
         f'<video class="live-surface" muted playsinline aria-label="'
-        f'{html.escape(ref.alt or ref.slug)}"></video>'
+        f'{html.escape(ref.alt or ref.label)}"></video>'
         f'<div class="live-idle">'
         f'<p class="live-hint">Live window</p>'
         f'<button class="live-start" type="button">Share a window</button>'
@@ -441,7 +441,7 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
             poster_src = poster if Path(poster).is_absolute() else "../" + poster
             parts.append(
                 f'<img class="{css_class} media-image" src="{html.escape(poster_src)}" '
-                f'alt="{html.escape(ref.alt or ref.slug)}" loading="lazy">'
+                f'alt="{html.escape(ref.alt or ref.label)}" loading="lazy">'
             )
         else:
             parts.append(
@@ -457,7 +457,7 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
         # box is worse than a frame)
         parts.append(
             f'<img class="{css_class} media-image" src="{html.escape("../" + ref.doc_file)}" '
-            f'alt="{html.escape(ref.alt or ref.slug)}" loading="lazy">'
+            f'alt="{html.escape(ref.alt or ref.label)}" loading="lazy">'
         )
     elif ref.found and ref.file:
         ext = Path(ref.file).suffix.lower()
@@ -499,7 +499,7 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
                 attrs = f'controls preload="metadata" {muted}{loop} playsinline{once}{sound}'
             parts.append(
                 f'<video class="{css_class} media-video" src="{src}" {attrs} '
-                f'aria-label="{html.escape(ref.alt or ref.slug)}"></video>'
+                f'aria-label="{html.escape(ref.alt or ref.label)}"></video>'
             )
         else:
             src = html.escape(ref.file if Path(ref.file).is_absolute() else "../" + ref.file)
@@ -509,7 +509,7 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
             lazy = "" if "slide-media" in css_class.split() else ' loading="lazy"'
             parts.append(
                 f'<img class="{css_class} media-image" src="{src}" '
-                f'alt="{html.escape(ref.alt or ref.slug)}"{lazy}>'
+                f'alt="{html.escape(ref.alt or ref.label)}"{lazy}>'
             )
     else:
         parts.append(
@@ -4549,8 +4549,10 @@ def _is_pool_slug(resolver: MediaResolver, slug: str | None) -> bool:
     pick is given once the draws are made."""
     if not slug:
         return False
-    m = re.fullmatch(r"(.+)--\d{2,}", slug)
-    card = resolver.card_for(m.group(1) if m else slug)
+    card = resolver.card_for(slug)      # a section's `art--lib--01` answers by its whole name
+    if card is None:
+        m = re.fullmatch(r"(.+)--\d{2,}", slug)
+        card = resolver.card_for(m.group(1)) if m else None
     return bool(card and card.get("pool"))
 
 

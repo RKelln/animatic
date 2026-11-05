@@ -132,6 +132,12 @@ class MediaRef:
     steps: Optional[list] = None       # stepped-image card: the frame slugs, in order (card `steps:`); None = a plain image
     handout: Optional[str] = None      # stepped-image card: slug of the image the document view and handout print
 
+    @property
+    def label(self) -> str:
+        """The slug as an author wrote it: a section's `pic--lib` is `pic`.  What
+        a picture with no alt falls back to."""
+        return re.sub(r"--lib(?=--|$)", "", self.slug)
+
 
 
 def _place(src, dst: Path, link: bool = False) -> None:
@@ -555,28 +561,35 @@ class MediaResolver:
                 p = base / f"{slug}{ext}"
                 if p.is_file():
                     found.append(p)
-        if len(found) > 1 and not any(sl == slug for sl, _ in self.shared_issues):
-            self.shared_issues.append((slug,
-                f"shared media '{slug}' matches {len(found)} files in {d} "
-                f"({', '.join(str(f.relative_to(d)) for f in found)}); using "
-                f"{found[0].relative_to(d)}. Keep one."))
+        if len(found) > 1:
+            issue = (slug, f"shared media '{slug}' matches {len(found)} files in {d} "
+                           f"({', '.join(str(f.relative_to(d)) for f in found)}); using "
+                           f"{found[0].relative_to(d)}. Keep one.")
+            if issue not in self.shared_issues:
+                self.shared_issues.append(issue)
         return found[0] if found else None
 
     def _shared_stage(self, slug: str, look: str, card: Optional[dict],
                       section: bool = False) -> Optional[MediaRef]:
-        """Library entry with a `file:`, else a file named for the slug.  For a
-        section's media the entry IS the card (alt, credit, licence, type,
-        playback...); a deck slide keeps its own card, or none, as before."""
+        """Library entry with a `file:`, else a file named for the slug.  The entry
+        is the card (alt, credit, licence, type, playback...) for a section's media
+        and for a deck slide with no card of its own; a deck's card keeps its own
+        words.  An entry whose `file:` is not there falls through and warns."""
         entry = self._lib_entry(look)
-        if section:
+        entry_is_card = section or card is None
+        if entry_is_card:
             card = entry
         if entry and entry.get("file") and self.library_path is not None:
             p = self.library_path.parent / str(entry["file"])
             if p.is_file():
                 ref = self._make(slug, card, p, "library")
-                if entry.get("note") and ((not ref.note) if section else (not ref.alt)):
+                if entry.get("note") and ((not ref.note) if entry_is_card else (not ref.alt)):
                     ref.note = entry["note"]
                 return ref
+            msg = (f"library entry '{look}' has file: {entry['file']!r}, which is not "
+                   f"there; looking for a file named for the slug instead")
+            if (look, msg) not in self.shared_issues:
+                self.shared_issues.append((look, msg))
         p = self._named_shared_file(look)
         if p is not None:
             return self._make(slug, card, p, "library")
@@ -798,7 +811,7 @@ class MediaResolver:
         ref = self._shared_stage(slug, base, None, section=True)
         if ref is not None:
             return ref
-        p = self.remap.get(slug) or self.remap.get(base)
+        p = self.remap.get(slug)    # `<slug>--lib` by that name: a deck's stand-in stays the deck's
         if p is not None and p.is_file():
             return self._make(slug, None, p, "standin")
         return MediaRef(
@@ -1080,6 +1093,25 @@ class MediaResolver:
                 if isinstance(c, dict) and c.get("slug") not in referenced
                 and not (self.lib_pools.get(str(c.get("slug"))) is c
                          and c.get("slug") in shared_used)]
+
+
+UNCREDITED = ("shared media '{}' has no credit, so the handout credits nobody: "
+              "add a library.yaml entry with `credit:` and `licence:`")
+
+
+def uncredited_shared(talk, resolver) -> dict:
+    """Check 51: {slug as written: first line} for each file from `_media/` with
+    no credit.  A file named for its slug needs no library entry to show, so
+    nothing else notices it has none to credit it."""
+    out = {}
+    for scr in talk.screens:
+        for shot in scr.shots:
+            for slug in (shot.slug if shot.is_media else None, shot.flags.get("under")):
+                if slug:
+                    ref = resolver.resolve(slug)
+                    if ref.found and ref.source == "library" and not ref.credit:
+                        out.setdefault(ref.label, shot.line_begin)
+    return out
 
 
 def shelf_media_errors(talk, resolver) -> list:
