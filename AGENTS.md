@@ -40,8 +40,8 @@ coding agent. Edit here, never there.
 2 on usage errors. Corpus mode is read-only: it parses and checks, never writes into
 a content root. Builds are deterministic — re-running rebuilds identical bytes.
 
-As of 2026-10-19: `--corpus` reports 8/8 decks passed, banks 1, exit 0 (under
-`--strict` 6/8: two decks carry concept tag-drift warnings, not deck defects).
+As of 2026-11-05: `--corpus` reports 14/14 decks passed, banks 1, exit 0 (under
+`--strict` 13/14: warnings count as failures there).
 
 ## Rules
 

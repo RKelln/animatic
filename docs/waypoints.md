@@ -1,6 +1,8 @@
 # Waypoints: telling participants' agents where the room is
 
-**Status: design draft, 2026-11-05. Nothing here is built yet.**
+**Status: built and deployed 2026-11-05, not yet used in a workshop. The animatic part and the
+service are live, and W11's seed set carries the hook; its talk markers and published payload
+are the remaining steps (see Rollout). The idle overview is future work.**
 
 When the talk reaches a marked slide, the deck publishes one word. Each time a
 participant sends a message, a small hook on their machine reads that word and,
@@ -46,7 +48,8 @@ waypoints:
 - The first screen should carry `start`, so a run never begins on the previous
   run's last word.
 - `cues.json` and `nav.json` gain a `waypoint` field on marked screens. Document
-  view and handout don't show it. Decks without waypoints build byte-identically.
+  view and handout don't show it. Decks without waypoints keep the same slides and data; only the
+  scripts in their present pages change.
 - Register check 49 (48 is quick select's): bad word, duplicate, directive inside a
   section, nothing following the directive, or directives with no `waypoints.url`.
 
@@ -133,8 +136,8 @@ Built as specified. What the code does, and where it goes beyond or away from th
 - **Tests:** `tests/properties/waypoint_props.py` (in `tests/run.py`) and
   `tests/browser_waypoint.py`, over `tests/fixtures/waypoints/`. The timeout can only be seen in
   real time, because headless Chromium's virtual time stands still while a fetch is pending.
-- **Not verified:** the real service (it does not exist yet, and nothing was sent to a real host);
-  a browser other than Chromium; Safari's handling of a `file://` page POSTing to `https://`
+- **Verified against the live service** with a test event from `file://` (`start` on load,
+  `key-choice` on Next). **Not verified:** a browser other than Chromium; Safari's handling of a `file://` page POSTing to `https://`
   (it should behave as Chromium does, given the service answers the preflight, but it is untested).
 
 ## 2. The service
@@ -349,13 +352,12 @@ Likely shape, to design when it's picked up:
 
 ## Rollout
 
-1. Mini spike.
-2. Service, Caddy route and hook script. Deploying to the shared server needs Ryan's
-   go-ahead, as does the note to IT.
-3. Animatic feature. It builds on quick select's pager changes, so it follows that
-   merge.
-4. **Pilot: W11.2, Nov 25.** Its flow already has a clear phase table: start,
-   key-choice, expanding, sharing.
+1. Mini spike. **Done.**
+2. Service, Caddy route and hook script. **Done 2026-11-05.**
+3. Animatic feature. **Done** (`675b059`).
+4. **Pilot: W11.2, Nov 25.** Still to do: the markers and new lines in `talk.md`,
+   `check_waypoints.py`, rebuilding and publishing W11's payload, building the deck with the
+   token, and Ryan's note to IT. Words: start, key-choice, expanding, break, sharing, take-home.
 5. If it helps: W13.2 (Nov 26), W06.2 (Nov 30), W09.2 (Dec 7).
 6. Decide about the poller from what the pilot shows. If people who've gone quiet are
    still getting lost, test `asyncRewake`.
