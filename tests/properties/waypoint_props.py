@@ -251,7 +251,7 @@ def check(errors: list) -> None:
             err(errors, "waypoint: a token with quotes did not survive the config round trip")
         # a talk with no waypoints is untouched by a token
         out_q = tmp / "out-q"
-        _build(REPO / "tests" / "fixtures" / "quick" / "talk.md", out_q, TOKEN)
+        _build(REPO / "tests" / "fixtures" / "quick" / "deck" / "talk.md", out_q, TOKEN)
         if any(TOKEN.encode() in p.read_bytes() for p in out_q.rglob("*") if p.is_file()):
             err(errors, "waypoint: a talk with no waypoints carries the token")
 

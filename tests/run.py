@@ -49,7 +49,7 @@ sys.path.insert(0, str(TESTS))
 import build as build_mod  # noqa: E402
 from properties import (check_props, code_props, corpus_props, cue_props, html_props,  # noqa: E402
                         ingest_props, include_props, timer_props, manifest_props, nav_props, playback_props,
-                        quick_props, timing_props, waypoint_props)
+                        quick_props, shared_media_props, timing_props, waypoint_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
 GOLDEN_FILES = ("cues.json", "media-manifest.json")
@@ -244,6 +244,19 @@ def main(argv=None) -> int:
     else:
         passed.append("include")
         print("ok    include")
+
+    # shared media: section media from `_media/` only, `<slug>--lib`, name-matched
+    # files, check 50, and the shelf's check 48 (a throwaway tree)
+    shared_errors: list = []
+    shared_media_props.check(shared_errors)
+    if shared_errors:
+        failed.append("shared-media")
+        print("FAIL  shared-media")
+        for e in shared_errors[:12]:
+            print(f"      {e}")
+    else:
+        passed.append("shared-media")
+        print("ok    shared-media")
 
     # quick select: the shelf over tests/fixtures/quick (the browser half is
     # tests/browser_quick_select.py)

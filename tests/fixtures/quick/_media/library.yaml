@@ -1,0 +1,8 @@
+# The shared library beside the quick-select fixture deck: the tests copy this
+# folder to `_media/` next to the deck.  A shelf section's media comes from
+# here, never from the deck's own cards.yaml.
+- slug: live-demo
+  status: live
+  type: live
+  alt: A live window capture on the shelf
+  brief: a live screen on the shelf

@@ -49,7 +49,10 @@ One command, one exit code:
   exits 77 when no chromium is installed, and needs the scratch directory inside
   the repo because a snap chromium cannot read /tmp).
   `fixtures/quick/` is the quick-select deck (not a golden: the runner does not
-  build it). A talk with `quick_sections`, a shelf of sections (a plain one, one
+  build it): `quick/deck/` is the deck and `quick/_media/` its shared library, because
+  shelf media comes from `_media/` beside the deck, never from the deck's own cards (the
+  tests copy both side by side; the browser test swaps the stand-in `clip-shelf.svg` for a
+  generated mp4). A talk with `quick_sections`, a shelf of sections (a plain one, one
   with a video, one with a live screen, one the talk also includes) and a section
   with its own `cites:`. `properties/quick_props.py` builds a copy in /tmp and
   pins the shelf's placement and order, dedupe, absence from the document view
@@ -59,6 +62,15 @@ One command, one exit code:
   timers, the warm bookkeeping, and the presenter window's search box driven over
   http through the deck's own `s` popup (exit 77 without chromium; the video
   asserts need ffmpeg).
+  `properties/shared_media_props.py` (docs/media-pipeline.md, "Shared media") builds a
+  throwaway `decks/{deck,_media,sections}` tree: the same slug in a slide and in a section with
+  different files (`pic` and `pic--lib`, both published, distinct in the manifest, cues and
+  document view; no rename without a clash); a shared pool ignoring a deck card of its name; a
+  file named for its slug with no library entry (flat and `<slug>/<slug>.<ext>`); an entry beating
+  a name match; two matching files (fixed pick, check 50 from build.py and check.py); an
+  unresolved shelf slug fatal (check 48, section file named, in build.py and check.py) against the
+  same section included, which stays a placeholder with the check 11 warning; and
+  `--quick-sections` pointing outside the deck's parent (media still from the deck's `_media/`).
   `fixtures/waypoints/` is the waypoint deck (docs/waypoints.md): four marked screens
   (one with the directive between a heading and its shot), a shelf, a `waypoints.url`.
   `properties/waypoint_props.py` pins the parse, check 49 (every case, with its line),

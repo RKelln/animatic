@@ -32,6 +32,11 @@ treats `*.talk.md` as decks).
 - Includes nest to 3 deep. A missing file, a cycle, an absolute path, an unknown flag
   or a `## Movement` heading inside the section is a fatal error with its line (check 22).
 - An included file's frontmatter `cites:` / `sources:` join the talk's; the talk wins.
+- A section's media comes only from the shared `_media/` (a library entry, or a file named
+  `<slug>.<ext>` / `<slug>/<slug>.<ext>`), never the including deck's `cards.yaml` or
+  `media/`, so a section looks the same in every deck. A slug with no shared media is a
+  placeholder and the usual warnings. If the deck has its own card or file of that slug, the
+  section's copy is published as `<slug>--lib` beside it (`docs/media-pipeline.md`).
 - `--watch` follows included files. Properties: `tests/properties/include_props.py`.
 
 ## Quick select
@@ -58,8 +63,11 @@ Full design: `docs/quick-select.md`.
   the working directory). `--watch` follows shelf files; a newly added section file needs
   a fresh build.
 - A deck with no `quick_sections` has an empty shelf: its slides, document view, handout and `cues.json` / `nav.json` / `media-manifest.json` are unchanged (only the inline scripts and the presenter page differ).
-- Check 48 (fatal): `quick_sections` names a missing directory, or a `quick:` block has no
-  `title` or a `keywords` that is not a list.
+- Check 48 (fatal): `quick_sections` names a missing directory, a `quick:` block has no
+  `title` or a `keywords` that is not a list, or a shelf screen's media does not resolve
+  from the shared `_media/` (no placeholder: nobody pages to a hidden slide; the error
+  names the section file). `--quick-sections DIR` reads sections from DIR but media from
+  the `_media/` beside the deck, not one beside DIR.
 - Properties: `tests/properties/quick_props.py`; the browser test is
   `tests/browser_quick_select.py`.
 

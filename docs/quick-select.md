@@ -149,6 +149,12 @@ position is saved, and the presenter's `animatic-state` carries `jumped`, `retur
 - **Register check 48 (fatal):** `quick_sections` names a missing directory, or a
   `quick:` block has no `title`, or `keywords` isn't a list. Registered in `check.py`
   (the draft said 40; 40 was already the `[next]` marks check).
+- **Shelf media is shared media, and must resolve (check 48).** A shelf screen is only
+  reached by a search, so it cannot be a placeholder: a slug that does not resolve is fatal
+  in `build.py` and `check.py`, naming the section file. Shelf media comes from the shared
+  `_media/` (library entry, or a file named `<slug>.<ext>` / `<slug>/<slug>.<ext>`), never
+  the deck's own `cards.yaml`/`media/`; see `docs/media-pipeline.md`. With
+  `--quick-sections DIR` the shared library is still the one beside the deck.
 - **Golden suite:** existing expected output must not change. Run the corpus check
   before and after, as "nothing that parses today may change meaning" requires.
 - **`tests/properties/quick_props.py`:** shelf placement and ordering, dedupe
@@ -190,6 +196,9 @@ position is saved, and the presenter's `animatic-state` carries `jumped`, `retur
 What differs from the draft above, and why.
 
 - **Check 48, not 40.** 40 is the `[next]` marks check.
+- **Shelf media must resolve.** Check 48 also covers a shelf screen whose slug finds no
+  shared media (see Checks and tests). The shelf fixture's live and video screens come from
+  `tests/fixtures/quick/_media`, beside `tests/fixtures/quick/deck`.
 - **One set of scripts, and what that changes.** The quick-select logic is in the shared
   `PAGER_JS`, `PRESENTER_JS`, `LIVE_JS`, `DEBUG_JS`, `MEDIA_JS` and `PRESENTER_UI_JS`, so
   every deck runs it; a deck with no `quick_sections` is a deck with an empty shelf

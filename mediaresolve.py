@@ -13,8 +13,13 @@ Resolution order (docs/media-pipeline.md):
                                      (gen-log convention).  When the card lists
                                      no approved output, the highest attempt
                                      number is the current state.
-  3. shared `_media/library.yaml`   — sibling of the deck dir; cross-talk reuse,
-                                     entries carry an explicit `file:` path.
+  3. shared media, `_media/` beside the deck dir; cross-talk reuse:
+       a. a `library.yaml` entry with a `file:` path (relative to `_media/`);
+       b. a file named for the slug, `_media/<slug>.<ext>` or
+          `_media/<slug>/<slug>.<ext>`.  No entry needed; the entry carries what
+          a file cannot (alt, credit, licence, type, playback, `steps:`, `pool:`).
+          Two matching files: the flat one, then MEDIA_EXTS order, with a
+          check 50 warning.
 
   4. explicit `--media-remap` stand-ins — a real file standing in for a
      slug whose art is still brief/to-find/prompting (style tests, early
@@ -34,6 +39,15 @@ and a rebuild gives identical bytes; `seed:` on the card re-rolls.
 `pins: {id: file name}` on a pool card makes each id a slug that always
 resolves to that file; pinned files are left out of the random draw.  `text: light|dark` on a pool
 card is the default `text=` flag of every shot using the pool.
+
+SECTION MEDIA.  A shot from a section (an include, or the quick-select shelf) is
+registered in `MediaResolver.shared` by `expand_pools()` and resolves by stage 3
+and the stand-in only: never the deck's cards.yaml or media/.  The library entry
+is its card.  When the deck owns something of the same slug (a card, a pin, a
+media file) the section's shot is renamed `<slug>--lib` first, so both can be
+published, listed in the manifest and cued without meeting.  An unresolved slug
+on a shelf screen is check 48 (`shelf_media_errors`); in an include it is a
+placeholder.
 
 When nothing resolves, the slug becomes a PLACEHOLDER (found=False) with the
 card's type/status carried through for the renderer.  The script never knows
@@ -201,38 +215,67 @@ def _apply_text_defaults(talk, resolver) -> None:
 
 
 def _expand_pool_uses(talk, resolver) -> None:
+    """One pass over every shot, in document order.
+
+    A shot from a section (an include, or the quick-select shelf) is registered
+    as SHARED: it resolves from the shared `_media/` only, never from the deck's
+    `cards.yaml` or `media/` (`resolver.shared`).  When the deck has its own
+    card, pin or file of the same slug, the section's slug is renamed
+    `<slug>--lib` so the two cannot meet in one output name.  A pool slug (deck
+    card, or shared-library entry) gets a virtual `<slug>--NN` per use."""
     pools = {str(c["slug"]) for c in resolver.cards
              if isinstance(c, dict) and c.get("slug") and c.get("pool")}
-    if not pools:
-        return
-    count = {s: 0 for s in pools}
+    count: dict = {}
     prev_media = None
+    prev_orig = (None, None)         # (slug, under) as authored, before any rewrite
+    origs: dict = {}                 # id(shot) -> that pair, for the shots rewritten below
     for scr in talk.screens:
         for shot in scr.shots:
             if shot.cont and prev_media is not None:
                 # a continuation keeps the head's file (and its `under`)
-                if shot.slug in pools:
+                if shot.slug == prev_orig[0] and shot.slug != prev_media.slug:
                     shot.slug = prev_media.slug
-                if shot.flags.get("under") in pools and prev_media.flags.get("under"):
+                if shot.flags.get("under") and shot.flags.get("under") == prev_orig[1] \
+                        and prev_media.flags.get("under"):
                     shot.flags["under"] = prev_media.flags["under"]
                 continue
+            section = shot.include is not None or scr.shelf
+            origs[id(shot)] = (shot.slug, shot.flags.get("under"))
             for name in ("slug", "under"):
                 cur = shot.slug if name == "slug" else shot.flags.get("under")
-                if cur not in pools:
+                if not cur:
                     continue
-                count[cur] += 1
-                virtual = f"{cur}--{count[cur]:02d}"
-                if name == "slug":
-                    shot.slug = virtual
+                if section:
+                    label = resolver.section_label(cur)
+                    lib = resolver.lib_pools.get(cur)
+                    if lib is not None:
+                        count[label] = count.get(label, 0) + 1
+                        virtual = f"{label}--{count[label]:02d}"
+                        resolver.shared[virtual] = (cur, count[label])
+                        f = pool_pick(cur, lib, pool_files(lib, resolver.talk_dir),
+                                      count[label], resolver.deck_id())
+                        resolver.pool_log.append((virtual, f.name if f else None, shot.line))
+                        final = virtual
+                    else:
+                        resolver.shared[label] = (cur, None)
+                        final = label
+                elif cur in pools:
+                    count[cur] = count.get(cur, 0) + 1
+                    final = f"{cur}--{count[cur]:02d}"
+                    card = resolver.card_for(cur)
+                    f = pool_pick(cur, card, pool_files(card, resolver.talk_dir), count[cur],
+                                  resolver.deck_id())
+                    resolver.pool_log.append((final, f.name if f else None, shot.line))
                 else:
-                    shot.flags["under"] = virtual
-                card = resolver.card_for(cur)
-                f = pool_pick(cur, card, pool_files(card, resolver.talk_dir), count[cur],
-                          resolver.deck_id())
-                resolver.pool_log.append((virtual, f.name if f else None, shot.line))
+                    continue
+                if name == "slug":
+                    shot.slug = final
+                else:
+                    shot.flags["under"] = final
         m = scr.media_shot
         if m is not None:
             prev_media = m
+            prev_orig = origs.get(id(m), prev_orig)
 
 
 @dataclass
@@ -265,6 +308,15 @@ class MediaResolver:
     # check 41: (slug, message) for a pool card that cannot apply as written
     pool_issues: list = field(default_factory=list)
     _pin_map: dict = field(default_factory=dict)            # pin id -> (pool card, file name)
+    # Section media (a shot from an include or the shelf) resolves from the shared
+    # `_media/` only.  expand_pools() fills `shared`: final slug -> (library slug,
+    # pool use number or None).  Every other slug resolves deck-first, as ever.
+    shared: dict = field(default_factory=dict)
+    deck_cards: list = field(default_factory=list)          # cards.yaml only (no library pools)
+    lib_pools: dict = field(default_factory=dict)           # library entries with `pool:`, by slug
+    _lib_pin_map: dict = field(default_factory=dict)        # library pool pins: id -> (entry, file name)
+    # check 50: (slug, message) when two files in `_media/` match one slug
+    shared_issues: list = field(default_factory=list)
     # check-10 register: (slug, declared-path) pairs whose file does not exist.
     # Filled in __post_init__; kept for the future `animatic check` runner.
 
@@ -285,6 +337,7 @@ class MediaResolver:
             except yaml.YAMLError as exc:
                 self.cards = []
                 self._error = f"bad cards.yaml: {exc}"
+        self.deck_cards = list(self.cards)
         # shared library: sibling `_media/library.yaml` of the deck dir
         lib = self.talk_dir.parent / "_media" / "library.yaml"
         if lib.is_file():
@@ -297,6 +350,12 @@ class MediaResolver:
                     # the deck's cards (a deck card of the same slug wins); its
                     # `pool:` folder is still deck-relative, so one entry serves
                     # every deck that sits beside `_media/`
+                    self.lib_pools = {str(e["slug"]): e for e in loaded
+                                      if isinstance(e, dict) and e.get("pool") and e.get("slug")}
+                    for e in self.lib_pools.values():
+                        for pid, fname in _pins(e).items():
+                            if PIN_SLUG_RE.fullmatch(pid) and not POOL_RE.match(pid):
+                                self._lib_pin_map.setdefault(pid, (e, fname))
                     have = {c.get("slug") for c in self.cards if isinstance(c, dict)}
                     self.cards = list(self.cards) + [
                         e for e in loaded
@@ -407,6 +466,11 @@ class MediaResolver:
     # -- lookups -------------------------------------------------------------
 
     def card_for(self, slug: str) -> Optional[dict]:
+        reg = self.shared.get(slug)
+        if reg is not None:         # section media: only a shared pool card applies
+            base, n = reg
+            pin = self._lib_pin_map.get(base) if n is None else None
+            return pin[0] if pin else self.lib_pools.get(base)
         for c in self.cards:
             if isinstance(c, dict) and c.get("slug") == slug:
                 return c
@@ -446,9 +510,76 @@ class MediaResolver:
         return None
 
     def library_entry_for(self, slug: str) -> Optional[dict]:
+        reg = self.shared.get(slug)
+        if reg is not None:
+            slug = reg[0] if reg[1] is None else None
+        return self._lib_entry(slug)
+
+    def _lib_entry(self, slug) -> Optional[dict]:
         for e in self.library:
-            if isinstance(e, dict) and e.get("slug") == slug:
+            if isinstance(e, dict) and slug and e.get("slug") == slug:
                 return e
+        return None
+
+    # -- shared media --------------------------------------------------------
+
+    @property
+    def shared_dir(self) -> Path:
+        """The shared `_media/` folder: always beside THIS deck's folder, whatever
+        directory a section was read from (`--quick-sections DIR` included)."""
+        return self.talk_dir.parent / "_media"
+
+    def deck_differs(self, slug: str) -> bool:
+        """Does the deck own something named `slug` (a card, a pool pin, a file in
+        its media dir)?  Then a section's `slug` must not share its name."""
+        return (any(isinstance(c, dict) and c.get("slug") == slug for c in self.deck_cards)
+                or (slug in self._pin_map
+                    and any(self._pin_map[slug][0] is c for c in self.deck_cards))
+                or self._deckdir_file(slug) is not None
+                or self._attempts_file(slug) is not None)
+
+    def section_label(self, slug: str) -> str:
+        """The slug a section shot is known by: itself, or `<slug>--lib` when the
+        deck has its own `<slug>` (so both can be published side by side)."""
+        return f"{slug}--lib" if self.deck_differs(slug) else slug
+
+    def _named_shared_file(self, slug: str) -> Optional[Path]:
+        """`_media/<slug>.<ext>`, else `_media/<slug>/<slug>.<ext>`.  Two matches is
+        check 50: the flat file wins, then the extension order of MEDIA_EXTS."""
+        if not slug or "/" in slug or "\\" in slug or slug.startswith("."):
+            return None
+        d = self.shared_dir
+        found = []
+        for base in (d, d / slug):
+            for ext in MEDIA_EXTS:
+                p = base / f"{slug}{ext}"
+                if p.is_file():
+                    found.append(p)
+        if len(found) > 1 and not any(sl == slug for sl, _ in self.shared_issues):
+            self.shared_issues.append((slug,
+                f"shared media '{slug}' matches {len(found)} files in {d} "
+                f"({', '.join(str(f.relative_to(d)) for f in found)}); using "
+                f"{found[0].relative_to(d)}. Keep one."))
+        return found[0] if found else None
+
+    def _shared_stage(self, slug: str, look: str, card: Optional[dict],
+                      section: bool = False) -> Optional[MediaRef]:
+        """Library entry with a `file:`, else a file named for the slug.  For a
+        section's media the entry IS the card (alt, credit, licence, type,
+        playback...); a deck slide keeps its own card, or none, as before."""
+        entry = self._lib_entry(look)
+        if section:
+            card = entry
+        if entry and entry.get("file") and self.library_path is not None:
+            p = self.library_path.parent / str(entry["file"])
+            if p.is_file():
+                ref = self._make(slug, card, p, "library")
+                if entry.get("note") and ((not ref.note) if section else (not ref.alt)):
+                    ref.note = entry["note"]
+                return ref
+        p = self._named_shared_file(look)
+        if p is not None:
+            return self._make(slug, card, p, "library")
         return None
 
     # -- deck media dir ------------------------------------------------------
@@ -500,7 +631,7 @@ class MediaResolver:
             out.extend(v for v in outs if isinstance(v, str) and v)
         return out
 
-    def _live_ref(self, slug: str, card: dict) -> MediaRef:
+    def _live_ref(self, slug: str, card: dict, root: Optional[Path] = None) -> MediaRef:
         """`type: live` — a runtime window capture, not a file.
 
         Nothing resolves on disk and nothing should: the present view hosts a
@@ -515,7 +646,7 @@ class MediaResolver:
         poster = None
         raw = card.get("poster")
         if isinstance(raw, str) and raw:
-            p = self.talk_dir / raw
+            p = (root or self.talk_dir) / raw
             if p.is_file():
                 poster = str(p.resolve())
         ref = MediaRef(
@@ -569,7 +700,16 @@ class MediaResolver:
         if len(steps) < 2:
             bad(f"has steps: {steps!r}; a stepped card needs a list of 2 or more image slugs")
             return None
-        names = [str(x) for x in steps]
+        orig = [str(x) for x in steps]
+        names = orig
+        if slug in self.shared:
+            # section media: the frames are shared media too, and keep clear of
+            # any deck slug of the same name
+            names = []
+            for n in orig:
+                label = self.section_label(n)
+                self.shared.setdefault(label, (n, None))
+                names.append(label)
         problems = []
         for n in names:
             r = self._resolve_plain(n)
@@ -594,8 +734,8 @@ class MediaResolver:
                     bad(f"has handout: {h}, but steps has {len(names)} frames (1 to {len(names)})")
                     return None
                 pick = names[h - 1]
-            elif isinstance(h, str) and h in names:
-                pick = h
+            elif isinstance(h, str) and h in orig:
+                pick = names[orig.index(h)]
             elif isinstance(h, str) and h.isdigit() and 1 <= int(h) <= len(names):
                 pick = names[int(h) - 1]
             else:
@@ -634,18 +774,46 @@ class MediaResolver:
                 steps=ref.steps, handout=ref.handout, live=False, reason="")
         return ref
 
+    def _pin_ref(self, slug: str, pcard: dict, fname: str) -> MediaRef:
+        f = (self.talk_dir / str(pcard["pool"])).resolve() / fname
+        if f.is_file():
+            return self._make(slug, {**pcard, "type": None}, f, "pool")
+        return MediaRef(
+            slug=slug, type="image", status="missing", found=False,
+            alt=pcard.get("alt", ""), credit=pcard.get("credit", ""),
+            licence=pcard.get("licence", ""),
+            reason=f"pin '{slug}': {fname!r} is not in pool folder {pcard.get('pool')!r}")
+
+    def _resolve_shared(self, slug: str, base: str, n: Optional[int]) -> MediaRef:
+        """Section media: shared pool, then the shared `_media/` stage, then a
+        stand-in.  The deck's cards.yaml and media dir are never read."""
+        if n is None and base in self._lib_pin_map:
+            return self._pin_ref(slug, *self._lib_pin_map[base])
+        card = self.lib_pools.get(base)
+        if card is not None:
+            return self._pool_ref(slug, base, n or 1, card)
+        entry = self._lib_entry(base)
+        if entry and str(entry.get("type") or "").lower() == "live" and self.library_path:
+            return self._live_ref(slug, entry, self.library_path.parent)
+        ref = self._shared_stage(slug, base, None, section=True)
+        if ref is not None:
+            return ref
+        p = self.remap.get(slug) or self.remap.get(base)
+        if p is not None and p.is_file():
+            return self._make(slug, None, p, "standin")
+        return MediaRef(
+            slug=slug, type="unknown", status="missing", found=False,
+            reason=f"no shared media for '{base}': no library entry with a file, and "
+                   f"no {self.shared_dir}/{base}.<ext> or {base}/{base}.<ext> "
+                   f"(a section never uses the deck's own cards or media)")
+
     def _resolve_plain(self, slug: str) -> MediaRef:
+        reg = self.shared.get(slug)
+        if reg is not None:
+            return self._resolve_shared(slug, *reg)
         card = self.card_for(slug)
         if slug in self._pin_map:
-            pcard, fname = self._pin_map[slug]
-            f = (self.talk_dir / str(pcard["pool"])).resolve() / fname
-            if f.is_file():
-                return self._make(slug, {**pcard, "type": None}, f, "pool")
-            return MediaRef(
-                slug=slug, type="image", status="missing", found=False,
-                alt=pcard.get("alt", ""), credit=pcard.get("credit", ""),
-                licence=pcard.get("licence", ""),
-                reason=f"pin '{slug}': {fname!r} is not in pool folder {pcard.get('pool')!r}")
+            return self._pin_ref(slug, *self._pin_map[slug])
         if card is not None and card.get("pool"):
             m = POOL_RE.match(slug)
             if m and m.group(1) == card.get("slug"):
@@ -679,15 +847,10 @@ class MediaResolver:
         if p is not None:
             return self._make(slug, card, p, "deckdir")
 
-        # 3) shared library
-        entry = self.library_entry_for(slug)
-        if entry and entry.get("file") and self.library_path is not None:
-            p = self.library_path.parent / str(entry["file"])
-            if p.is_file():
-                ref = self._make(slug, card, p, "library")
-                if not ref.alt and entry.get("note"):
-                    ref.note = entry["note"]
-                return ref
+        # 3) shared media: a library entry's `file:`, else a file named for the slug
+        ref = self._shared_stage(slug, slug, card)
+        if ref is not None:
+            return ref
 
         # 4) explicit stand-in remap (--media-remap). Deliberately last:
         #    real art from deckdir/library above always wins, so a stand-in
@@ -896,7 +1059,10 @@ class MediaResolver:
     def unreferenced_cards(self, referenced: set) -> list:
         """Card slugs never referenced by any shot (authoring info).  A stepped
         card's frames count as referenced by it."""
-        referenced = set(referenced)
+        # a section's slug uses only the shared library: it counts for a shared
+        # pool card (a library entry), never for a deck card of the same name
+        shared_used = {self.shared[s][0] for s in referenced if s in self.shared}
+        referenced = {s for s in referenced if s not in self.shared}
         for slug in list(referenced):       # a pool use or pin counts for its pool
             m = POOL_RE.match(slug)
             if m:
@@ -907,8 +1073,39 @@ class MediaResolver:
             spec = self.steps_spec(slug)
             if spec:
                 referenced.update(spec["steps"])
+        for pid in list(shared_used):
+            if pid in self._lib_pin_map:
+                shared_used.add(str(self._lib_pin_map[pid][0]["slug"]))
         return [str(c["slug"]) for c in self.cards
-                if isinstance(c, dict) and c.get("slug") not in referenced]
+                if isinstance(c, dict) and c.get("slug") not in referenced
+                and not (self.lib_pools.get(str(c.get("slug"))) is c
+                         and c.get("slug") in shared_used)]
+
+
+def shelf_media_errors(talk, resolver) -> list:
+    """Check 48, media half: (line, message) for every shelf screen whose media
+    does not resolve.  Nobody pages through hidden slides, so unlike an ordinary
+    include (a placeholder and a warning) a shelf section must be complete.
+    Call after expand_pools() (and after any stand-in remap is loaded)."""
+    out, seen = [], set()
+    for scr in talk.screens:
+        if not scr.shelf:
+            continue
+        sec = scr.section[0] if scr.section else "?"
+        for shot in scr.shots:
+            for slug in (shot.slug if shot.is_media else None, shot.flags.get("under")):
+                if not slug or (sec, slug) in seen:
+                    continue
+                seen.add((sec, slug))
+                ref = resolver.resolve(slug)
+                if not ref.found:
+                    base = resolver.shared.get(slug, (slug, None))[0]
+                    out.append((shot.line_begin or 1,
+                        f"check 48: shelf section {sec}: media '{base}' does not "
+                        f"resolve ({ref.reason or 'no file'}); a shelf screen is "
+                        f"never paged to, so it cannot be a placeholder. Add the "
+                        f"file to the shared _media/ or fix the slug"))
+    return out
 
 
 # ---------------------------------------------------------------------------

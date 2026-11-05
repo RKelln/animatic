@@ -48,7 +48,8 @@ import talkparse
 from .common import err
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "quick"
+FIXTURE = REPO / "tests" / "fixtures" / "quick" / "deck"
+SHARED = REPO / "tests" / "fixtures" / "quick" / "_media"     # the deck's shared library
 
 
 def _build(talk: Path, out: Path, *extra: str) -> str:
@@ -83,6 +84,8 @@ def check(errors: list) -> None:
     try:
         deck = tmp / "deck"
         shutil.copytree(FIXTURE, deck)
+        # shelf sections take their media from the shared `_media/` beside the deck
+        shutil.copytree(SHARED, tmp / "_media")
         talk_md = deck / "talk.md"
 
         t = talkparse.build_talk(talk_md)

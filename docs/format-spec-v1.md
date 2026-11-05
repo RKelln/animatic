@@ -182,7 +182,8 @@ the presenter to jump to from the search box (`docs/quick-select.md`):
   keywords to the search.
 
 A missing directory, a `quick:` with no `title:`, or `keywords:` that is not a list is
-fatal (check 48). Shelf screens are live-only: in the present view and `cues.json`
+fatal (check 48), and so is a shelf screen whose media does not resolve from the shared
+`_media/` (a hidden slide cannot be a placeholder). Shelf screens are live-only: in the present view and `cues.json`
 (`quick: true`, `live_only: true`), not in the document view or the handout, and out of
 the timing totals. A shelf section's `cites:` and `sources:` serve its own screens and
 are never printed in the handout. A deck with neither field is unchanged.
@@ -1104,9 +1105,18 @@ is that card steps, with no shot flag.
 1. deck `media/cards.yaml` — `approved:`, then `file:`, then `outputs[]`
 2. deck `media/<slug>/attempts/<slug>-a<N>.<ext>` — highest N
 3. deck `media/<slug>.<ext>`
-4. shared `_media/library.yaml` (sibling of the deck dir)
+4. shared media, `_media/` beside the deck dir: a `library.yaml` entry with a
+   `file:`, else a file named for the slug, `_media/<slug>.<ext>` or
+   `_media/<slug>/<slug>.<ext>` (no entry needed; the entry carries alt, credit,
+   licence, type overrides, `pool:`; two matching files warn, check 50)
 5. `--media-remap` stand-in (deliberately last — real art always wins)
 6. placeholder (a grey box carrying slug, status, and reason)
+
+**Section media** (a shot from an included or shelved section) uses stages 4 and 5
+only, never the deck's `cards.yaml` or `media/`, so a section looks the same in
+every deck; its library entry is its card. If the deck owns the same slug, the
+section's shot is published as `<slug>--lib` beside the deck's. An unresolved
+slug on a shelf screen is fatal (check 48); in an ordinary include it is stage 6.
 
 ### Pool cards (one slug, a folder of art)
 
@@ -1260,12 +1270,12 @@ equal to a role name · a heading that begins with `Movement`
 screen boundaries) · a quick-select shelf that cannot be built: `quick_sections`
 naming a missing directory, or a `quick:` block with no `title` or with `keywords`
 that is not a list (check 48) · a malformed waypoint directive or `waypoints:` block
-(check 49).
+(check 49) · a quick-select shelf screen whose media does not resolve (check 48).
 
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[notes]` block that repeats a list the notes already carry (check 42).
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[notes]` block that repeats a list the notes already carry (check 42) · two files in `_media/` matching one slug (check 50).
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 

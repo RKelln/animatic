@@ -80,7 +80,7 @@ import yaml
 import talkparse
 import render
 import timing
-from mediaresolve import MEDIA_EXTS, MediaResolver, expand_pools
+from mediaresolve import MEDIA_EXTS, MediaResolver, expand_pools, shelf_media_errors
 
 # ---------------------------------------------------------------------------
 # Severity + register
@@ -166,8 +166,9 @@ REGISTER = [
     (45, "a bare `reveal` on a screen with nothing revealable on it (no list of 2 or more items, no valid timer): the flag does nothing", WARNING, "implemented: check.py + render.py"),
     (47, "a presenter-only `([Timer: ...])` on a screen that also has `reveal=timer` or another timer: the presenter window shows one timer per screen; the first timer on the screen wins and `reveal=timer` is ignored for a presenter-only one", WARNING, "implemented: check.py"),
     (46, "an unclosed `(` parenthetical: the rest of the paragraph is read as spoken text and prints in the handout", WARNING, "enforced: talkparse.py"),
-    (48, "quick select: `quick_sections:` (or `--quick-sections`) names a missing directory, or a section's `quick:` block has no `title:` or a `keywords:` that is not a list", FATAL, "enforced: talkparse.py"),
+    (48, "quick select: `quick_sections:` (or `--quick-sections`) names a missing directory, a section's `quick:` block has no `title:` or a `keywords:` that is not a list, or a shelf screen's media does not resolve from the shared `_media/` (nobody pages to a hidden slide, so no placeholder)", FATAL, "enforced: talkparse.py (directory, block) + mediaresolve.py (media)"),
     (49, "waypoints: a `<!-- waypoint: word -->` with a bad word (lowercase letters, digits and hyphens, up to 24), a word used twice, a directive inside a section, a directive with no screen after it, or directives (or a `waypoints:` block) without a valid `waypoints.url`", FATAL, "enforced: talkparse.py"),
+    (50, "shared media: two files in `_media/` match one slug (`_media/<slug>.<ext>` and `_media/<slug>/<slug>.<ext>`, or two extensions); the flat file, then the first extension in the resolver's order, is used", WARNING, "implemented: check.py + mediaresolve.py"),
 ]
 
 DEFERRED = {
@@ -1023,6 +1024,20 @@ def check_41_pools(talk, resolver, report: Report) -> None:
         report.add(41, WARNING, f"{msg} (spec: Media, pool cards)")
 
 
+def check_50_shared_media(talk, resolver, report: Report) -> None:
+    """A slug matched by more than one file in the shared `_media/` folder."""
+    seen = set()
+    for scr in talk.screens:
+        for sh in scr.shots:
+            for slug in (sh.slug if sh.is_media else None, sh.flags.get("under")):
+                if slug:
+                    resolver.resolve(slug)        # the match happens on resolution
+    for slug, msg in resolver.shared_issues:
+        if slug not in seen:
+            seen.add(slug)
+            report.add(50, WARNING, f"{msg} (spec: Media, shared media)")
+
+
 def check_40_next_marks(talk, resolver, report: Report) -> None:
     """`[next]` marks in the script should match the presses the screen takes."""
     for s, line, msg in render.next_mark_notes(talk, resolver):
@@ -1250,6 +1265,7 @@ def run_checks(talk, resolver, source_text: str,
     check_34_step_counts(talk, resolver, report)
     check_40_next_marks(talk, resolver, report)
     check_41_pools(talk, resolver, report)
+    check_50_shared_media(talk, resolver, report)
     check_42_redundant_copy(talk, resolver, report)
     check_43_reveal_without_list(talk, resolver, report)
     check_44_reveal_timer_without_timer(talk, resolver, report)
@@ -1288,6 +1304,13 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
         resolver = MediaResolver(talk_dir=p.parent, meta=talk.meta)
         # the warnings module; the suite surfaces declared_missing itself.
         expand_pools(talk, resolver)
+        shelf_errors = shelf_media_errors(talk, resolver)
+    if shelf_errors:
+        line, msg = shelf_errors[0]
+        report.parse_error = f"{report.source}:{line}: {msg}"
+        for line, msg in shelf_errors:
+            report.add(48, FATAL, f"{report.source}:{line}: {msg}", line=line)
+        return report
     for inc in talk.includes:            # footnote refs inside included files
         try:
             text += "\n" + inc.read_text(encoding="utf-8")

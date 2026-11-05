@@ -53,7 +53,8 @@ import threading
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-FIXTURE = REPO / "tests" / "fixtures" / "quick"
+FIXTURE = REPO / "tests" / "fixtures" / "quick" / "deck"
+SHARED = REPO / "tests" / "fixtures" / "quick" / "_media"
 
 # The fixture's screens, 0-based: 0 Opening, 1 list (reveal), 2 revealed timer,
 # 3 plain timer, 4 the talk's video, 5-6 the linked section (included in the
@@ -469,12 +470,15 @@ def make_clip(path: Path) -> bool:
 def build_scratch(tmp: Path, many: bool = False) -> tuple[Path, bool]:
     deck = tmp / "deck"
     shutil.copytree(FIXTURE, deck)
+    shutil.copytree(SHARED, tmp / "_media")   # shelf media is shared media
     if many:
         # a shelf section of 20 screens, all matching "overflow": more matches than the 12-row cap
         body = "---\nquick:\n  title: Overflow topics\n  keywords: [overflow]\n---\n"
         body += "".join(f"<!-- shot -->\n### Overflow topic {n}\n\nSpoken words {n}.\n\n" for n in range(1, 21))
         (deck / "sections" / "zmany.section.md").write_text(body, encoding="utf-8")
-    clips = make_clip(deck / "media" / "clip-main.mp4") and make_clip(deck / "media" / "clip-shelf.mp4")
+    clips = make_clip(deck / "media" / "clip-main.mp4") and make_clip(tmp / "_media" / "clip-shelf.mp4")
+    if (tmp / "_media" / "clip-shelf.mp4").exists():      # the real clip replaces the svg stand-in
+        (tmp / "_media" / "clip-shelf.svg").unlink()
     out = tmp / "out"
     subprocess.run([sys.executable, str(REPO / "build.py"), str(deck / "talk.md"), "--out", str(out)],
                    check=True, capture_output=True, text=True)

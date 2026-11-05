@@ -18,9 +18,55 @@ pipeline, Ryan approves every final.
 ## Card lifecycle
 
 idea > brief > prompting > candidates (local bulk) > shortlist > approved.
-Shot refs in talk.md are extensionless slugs. Resolution order:
-deck `media/cards.yaml` -> deck `media/` dir -> shared `library.yaml`.
+Shot refs in talk.md are extensionless slugs. Resolution order for a shot in
+the talk's own slides:
+deck `media/cards.yaml` -> deck `media/` dir -> shared media (below) -> a
+`--media-remap` stand-in.
 Type and file format live in the card, never in the script.
+
+## Shared media (`_media/`, beside the deck folders)
+
+The shared stage reads, in this order:
+
+1. a `library.yaml` entry for the slug that has a `file:` (path relative to
+   `_media/`);
+2. a file named for the slug: `_media/<slug>.<ext>`, then
+   `_media/<slug>/<slug>.<ext>`. No entry is needed. The type comes from the
+   extension, as everywhere else.
+
+An entry is optional. Write one for what a bare file cannot say: `alt`,
+`credit`, `licence`, a `type` override (`live`), `playback`/`sound`/`still` for
+video, `steps:`, or `pool:`. Missing alt or credit is whatever the existing media
+checks make of it (check 11 warns for a slide with no card or entry).
+If two files match one slug (`_media/hero.png` and `_media/hero.webp`, or the
+flat file and the folder one) the flat file wins, then the extension order of
+`MEDIA_EXTS`, and check 50 warns. Keep one.
+
+### Section media comes only from here
+
+A shot that comes from a section, whether the talk includes it
+(`<!-- include: -->`) or it sits on the quick-select shelf, **never** reads the
+deck's `cards.yaml` or `media/`. It resolves from the shared stage only (entry,
+then named file, then a `--media-remap` stand-in), so a section looks the same in
+every deck. That holds for pool slugs too: `ryan-art` is a library pool, and a
+deck card of the same name does not replace it inside a section. For a
+section's shot the entry is the card: its alt, credit, licence, type and
+playback apply. (A slide in the talk itself keeps using its own card, or none,
+exactly as before.)
+
+A section slug with no shared media is, in an ordinary include, a placeholder
+plus the usual warnings. On the shelf it is fatal (check 48): nobody pages
+through hidden slides, so the build stops and names the section file.
+
+**The same slug in a slide and in a section.** If the deck owns something of the
+section's slug (a card, a pool pin, or a file in `media/`), the section's shot is
+renamed `<slug>--lib` (a pool's uses `<slug>--lib--NN`; a stepped card's frames
+`<frame>--lib`). Every table keyed by slug then keeps them apart: `_media/<slug>.png` and
+`_media/<slug>--lib.png` in the output, two rows in `media-manifest.json` and
+`cues.json`, two handout images in `_media/doc/`. With no clash nothing is
+renamed and output names are the slug, as before. `--quick-sections DIR` does not
+move the shared library: it is always the `_media/` beside the deck's own folder,
+whatever DIR is.
 
 ## Current state vs archaeology (the split that makes iteration sane)
 

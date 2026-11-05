@@ -40,7 +40,7 @@ import yaml
 
 import render
 import talkparse
-from mediaresolve import MediaResolver, expand_pools
+from mediaresolve import MediaResolver, expand_pools, shelf_media_errors
 from render import (cited_sources, render_cues, render_document, render_manifest, render_nav,
                     render_present, render_presenter)
 
@@ -145,6 +145,12 @@ def build(talk_path: Path, args) -> int:
             print(f"warn      : media-remap file(s) missing, ignored: "
                   f"{', '.join(gone)}")
 
+    shelf_errors = shelf_media_errors(talk, resolver)
+    if shelf_errors:
+        for line, msg in shelf_errors:
+            print(f"error     : {talk.source}:{line}: {msg}", file=sys.stderr)
+        return 1
+
     out = Path(args.out).expanduser().resolve()
     if out.exists():
         if not args.keep:
@@ -160,6 +166,8 @@ def build(talk_path: Path, args) -> int:
         print(f"warn      : check 33: {msg}")
     for _slug, msg in resolver.pool_issues:
         print(f"warn      : check 41: {msg}")
+    for _slug, msg in resolver.shared_issues:
+        print(f"warn      : check 50: {msg}")
     for scr, _line, msg in render.step_count_notes(talk, resolver):
         print(f"warn      : check 34: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
     for scr, _line, msg in render.next_mark_notes(talk, resolver):

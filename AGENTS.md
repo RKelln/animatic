@@ -30,9 +30,9 @@ coding agent. Edit here, never there.
     python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see README: Handout PDF)
     python3 build.py --corpus                      # every deck under corpus.yaml roots
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
-    python3 check.py --register                    # the canonical check register (1-49)
+    python3 check.py --register                    # the canonical check register (1-50)
     python3 check.py --corpus [ROOT] --strict      # warnings become deck failures
-    python3 tests/run.py                           # golden suite (profiles: 62, passed: 68)
+    python3 tests/run.py                           # golden suite (profiles: 62, passed: 69)
     python3 tests/browser_waypoint.py              # real-browser test for waypoints (exit 77: no chromium)
     python3 tests/browser_quick_select.py          # real-browser test for quick select (exit 77: no chromium)
 
@@ -41,7 +41,7 @@ coding agent. Edit here, never there.
 a content root. Builds are deterministic — re-running rebuilds identical bytes.
 
 As of 2026-11-05: `--corpus` reports 14/14 decks passed, banks 1, exit 0 (under
-`--strict` 13/14: warnings count as failures there).
+`--strict` 12/14: warnings count as failures there).
 
 ## Rules
 
