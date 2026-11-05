@@ -60,6 +60,7 @@ from set iteration.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -420,6 +421,10 @@ class Shot:
     # The include directive's path as authored, when this shot came from an
     # included file (nav.json reports it); None for the talkfile's own shots.
     include: Optional[str] = None
+    # Quick select (spec: docs/quick-select.md): (section id, title, keywords)
+    # when this shot came from a section that declares a `quick:` block, in a
+    # deck that has opted in with `quick_sections`.  None everywhere else.
+    quick: Optional[tuple] = None
 
     @property
     def is_role(self) -> bool:
@@ -476,6 +481,9 @@ class Screen:
     shots: list = field(default_factory=list)
     blocks: list = field(default_factory=list)   # list[Block]
     line: int = 0
+    # Quick select: True for a screen on the shelf (a section the deck carries
+    # but the talk never reaches in normal paging).  Always after the talk.
+    shelf: bool = False
 
     def has_content(self) -> bool:
         return bool(self.blocks)
@@ -498,12 +506,18 @@ class Screen:
         return self.shots[0].include if self.shots else None
 
     @property
+    def section(self) -> Optional[tuple]:
+        """(section id, title, keywords) of the quick-select section this
+        screen came from (the shelf, or an include that declares `quick:`)."""
+        return self.shots[0].quick if self.shots else None
+
+    @property
     def live_only(self) -> bool:
         """True when any shot carries the bare `live` flag: the screen belongs
         to the live deck only (present + presenter views).  The document view
         / handout leaves it out and cues.json marks it, so a video render
-        skips it."""
-        return any("live" in s.flags for s in self.shots)
+        skips it.  A shelf screen (quick select) is live-only by definition."""
+        return self.shelf or any("live" in s.flags for s in self.shots)
 
     @property
     def timer_block(self) -> Optional["Block"]:
@@ -585,6 +599,32 @@ class Talk:
     # Every file pulled in by `include:` (resolved, nested ones too), for
     # --watch and the footnote check.
     includes: list = field(default_factory=list)
+    # Quick select: files pulled onto the shelf (resolved, nested ones too),
+    # for --watch; the `[^id]` refs the shelf's own screens carry; and each
+    # shelf section's own `cites:` / `sources:` (section id -> {key: map}).
+    # None of these touch `meta` or `footnote_ids`: the handout is public and
+    # prints exactly what the talk cites.
+    shelf_files: list = field(default_factory=list)
+    shelf_footnote_ids: list = field(default_factory=list)
+    shelf_registry: dict = field(default_factory=dict)
+
+    @property
+    def main_screens(self) -> list:
+        return [s for s in self.screens if not s.shelf]
+
+    @property
+    def shelf_screens(self) -> list:
+        return [s for s in self.screens if s.shelf]
+
+    def shelf_cite(self, screen: "Screen", rid: str, key: str = "cites"):
+        """Resolve a `[^id]` on a shelf screen: its own section's registry
+        first, then the talk's.  None when neither has it."""
+        sec = screen.section
+        reg = self.shelf_registry.get(sec[0], {}) if sec else {}
+        for m in (reg.get(key), self.meta.get(key)):
+            if isinstance(m, dict) and rid in m:
+                return m[rid]
+        return None
 
     @property
     def role_names(self) -> set:
@@ -1461,9 +1501,31 @@ def _include_error(source: str, line: int, msg: str) -> ValueError:
     return ValueError(f"{source}:{line}: check 22: {msg}")
 
 
+def _quick_error(source: str, line: int, msg: str) -> ValueError:
+    # register check 48, same shape as check 22 so check.py reports a fatal
+    return ValueError(f"{source}:{line}: check 48: {msg}")
+
+
+def _quick_block(raw, source: str, line: int) -> tuple:
+    """Validate a section's `quick:` block: (title, keywords).  Check 48."""
+    if not isinstance(raw, dict):
+        raise _quick_error(source, line, "`quick:` must be a block with a "
+                           "`title:` (and optionally `keywords:`)")
+    title = raw.get("title")
+    if not isinstance(title, str) or not title.strip():
+        raise _quick_error(source, line, "`quick:` needs a non-empty `title:`")
+    kws = raw.get("keywords", [])
+    if kws is None:
+        kws = []
+    if not isinstance(kws, list):
+        raise _quick_error(source, line, "`quick: keywords:` must be a list, "
+                           "e.g. [agents, tools]")
+    return title.strip(), tuple(str(k).strip() for k in kws if str(k).strip())
+
+
 def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
                      layout_vocab, stack: tuple, includes: list,
-                     frag_meta: list) -> list:
+                     frag_meta: list, quick_on: bool = False) -> list:
     """Replace each `include` block with the included file's blocks.
 
     Each file is lexed on its own, so line numbers, paragraph state and
@@ -1501,7 +1563,11 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
                               line_offset=offset)
         fblocks = _expand_includes(fblocks, target, fsource, role_vocab,
                                    layout_vocab, stack + (target,), includes,
-                                   frag_meta)
+                                   frag_meta, quick_on)
+        qtuple = None
+        if quick_on and "quick" in meta:
+            qtitle, qkw = _quick_block(meta["quick"], fsource, line)
+            qtuple = (rel, qtitle, qkw)
         if target not in includes:
             includes.append(target)
         frag_meta.append(meta)
@@ -1516,19 +1582,118 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
                 sh = fb["shot"]
                 sh.line_begin = line
                 sh.include = rel          # the outermost directive wins
+                if qtuple is not None:
+                    sh.quick = qtuple     # so does the outermost `quick:`
                 for f in rb["flags"]:
                     sh.flags[f] = ""
             out.append(fb)
     return out
 
 
-def build_talk(path, source: Optional[str] = None) -> Talk:
+def _quick_dir(meta: dict, path, source: str, override) -> tuple:
+    """The shelf directory and the line that names it: (Path or None, line).
+    `override` (build.py --quick-sections) beats the frontmatter line and is
+    relative to the working directory; the frontmatter value is relative to
+    the talkfile.  A missing directory or a non-string value is check 48."""
+    line = 1
+    try:
+        for n, ln in enumerate(Path(path).read_text(encoding="utf-8").split("\n"), 1):
+            if ln.startswith("quick_sections:"):
+                line = n
+                break
+    except OSError:
+        pass
+    if override is not None:
+        d = Path(override).expanduser().resolve()
+        where = f"--quick-sections {override}"
+    elif "quick_sections" in meta:
+        raw = meta["quick_sections"]
+        if not isinstance(raw, str) or not raw.strip():
+            raise _quick_error(source, line, "`quick_sections:` must be a "
+                               "directory path relative to the talkfile")
+        d = (Path(path).resolve().parent / raw.strip()).resolve()
+        where = f"quick_sections: {raw.strip()}"
+    else:
+        return None, line
+    if not d.is_dir():
+        raise _quick_error(source, line, f"{where}: no such directory")
+    return d, line
+
+
+def _append_shelf(talk: Talk, path, qdir: Path, qline: int, role_vocab,
+                  layout_vocab, role_bundles, source: str) -> None:
+    """Lex every shelf section like an include and append its screens after
+    the talk's last real screen (spec: docs/quick-select.md).
+
+    A section is shelved when its frontmatter has a `quick:` block and the
+    talk does not already include it; order is by filename.  Each section is
+    assembled on its own, so a role payload or `continue` never crosses from
+    one into the next.  Its `cites:` / `sources:` go in `talk.shelf_registry`
+    for its own screens and never join `talk.meta`: the handout is public.
+    """
+    host = Path(path).resolve()
+    taken = set(talk.includes)
+    tail = talk.screens[-1] if talk.screens else None
+    movement = tail.movement if tail is not None else 0
+    for f in sorted(qdir.glob("*.section.md"), key=lambda q: q.name):
+        target = f.resolve()
+        if target in taken:
+            continue          # the talk includes it: search finds that copy
+        body = target.read_text(encoding="utf-8")
+        meta, _ = _lex_frontmatter(body, str(target))
+        if "quick" not in meta:
+            continue
+        rel = os.path.relpath(target, host.parent)
+        inner: list = []
+        frag: list = []
+        blocks = _expand_includes(
+            [{"kind": "include", "path": rel, "flags": [], "line": qline}],
+            host, source, role_vocab, layout_vocab, (host,), inner, frag,
+            quick_on=True)
+        sub = assemble({}, blocks, source, role_vocab=role_vocab,
+                       layout_vocab=layout_vocab, role_bundles=role_bundles)
+        if not sub.screens:
+            continue
+        reg = {}
+        for key in ("cites", "sources"):
+            merged: dict = {}
+            for fm in frag:                      # inner first: the section wins
+                if isinstance(fm.get(key), dict):
+                    merged.update(fm[key])
+            if merged:
+                reg[key] = merged
+        talk.shelf_registry[rel] = reg
+        for rid in sub.footnote_ids:
+            if rid not in (reg.get("sources") or {}) \
+                    and rid not in (talk.meta.get("sources") or {}):
+                talk.warnings.append(
+                    f"line {qline}: check 28: footnote [^{rid}] in shelf "
+                    f"section {rel} has no sources: registry entry")
+        talk.shelf_footnote_ids.extend(sub.footnote_ids)
+        talk.warnings.extend(sub.warnings)
+        for p_ in [target] + inner:
+            if p_ not in talk.shelf_files:
+                talk.shelf_files.append(p_)
+        for scr in sub.screens:
+            scr.shelf = True
+            scr.movement = movement
+            scr.idx = len(talk.screens) + 1
+            talk.screens.append(scr)
+    talk.warnings.sort()
+
+
+def build_talk(path, source: Optional[str] = None,
+               quick_sections: Optional[str] = None) -> Talk:
     """Parse a talkfile path into a Talk model.
 
     The deck directory is the directory that HOLDS the talkfile: that is
     where a deck-local `roles.yaml` / `layouts.yaml` lives (deck -> shared ->
     built-in, spec: Roles), so the vocabulary the parser accepts and the one
     the checker reports against are resolved once, here.
+
+    `quick_sections` (build.py `--quick-sections DIR`) overrides the
+    frontmatter `quick_sections:` line; a deck with neither parses exactly as
+    it always did.
     """
     source = source or str(path)
     with open(path, "r", encoding="utf-8") as fh:
@@ -1537,6 +1702,7 @@ def build_talk(path, source: Optional[str] = None) -> Talk:
     role_vocab, layout_vocab = load_vocab(deck_dir)
     role_bundles = load_role_bundles(deck_dir)
     meta, lines = _lex_frontmatter(body, source)
+    qdir, qline = _quick_dir(meta, path, source, quick_sections)
     # every line number is the talkfile's own, frontmatter included
     # (2026-09-28; was body-relative, which put L01's warnings 64 lines off)
     offset = body.count("\n") + 1 - len(lines)
@@ -1546,7 +1712,8 @@ def build_talk(path, source: Optional[str] = None) -> Talk:
     frag_meta: list = []
     raw_blocks = _expand_includes(raw_blocks, Path(path).resolve(), source,
                                   role_vocab, layout_vocab,
-                                  (Path(path).resolve(),), includes, frag_meta)
+                                  (Path(path).resolve(),), includes, frag_meta,
+                                  quick_on=qdir is not None)
     # an included file's `cites:` / `sources:` join the talk's; the talk wins
     for fm in frag_meta:
         for key in ("cites", "sources"):
@@ -1557,6 +1724,9 @@ def build_talk(path, source: Optional[str] = None) -> Talk:
     talk = assemble(meta, raw_blocks, source, role_vocab=role_vocab,
                     layout_vocab=layout_vocab, role_bundles=role_bundles)
     talk.includes = includes
+    if qdir is not None:
+        _append_shelf(talk, path, qdir, qline, role_vocab, layout_vocab,
+                      role_bundles, source)
     return talk
 
 

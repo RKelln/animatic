@@ -166,6 +166,7 @@ REGISTER = [
     (45, "a bare `reveal` on a screen with nothing revealable on it (no list of 2 or more items, no valid timer): the flag does nothing", WARNING, "implemented: check.py + render.py"),
     (47, "a presenter-only `([Timer: ...])` on a screen that also has `reveal=timer` or another timer: the presenter window shows one timer per screen; the first timer on the screen wins and `reveal=timer` is ignored for a presenter-only one", WARNING, "implemented: check.py"),
     (46, "an unclosed `(` parenthetical: the rest of the paragraph is read as spoken text and prints in the handout", WARNING, "enforced: talkparse.py"),
+    (48, "quick select: `quick_sections:` (or `--quick-sections`) names a missing directory, or a section's `quick:` block has no `title:` or a `keywords:` that is not a list", FATAL, "enforced: talkparse.py"),
 ]
 
 DEFERRED = {
@@ -868,6 +869,8 @@ def check_19_timing(talk, resolver, report: Report) -> None:
     total = 0.0
     authors = 0
     for screen, cid in zip(talk.screens, cue_ids):
+        if screen.shelf:
+            continue          # a shelf does not lengthen a talk (quick select)
         est = render.cue_estimate(screen, resolver, tt.wpm)
         seconds, tier = tt.effective(cid, est)
         if tier != "estimated":
@@ -1272,10 +1275,10 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
         talk = talkparse.build_talk(p)
     except ValueError as exc:
         msg = str(exc)
-        m = re.search(r":(\d+): check 22:", msg)
+        m = re.search(r":(\d+): check (22|48):", msg)
         if m:
             report.parse_error = f"{msg}"
-            report.add(22, FATAL, msg, line=int(m.group(1)))
+            report.add(int(m.group(2)), FATAL, msg, line=int(m.group(1)))
         else:
             report.parse_error = msg
         return report

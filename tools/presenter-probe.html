@@ -120,6 +120,7 @@ async function deckContent() {
       title: ((s.querySelector(".slide-title") || {}).textContent || "").trim(),
       notes: { vo: vo, stage: stage },
       notesText: vo.concat(stage).join(" ").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+      quick: s.getAttribute("data-quick"),
       isLive: /live/i.test(s.className) || !!s.querySelector("[data-live-surface]"),
       liveHost: s.querySelector("[data-live-surface]")
         ? { slug: s.querySelector("[data-live-surface]").getAttribute("data-live-slug"),
@@ -152,6 +153,9 @@ function buildState(screen, next, count, liveState) {
     schema: "animatic.presenter.v1",
     index: screen.index,
     count: count,
+    // quick select: the last index the deck pages to from here (a deck with no
+    // shelf has no `hi`, and the presenter then pages to the end as before)
+    hi: screen.hi,
     startedAt: Date.now(),
     notes: screen.notes,
     nextNotes: next ? next.notes : null,
@@ -311,9 +315,74 @@ function verdictOf(checks) {
   return "pass";
 }
 
+// Quick select (docs/quick-select.md): open the search over the real presenter
+// page and measure that it fits the window. The deck is not there to answer
+// previews, so a screen's markup is sent back the way the deck would.
+async function measureQuick(win, screens, query) {
+  const d = win.document;
+  win.presenter.apply(buildState(screens[0], screens[1] || null, screens.filter((s) => !s.quick).length));
+  d.dispatchEvent(new win.KeyboardEvent("keydown", { key: "/", bubbles: true, cancelable: true }));
+  const inp = d.getElementById("quick-input");
+  inp.value = query;
+  inp.dispatchEvent(new win.Event("input", { bubbles: true }));
+  const rows = [...d.querySelectorAll("#quick-results .quick-row")];
+  // The deck is not here to answer the preview request, so answer it the way the
+  // deck would: every screen's markup under every request id the search could
+  // be waiting on (it takes only the pair that matches the selected row).
+  for (const sc of screens) {
+    for (let rid = 1; rid <= 8; rid++) {
+      win.postMessage({ type: "animatic-preview", index: sc.index, rid: rid, preview: sc.isLive ? null : sc.slide }, "*");
+    }
+  }
+  await wait(80);
+  const box = (el) => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }; };
+  const out = {
+    vw: win.innerWidth, vh: win.innerHeight,
+    open: !d.getElementById("quick").hidden,
+    panel: box(d.querySelector(".quick-panel")),
+    input: box(inp),
+    list: box(d.getElementById("quick-results")),
+    preview: box(d.getElementById("quick-preview")),
+    rows: rows.length,
+    previewFilled: !!d.querySelector("#quick-preview .animatic-slide") || /no preview/.test(d.getElementById("quick-preview").textContent)
+  };
+  d.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  return out;
+}
+
+function judgeQuick(q, query) {
+  const out = [];
+  if (!q.open) out.push(["fail", "/ did not open the search"]);
+  const p = q.panel;
+  if (p.l < 0 || p.t < 0 || p.r > q.vw || p.b > q.vh) {
+    out.push(["fail", "the search panel (" + p.w + "x" + p.h + " at " + p.l + "," + p.t + ") runs outside the " + q.vw + "x" + q.vh + " window"]);
+  }
+  if (q.input.h < 20 || q.input.b > q.vh) out.push(["fail", "the search input is not visible"]);
+  const asp = q.preview.h ? q.preview.w / q.preview.h : null;
+  if (asp === null || Math.abs(asp - 16 / 9) / (16 / 9) > 0.03) out.push(["fail", "the search preview is " + q.preview.w + "x" + q.preview.h + ", not 16:9"]);
+  if (q.preview.h < 60) out.push(["warn", "the search preview is only " + q.preview.h + "px tall"]);
+  if (!q.previewFilled) out.push(["warn", "the preview did not fill from a deck reply"]);
+  if (q.rows === 0) out.push(["warn", "the query " + JSON.stringify(query) + " found no rows"]);
+  if (q.rows >= 3 && q.list.h < 3 * 36) out.push(["fail", "only " + q.list.h + "px of results show, under three rows"]);
+  if (q.rows > 12 && query) out.push(["fail", q.rows + " rows, over the 12-row limit"]);
+  return out;
+}
+
 async function run() {
   const results = [];
   const screens = await deckContent();
+  // quick select: the shelf follows the talk; give each screen the last index
+  // its paging reaches (the talk's, or its shelf section's)
+  const firstShelf = screens.findIndex((s) => s.quick !== null);
+  const mainCount = firstShelf < 0 ? screens.length : firstShelf;
+  if (firstShelf >= 0) {
+    screens.forEach((s, i) => {
+      if (i < mainCount) { s.hi = mainCount - 1; return; }
+      let k = i;
+      while (k + 1 < screens.length && screens[k + 1].quick === s.quick) k++;
+      s.hi = k;
+    });
+  }
   const picks = casesFrom(screens).map((p) => ({ name: p.name, screen: p.screen }));
   // the live control is its own axis of behaviour: one screen, three states
   const liveScreen = screens.find((s) => s.liveHost);
@@ -337,13 +406,37 @@ async function run() {
         if (!win.presenter || !win.presenter.apply) {
           throw new Error("no window.presenter.apply — rebuild the deck (see the hook in PRESENTER_UI_JS)");
         }
-        row = measure(win, p.screen, next, screens.length, p.liveState);
+        row = measure(win, p.screen, p.screen.hi !== undefined && p.screen.index >= p.screen.hi ? null : next, mainCount, p.liveState);
       } catch (err) {
         row = { error: String(err.message || err) };
       }
       const checks = row.error ? [["fail", row.error]] : judge(row, p.expect);
       results.push(Object.assign({ name: p.name, cue: p.screen.id, expect: p.expect || null,
         viewport: w + "x" + h, checks: checks, verdict: verdictOf(checks) }, row));
+    }
+  }
+  if (firstShelf >= 0) {
+    for (const query of ["", "a"]) {
+      for (const [w, h] of SIZES) {
+        frame.dataset.src = "../" + DECK + "/present/presenter.html?probe=quick-" + w + "x" + h;
+        frame.style.width = w + "px";
+        frame.style.height = h + "px";
+        await waitLoad(frame);
+        await wait(60);
+        let row;
+        try {
+          const win = frame.contentWindow;
+          if (!win.presenter || !win.document.getElementById("quick")) {
+            throw new Error("this deck has a shelf but its presenter page has no search box");
+          }
+          row = { quick: await measureQuick(win, screens, query) };
+        } catch (err) {
+          row = { error: String(err.message || err) };
+        }
+        const checks = row.error ? [["fail", row.error]] : judgeQuick(row.quick, query);
+        results.push(Object.assign({ name: "quick search " + (query ? "'" + query + "'" : "(menu)"), cue: "quick-000", expect: null,
+          viewport: w + "x" + h, checks: checks, verdict: verdictOf(checks) }, row));
+      }
     }
   }
   window.presenterProbe = {
@@ -373,6 +466,9 @@ function paint(report) {
     tr.className = r.verdict;
     const cells = r.error
       ? [r.name, r.viewport, "—", "—", "—", "—", "—", "—", "fail"]
+      : r.quick
+      ? [r.name, r.viewport, "panel " + r.quick.panel.w + "×" + r.quick.panel.h,
+         r.quick.preview.w + "×" + r.quick.preview.h, "—", "—", "—", r.quick.rows + " rows", r.verdict]
       : [r.name + " (" + r.cue.replace(/^.*-/, "#") + ")", r.viewport,
          r.paneW.cur + ":" + r.paneW.next,
          r.preview.cur.w + "×" + r.preview.cur.h,

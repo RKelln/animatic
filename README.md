@@ -34,6 +34,35 @@ treats `*.talk.md` as decks).
 - An included file's frontmatter `cites:` / `sources:` join the talk's; the talk wins.
 - `--watch` follows included files. Properties: `tests/properties/include_props.py`.
 
+## Quick select
+
+During Q&A someone asks about a topic the talk does not cover. In the presenter window
+press `/`, type "agents", pick a result with Up / Down / Enter, and that slide appears on
+the projector. `Esc` returns to exactly where the talk was (same slide, same reveal step).
+Full design: `docs/quick-select.md`.
+
+- A talk opts in with one frontmatter line, `quick_sections: ../_sections` (relative to
+  the talkfile). A section joins the **shelf** by declaring `quick:` in its own
+  frontmatter: `title:` (required) and `keywords:` (a list). A section with no `quick:`
+  block stays off the shelf. A section the talk already includes is not shelved twice;
+  its title and keywords still reach the search.
+- Shelf sections are built into the deck **after the last real screen**, so slide numbers
+  and `#N` links do not move. Paging never leaves the talk, and on the shelf it never
+  leaves the section; only a jump crosses. They are in the present view, the presenter
+  window, `cues.json` (`quick: true`, `live_only: true`), `nav.json` and the media
+  manifest, and **not** in the document view, the handout or the web export. The shelf
+  does not count toward timing (check 19). A shelf section's `cites:` / `sources:` serve
+  its own screens only and never reach the handout.
+- `python3 build.py <talk> --quick-sections DIR` trial-builds a deck with a shelf from
+  DIR without editing the talkfile (it overrides the frontmatter line; DIR is relative to
+  the working directory). `--watch` follows shelf files; a newly added section file needs
+  a fresh build.
+- A deck with no `quick_sections` has an empty shelf: its slides, document view, handout and `cues.json` / `nav.json` / `media-manifest.json` are unchanged (only the inline scripts and the presenter page differ).
+- Check 48 (fatal): `quick_sections` names a missing directory, or a `quick:` block has no
+  `title` or a `keywords` that is not a list.
+- Properties: `tests/properties/quick_props.py`; the browser test is
+  `tests/browser_quick_select.py`.
+
 ## Repo layout
 
 - `docs/format-spec-v1.md` — the talkfile grammar (normative; v1.0 draft, hardening 2026-09-08)

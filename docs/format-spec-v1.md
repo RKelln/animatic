@@ -167,6 +167,26 @@ logline: "One sentence: the thesis."  # what `animatic search` returns
 the deck's media files — default `media`. The resolution order ("Media") and
 the card path rule ("Media pipeline contract") are written against that name.
 
+### Quick select (the shelf)
+
+Two optional fields let a talk carry sections it never reaches in normal paging, for
+the presenter to jump to from the search box (`docs/quick-select.md`):
+
+- **`quick_sections:`** (talk frontmatter) — a directory, relative to the talkfile. The
+  `*.section.md` files in it that declare `quick:` are built into the deck after the
+  talk's last screen, in filename order. A section the talk already includes is not
+  shelved a second time. `build.py --quick-sections DIR` overrides it for a trial build.
+- **`quick:`** (section frontmatter) — `title:` (required, a non-empty string) and
+  `keywords:` (optional, a list of words and phrases). With no `quick:` block a section
+  stays off the shelf. On a section a talk already includes it only adds its title and
+  keywords to the search.
+
+A missing directory, a `quick:` with no `title:`, or `keywords:` that is not a list is
+fatal (check 48). Shelf screens are live-only: in the present view and `cues.json`
+(`quick: true`, `live_only: true`), not in the document view or the handout, and out of
+the timing totals. A shelf section's `cites:` and `sources:` serve its own screens and
+are never printed in the handout. A deck with neither field is unchanged.
+
 ### Version fields
 
 `format-version` names the grammar; `content-version` is the talk's own
@@ -1217,7 +1237,9 @@ catch nothing. `--update-goldens` re-blesses.
 equal to a role name · a heading that begins with `Movement`
 (case-insensitive) but does not match `Movement <integer> [separator]
 <title>` (the author intended structure; guessing wrong silently corrupts
-screen boundaries).
+screen boundaries) · a quick-select shelf that cannot be built: `quick_sections`
+naming a missing directory, or a `quick:` block with no `title` or with `keywords`
+that is not a list (check 48).
 
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a

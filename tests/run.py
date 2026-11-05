@@ -49,7 +49,7 @@ sys.path.insert(0, str(TESTS))
 import build as build_mod  # noqa: E402
 from properties import (check_props, code_props, corpus_props, cue_props, html_props,  # noqa: E402
                         ingest_props, include_props, timer_props, manifest_props, nav_props, playback_props,
-                        timing_props)
+                        quick_props, timing_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
 GOLDEN_FILES = ("cues.json", "media-manifest.json")
@@ -244,6 +244,19 @@ def main(argv=None) -> int:
     else:
         passed.append("include")
         print("ok    include")
+
+    # quick select: the shelf over tests/fixtures/quick (the browser half is
+    # tests/browser_quick_select.py)
+    quick_errors: list = []
+    quick_props.check(quick_errors)
+    if quick_errors:
+        failed.append("quick")
+        print("FAIL  quick")
+        for e in quick_errors[:12]:
+            print(f"      {e}")
+    else:
+        passed.append("quick")
+        print("ok    quick")
 
     # ingest name matching: a throwaway deck and inbox, --no-recover only
     ingest_errors: list = []

@@ -14,9 +14,36 @@ second.
 
 | Surface | Keys |
 | --- | --- |
-| deck | arrows / space / PageUp / PageDown / Home / End to move, `s` presenter window, `n` in-page notes, `d` demo hookup panel, `Escape` closes a panel |
-| presenter window | arrows / space to move the deck, `f` (or the ⇅ button) puts the notes above the slide image instead of below, remembered per browser, `[` / `]` (or the A− / A+ buttons) shrink / grow the current screen's notes text, also remembered, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
+| deck | arrows / space / PageUp / PageDown / Home / End to move, `s` presenter window, `n` in-page notes, `d` demo hookup panel, `Escape` closes a panel (then, after a quick-select jump, returns) |
+| presenter window | arrows / space to move the deck, `/` quick select (a deck with a shelf only: see below), `Escape` returns from a quick-select jump, `f` (or the ⇅ button) puts the notes above the slide image instead of below, remembered per browser, `[` / `]` (or the A− / A+ buttons) shrink / grow the current screen's notes text, also remembered, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
 | timer screens (either window) | `p` pause / resume, `0` reset and run, `+` / `=` add a minute, `-` take a minute off (spec: Timer screens) |
+
+## Quick select
+
+A deck built with a shelf (`quick_sections`, `docs/quick-select.md`) adds a search to
+this window. `/` opens it and **swallows every key while open**: its keydown handler is
+registered in the capture phase and stops the event before the handlers that own `s`,
+`t`, `p`, `f`, `0`, `r`, `[`, `]` and the arrows, so typing a word cannot close the
+window, restart the clock or touch a timer. Up / Down / Enter choose, `Esc` closes it.
+
+It stays inside the `file://` rule above. Everything it needs from the deck is a message
+with a window handle, never a shared channel:
+
+| direction | message | meaning |
+| --- | --- | --- |
+| presenter to deck | `animatic-jump` `{index}` | go to any slide, fully revealed; the first jump saves `{index, step}` |
+| presenter to deck | `animatic-return` | go back to the saved slide and step, then forget it |
+| presenter to deck | `animatic-preview-request` `{index, rid}` | send me a clone of that slide; nothing navigates |
+| deck to presenter | `animatic-preview` `{index, rid, preview}` | the same clone `animatic-state` carries for next-up (a video is a still, a live screen has none) |
+
+The deck keeps the search index out of the runtime message: it is in the build-time cue
+index (`title`, `st` the screen text, `sc` the script, and `sec` / `sec_title` /
+`sec_kw` for a section's screens; never the stage notes). `animatic-state` gains `count`
+(the talk's own screen count, not the shelf), `hi` (the last index paging reaches from
+here), `jumped`, `returnTo` and `move` (`"jump"`, `"return"` or `"nav"`, so a later
+consumer can tell a jump from advancing). On a shelf screen the header shows the section
+title in place of "n / m", and a status line, `Quick: <title> · Esc returns to <n>`,
+shows while the deck is away from the talk. The projector shows neither.
 
 ## Why two windows and not a bigger panel
 
@@ -133,6 +160,14 @@ overflows by 180px there, while the same screen fits in two columns at 1080p.
 That is a fact about how long that screen's notes are rather than a layout
 defect: no readable font size makes 3300 characters fit a small window. The
 probe reports it with the pixels so the decision is visible.
+
+**TODO: update the probe's live-control expectations.** Its `live control: stalled`
+and `live control: idle` cases fail on every deck with a live screen. They still expect
+what was true in September: a stalled capture offers Stop first, and an idle one offers
+no button. Share and Stop moved to the presenter window on 2026-10-27 (`35d37ae`), so
+the page now offers `Share again` and `Share a window`, on purpose. The expectations
+are stale; the page is right. Fix them in `tools/presenter-probe.html`, around
+`wantsButton`.
 
 It must be **served, not opened from disk**: a `file://` page cannot script an
 iframe of another `file://` page (opaque origins), and scripting the frame is

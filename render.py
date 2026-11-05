@@ -846,7 +846,28 @@ PAGER_JS = """
   var stepListeners = [];
   // stepped slides (reveal=list, stepped-image cards): stepAt[i] is slide i's step.
   var stepAt = [];
-  totalEl.textContent = String(slides.length);
+  // quick select (docs/quick-select.md): the shelf sits after the talk, as
+  // slides with data-quick="<section>".  Paging stays inside the talk (the main
+  // slides) or inside one shelf section; only jump() crosses between them.
+  var secOf = slides.map(function (s) { return s.getAttribute("data-quick"); });
+  var mainCount = slides.length;
+  for (var q = 0; q < slides.length; q++) {
+    if (secOf[q] !== null) { mainCount = q; break; }
+  }
+  // [lo, hi] of the region slide i belongs to: the talk, or its shelf section
+  function loOf(i) {
+    if (i < mainCount) return 0;
+    while (i > mainCount && secOf[i - 1] === secOf[i]) i--;
+    return i;
+  }
+  function hiOf(i) {
+    if (i < mainCount) return mainCount - 1;
+    while (i + 1 < slides.length && secOf[i + 1] === secOf[i]) i++;
+    return i;
+  }
+  var saved = null;        // {index, step}: where Esc returns to (the first jump's)
+  var moveKind = "nav";    // "jump" | "return" | "nav", readable from onChange listeners
+  totalEl.textContent = String(mainCount);
 
   // The stepping on slide i, or null when it has none.  Two things step, in
   // lockstep, on one counter k: a stepped-image card's frames (`.step-stack`,
@@ -963,8 +984,10 @@ PAGER_JS = """
       lastCur = cur;
       if (!carried) restartMotion(slides[cur]);
     }
-    if (fill) fill.style.width = ((cur + 1) / slides.length * 100) + "%";
-    if (curEl) curEl.textContent = String(cur + 1);
+    // on the shelf the counter and the bar hold the place the talk is at
+    var shown = cur < mainCount ? cur : (saved ? saved.index : mainCount - 1);
+    if (fill) fill.style.width = ((shown + 1) / Math.max(1, mainCount) * 100) + "%";
+    if (curEl) curEl.textContent = String(shown + 1);
     if (panel && panel.classList.contains("open")) { panel.innerHTML = notesFor(cur); markNexts(panel, pressesDone(cur)); }
     if (window.animatic && typeof window.animatic.onChange === "function") {
       try { window.animatic.onChange(cur); } catch (err) { /* never break nav */ }
@@ -1154,7 +1177,7 @@ PAGER_JS = """
     var advs = document.querySelectorAll("video[data-advance]");
     for (var a = 0; a < advs.length; a++) {
       advs[a].addEventListener("ended", function (e) {
-        if (slides[cur] && slides[cur].contains(e.target) && cur < slides.length - 1) next();
+        if (slides[cur] && slides[cur].contains(e.target) && cur < hiOf(cur)) next();
       });
     }
   })();
@@ -1202,13 +1225,19 @@ PAGER_JS = """
   // in memory at once (Firefox and a screen capture both feel that). A video
   // the media panel's Load all pinned is never released.
   function warmAround(c) {
-    var w, found = 0;
-    for (w = c; w < slides.length; w++) {
+    var w, found = 0, lo = loOf(c), hi = hiOf(c);
+    for (w = c; w <= hi; w++) {
       if (w <= c + WARM_AHEAD) { warm(w); if (w > c && hasVideo(w)) found++; continue; }
       if (found >= WARM_VIDEOS) break;
       if (hasVideo(w)) { warm(w); found++; }
     }
-    for (w = 0; w < c - KEEP_BEHIND; w++) release(w);
+    // the look-ahead above stops at the edge of the talk or of the shelf
+    // section, and everything outside the region gives its buffer back, except
+    // the slide a jump will return to (it would restart its video)
+    for (w = 0; w < slides.length; w++) {
+      if (w >= lo && w <= hi) { if (w < c - KEEP_BEHIND) release(w); }
+      else if (!(saved && w === saved.index)) release(w);
+    }
   }
   function release(i) {
     var vids = slides[i].querySelectorAll("video[data-autoplay][data-warmed]");
@@ -1331,16 +1360,16 @@ PAGER_JS = """
   function next() {
     var r = revealOf(cur);
     if (r && getStep(cur) < r.total) { stepAt[cur] = getStep(cur) + 1; stepped(); }
-    else go(cur + 1);
+    else if (cur < hiOf(cur)) go(cur + 1);
   }
   function prev() {
     var r = revealOf(cur);
     if (r && getStep(cur) > r.start) { stepAt[cur] = getStep(cur) - 1; stepped(); return; }
-    var t = cur > 0 ? revealOf(cur - 1) : null;
+    if (cur > 0 && cur <= loOf(cur)) return;     // the edge of a shelf section
     // back into a slide lands with everything shown except a revealed timer,
     // which is always waiting for its own press (hidden, not started)
     // (a timer that comes first has nothing before its press to land on: the start)
-    go(cur - 1, true, t ? (t.timer ? (t.timerFirst ? t.start : t.total - 1) : t.total) : undefined);
+    go(cur - 1, true, landStep(cur - 1));
   }
 
   function toggleNotes() {
@@ -1370,9 +1399,44 @@ PAGER_JS = """
   // Additive: nothing here changes pager behaviour, and a listener throwing
   // cannot break navigation. `onChange` stays single-slot (the live module
   // owns it); `addOnChange` is the fan-out for everyone else.
+  // A jump lands fully revealed, by the rule prev() uses when it backs into a
+  // slide: every item shown, a revealed timer waiting for its own press.
+  function landStep(i) {
+    var t = revealOf(i);
+    return t ? (t.timer ? (t.timerFirst ? t.start : t.total - 1) : t.total) : undefined;
+  }
+  // The first jump from the talk saves where it left; later jumps keep that, so
+  // several questions in a row still return to one place.  Stepping around with
+  // the normal keys afterwards does not clear it.
+  function jump(i) {
+    var n = Math.floor(Number(i));
+    if (!isFinite(n) || n < 0 || n >= slides.length) return false;
+    if (saved === null && cur < mainCount) saved = { index: cur, step: getStep(cur) };
+    moveKind = "jump";
+    go(n, true, landStep(n));
+    moveKind = "nav";
+    return true;
+  }
+  function returnFromJump() {
+    if (saved === null) return false;
+    var s = saved;
+    saved = null;
+    moveKind = "return";
+    go(s.index, true, s.step);
+    moveKind = "nav";
+    return true;
+  }
+
   window.animatic = {
     go: go, next: next, prev: prev, warm: warm, reloadMedia: reloadMedia,
-    count: function () { return slides.length; },
+    jump: jump, returnFromJump: returnFromJump,
+    // the talk's own screen count; total() adds the shelf
+    count: function () { return mainCount; },
+    total: function () { return slides.length; },
+    bounds: function (i) { return [loOf(i), hiOf(i)]; },
+    jumped: function () { return saved !== null; },
+    returnTo: function () { return saved === null ? null : saved.index; },
+    moveKind: function () { return moveKind; },
     current: function () { return cur; },
     step: function () { return getStep(cur); },
     pressesDone: function () { return pressesDone(cur); },
@@ -1394,13 +1458,18 @@ PAGER_JS = """
       case " ": e.preventDefault(); next(); break;
       case "ArrowLeft": case "ArrowUp": case "PageUp":
         e.preventDefault(); prev(); break;
-      case "Home": e.preventDefault(); go(0); break;
-      case "End": e.preventDefault(); go(slides.length - 1); break;
+      case "Home": e.preventDefault(); go(loOf(cur)); break;
+      case "End": e.preventDefault(); go(hiOf(cur)); break;
       // 'n' = notes in THIS window (a one-screen room); 's' = the second
       // window with the speaker UI, which PRESENTER_JS binds (below).
       case "n": case "N": toggleNotes(); break;
       case "r": case "R": reloadMedia(); break;
-      case "Escape": if (panel) panel.classList.remove("open"); break;
+      // Esc: the notes panel first, then back from a jump (not while another
+      // panel is open: its own Esc handler, which runs after this one, closes it)
+      case "Escape":
+        if (panel && panel.classList.contains("open")) panel.classList.remove("open");
+        else if (!document.querySelector(".hookup-panel.open, .debug-panel.open, .media-panel.open")) returnFromJump();
+        break;
     }
   });
   window.addEventListener("hashchange", fromHash);
@@ -1921,7 +1990,7 @@ LIVE_JS = r"""
       var cues = [];
       for (var j = 0; j < group.length; j++) {
         var idx = slideIndexOf(group[j]);
-        if (idx >= 0) cues.push(idx + 1);
+        if (idx >= 0) cues.push(idx < window.animatic.count() ? idx + 1 : "shelf");
       }
       var where = document.createElement("p");
       where.className = "hookup-where";
@@ -1947,7 +2016,9 @@ LIVE_JS = r"""
       actions.appendChild(makeButton("go", function () {
         var idx = slideIndexOf(group[0]);
         if (idx >= 0 && window.animatic && window.animatic.go) {
-          window.animatic.go(idx);
+          // a shelf slide is a jump, so Esc can still return to the talk
+          if (idx >= window.animatic.count()) window.animatic.jump(idx);
+          else window.animatic.go(idx);
         }
         closePanel();
       }));
@@ -2155,12 +2226,16 @@ PRESENTER_JS = r"""
 
   function payload() {
     var i = window.animatic.current();
-    var n = slides.length;
+    var n = window.animatic.bounds(i)[1] + 1;   // the talk or the shelf section
     return {
       type: "animatic-state",
       schema: "animatic.presenter.v1",
       index: i,
-      count: n,
+      count: window.animatic.count(),
+      hi: n - 1,
+      jumped: window.animatic.jumped(),
+      returnTo: window.animatic.returnTo(),
+      move: window.animatic.moveKind(),
       step: window.animatic.step(),
       pressesDone: window.animatic.pressesDone(),
       steps: window.animatic.steps(),
@@ -2169,7 +2244,7 @@ PRESENTER_JS = r"""
       notes: notesOf(slides[i]),
       nextNotes: i + 1 < n ? notesOf(slides[i + 1]) : null,
       preview: previewOf(i),
-      nextPreview: previewOf(i + 1),
+      nextPreview: i + 1 < n ? previewOf(i + 1) : null,
       liveCue: liveCueOf(i),
       timer: window.animatic.timer ? window.animatic.timer.state() : null
     };
@@ -2267,6 +2342,18 @@ PRESENTER_JS = r"""
     else if (d.type === "animatic-reload-media") window.animatic.reloadMedia();
     else if (d.type === "animatic-go" && typeof d.index === "number") {
       window.animatic.go(d.index);
+    }
+    else if (d.type === "animatic-jump" && typeof d.index === "number") {
+      window.animatic.jump(d.index);
+    }
+    else if (d.type === "animatic-return") window.animatic.returnFromJump();
+    else if (d.type === "animatic-preview-request" && typeof d.index === "number") {
+      // a look at any slide, for the presenter's search results: the same
+      // clone the next-up pane gets, and nothing navigates
+      try {
+        win.postMessage({ type: "animatic-preview", index: d.index, rid: d.rid,
+                          preview: previewOf(d.index) }, "*");
+      } catch (err) {}
     }
     else if (d.type === "animatic-restart-clock") {
       startedAt = Date.now();
@@ -2503,9 +2590,9 @@ PRESENTER_UI_JS = r"""
   function paint() {
     if (!state) return;
     var i = state.index;
-    var cur = cues[i] || null, nxt = cues[i + 1] || null;
+    var cur = cues[i] || null, nxt = (state.hi === undefined || i < state.hi) ? (cues[i + 1] || null) : null;
     if (el.ordinal) el.ordinal.textContent = String(i + 1);
-    if (el.count) el.count.textContent = String(cues.length || state.count);
+    if (el.count) el.count.textContent = String(state.count);
     if (el.cue) {
       el.cue.textContent = cur
         ? cur.id + (cur.movement_label ? " \u00b7 " + cur.movement_label : "")
@@ -2517,7 +2604,9 @@ PRESENTER_UI_JS = r"""
         : "";
     }
     if (el.title) el.title.textContent = cueTitle(cur);
-    if (el["next-title"]) el["next-title"].textContent = cueTitle(nxt);
+    if (el["next-title"]) {
+      el["next-title"].textContent = nxt || !(cur && cur.quick) ? cueTitle(nxt) : "end of section";
+    }
     fillPreview(el.preview, state.preview, cur);
     fillPreview(el["next-preview"], state.nextPreview, nxt);
     fillNotes(el.notes, state.notes);
@@ -2533,6 +2622,7 @@ PRESENTER_UI_JS = r"""
     paintTimer();
     fitNotes();
     say("");
+    quickPaint();
   }
 
   function liveLabel(state_) {
@@ -2691,6 +2781,7 @@ PRESENTER_UI_JS = r"""
       });
       return;
     }
+    if (d.type === "animatic-preview") { quickPreview(d); return; }
     if (d.type !== "animatic-state") return;
     state = d;
     paint();
@@ -2780,6 +2871,219 @@ PRESENTER_UI_JS = r"""
   // happen, so keep saying hello: the deck re-adopts us and re-pushes state, and
   // ignores the hello while nothing has changed.
   window.setInterval(hello, 2000);
+
+
+  // ---- quick select (docs/quick-select.md) -----------------------------------
+  // `/` opens a search over the cue index this page carries. Picking a result
+  // asks the deck to jump (animatic-jump); Esc asks it to return
+  // (animatic-return). A result's preview is a clone of the deck's own slide,
+  // fetched with animatic-preview-request and answered by animatic-preview, so
+  // nothing here reads the deck or moves it except by message (file:// has no
+  // other channel). The keydown handler is registered in the CAPTURE phase and,
+  // while the box is open, stops every key before the handlers above see it.
+  var qBox = document.getElementById("quick");
+  var qIn = document.getElementById("quick-input");
+  var qList = document.getElementById("quick-results");
+  var qPrev = document.getElementById("quick-preview");
+  var qHead = document.getElementById("presenter-quick");
+  var qOpen = false, qRows = [], qSel = 0, qReq = 0;
+  var QUICK_MAX = 12;
+
+  function qWords(s) {
+    return String(s || "").toLowerCase().split(/[^a-z0-9À-￿]+/).filter(Boolean);
+  }
+  // every typed word is the start of some word in the text
+  function qHit(typed, hay) {
+    for (var t = 0; t < typed.length; t++) {
+      var ok = false;
+      for (var h = 0; h < hay.length && !ok; h++) ok = hay[h].indexOf(typed[t]) === 0;
+      if (!ok) return false;
+    }
+    return true;
+  }
+
+  // sections: each run of cues from one `quick:` section (the shelf, or an
+  // include that declares one) is one row that jumps to its first screen
+  var qSecs = [];
+  (function () {
+    var open = null;
+    for (var k = 0; k < cues.length; k++) {
+      var c = cues[k];
+      if (!c.sec) { open = null; continue; }
+      if (!open || open.id !== c.sec) {
+        open = { id: c.sec, title: c.sec_title, first: k, shelf: !!c.quick,
+                 words: qWords(c.sec_title + " " + (c.sec_kw || []).join(" ")) };
+        qSecs.push(open);
+      }
+    }
+  })();
+  for (var qk = 0; qk < cues.length; qk++) {
+    cues[qk]._w = [qWords(cues[qk].title + " " + (cues[qk].st || "")), qWords(cues[qk].sc)];
+  }
+
+  function qFirstLine(c) {
+    var t = String(c.st || "").split("\n")[0];
+    return t.length > 90 ? t.slice(0, 87) + "..." : t;
+  }
+  function qCueTitle(c) { return c.title || qFirstLine(c) || cueTitle(c); }
+  function qCueLabel(c, k) {
+    if (c.sec_title) return c.sec_title;
+    return (c.movement ? "Movement " + c.movement : "Opening") + " · slide " + (k + 1);
+  }
+
+  function qSearch(text) {
+    var typed = qWords(text), out = [];
+    if (!typed.length) {
+      for (var s = 0; s < qSecs.length; s++) {
+        if (qSecs[s].shelf) out.push({ index: qSecs[s].first, title: qSecs[s].title, label: "shelf" });
+      }
+      return out;          // the menu: every shelf section, whatever the count
+    }
+    var cand = [], hidden = {};
+    for (var i = 0; i < qSecs.length; i++) {
+      if (qHit(typed, qSecs[i].words)) {
+        cand.push({ score: 3, shelf: qSecs[i].shelf, k: qSecs[i].first,
+                    row: { index: qSecs[i].first, title: qSecs[i].title,
+                           label: qSecs[i].shelf ? "shelf" : "section" } });
+        hidden[qSecs[i].first] = true;      // its first screen is this row
+      }
+    }
+    for (var k = 0; k < cues.length; k++) {
+      if (hidden[k]) continue;
+      var c = cues[k], score = qHit(typed, c._w[0]) ? 2 : (qHit(typed, c._w[1]) ? 1 : 0);
+      if (score) cand.push({ score: score, shelf: !!c.quick, k: k,
+                             row: { index: k, title: qCueTitle(c), label: qCueLabel(c, k) } });
+    }
+    // best score first; shelf rows win a tie (they were written to answer
+    // questions); then deck order, so the result is the same every time
+    cand.sort(function (a, b) {
+      return (b.score - a.score) || ((b.shelf ? 1 : 0) - (a.shelf ? 1 : 0)) || (a.k - b.k);
+    });
+    return cand.slice(0, QUICK_MAX).map(function (x) { return x.row; });
+  }
+
+  function qPaintRows() {
+    qList.textContent = "";
+    if (!qRows.length) {
+      var none = document.createElement("li");
+      none.className = "quick-none";
+      none.textContent = qIn.value.trim() ? "nothing matches" : "no shelf sections in this deck";
+      qList.appendChild(none);
+      return;
+    }
+    qRows.forEach(function (r, n) {
+      var li = document.createElement("li");
+      li.className = "quick-row" + (n === qSel ? " sel" : "");
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", n === qSel ? "true" : "false");
+      var t = document.createElement("span");
+      t.className = "quick-title";
+      t.textContent = r.title;
+      var l = document.createElement("span");
+      l.className = "quick-label";
+      l.textContent = r.label;
+      li.appendChild(t); li.appendChild(l);
+      li.addEventListener("click", function () { qSel = n; qPick(); });
+      qList.appendChild(li);
+    });
+    var on = qList.querySelector(".sel");
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest" });
+  }
+
+  function qShowPreview() {
+    if (!qRows.length) { releaseVideos(qPrev); qPrev.textContent = ""; return; }
+    var r = qRows[qSel], c = cues[r.index];
+    if (c.live) { fillPreview(qPrev, null, c); return; }   // the existing no-preview label
+    releaseVideos(qPrev);
+    qPrev.textContent = "";
+    qPrev.appendChild(label("loading preview"));
+    qReq++;
+    post({ type: "animatic-preview-request", index: r.index, rid: qReq });
+  }
+  // the deck's answer (see the message handler above)
+  function quickPreview(d) {
+    if (!qOpen || d.rid !== qReq || !qRows.length || qRows[qSel].index !== d.index) return;
+    fillPreview(qPrev, d.preview, cues[d.index]);
+  }
+
+  function qRank() {
+    qRows = qSearch(qIn.value);
+    qSel = 0;
+    qPaintRows();
+    qShowPreview();
+  }
+  function qShow() {
+    qOpen = true;
+    qBox.hidden = false;
+    qIn.value = "";
+    qRank();
+    qIn.focus();
+  }
+  function qHide() {
+    qOpen = false;
+    qBox.hidden = true;
+    releaseVideos(qPrev);
+    qIn.blur();
+  }
+  function qPick() {
+    if (!qRows.length) return;
+    var idx = qRows[qSel].index;
+    qHide();
+    post({ type: "animatic-jump", index: idx });
+  }
+  function qMove(by) {
+    if (!qRows.length) return;
+    qSel = (qSel + by + qRows.length) % qRows.length;
+    qPaintRows();
+    qShowPreview();
+  }
+
+  qIn.addEventListener("input", qRank);
+  // a click elsewhere must not strand typing outside the box
+  qIn.addEventListener("blur", function () {
+    if (qOpen) window.setTimeout(function () { if (qOpen) qIn.focus(); }, 0);
+  });
+  qList.addEventListener("mousedown", function (e) { e.preventDefault(); });
+
+  document.addEventListener("keydown", function (e) {
+    var plain = !(e.metaKey || e.ctrlKey || e.altKey);
+    if (!qOpen) {
+      if (!plain) return;
+      if (e.key === "/") { e.preventDefault(); e.stopImmediatePropagation(); qShow(); }
+      else if (e.key === "Escape") { post({ type: "animatic-return" }); }
+      return;
+    }
+    // open: nothing below this point reaches the handlers that own s, t, p, f,
+    // 0, r, [, ] and the arrows; typing still lands in the input (no
+    // preventDefault on a printable key)
+    e.stopImmediatePropagation();
+    if (!plain) return;
+    switch (e.key) {
+      case "Escape": e.preventDefault(); qHide(); break;
+      case "ArrowDown": e.preventDefault(); qMove(1); break;
+      case "ArrowUp": e.preventDefault(); qMove(-1); break;
+      case "Enter": e.preventDefault(); qPick(); break;
+      case "Tab": case "PageUp": case "PageDown": e.preventDefault(); break;
+    }
+  }, true);
+
+  // the line under the header while the deck is away from the talk, and the
+  // section title in place of "n / m" on a shelf screen
+  function quickPaint() {
+    if (!state) return;
+    var c = cues[state.index] || null;
+    var shelf = !!(c && c.quick);
+    var pos = document.querySelector(".presenter-pos");
+    var sh = document.getElementById("presenter-shelf");
+    if (pos) pos.hidden = shelf;
+    if (sh) { sh.hidden = !shelf; sh.textContent = shelf ? (c.sec_title || "shelf") : ""; }
+    if (qHead) {
+      qHead.hidden = !state.jumped;
+      qHead.textContent = state.jumped
+        ? "Quick: " + ((c && c.sec_title) || cueTitle(c)) + " · Esc returns to " + (state.returnTo + 1)
+        : "";
+    }
+  }
 
   // Test surface for the layout harness (tools/presenter-probe.html): it fills
   // this page with a constructed state and drives the REAL paint path, so what
@@ -2933,7 +3237,8 @@ DEBUG_JS = r"""
       deck: {
         slug: stage ? stage.getAttribute("data-deck") : null,
         title: document.title,
-        screens: slides.length,
+        screens: window.animatic.count(),
+        shelf: slides.length - window.animatic.count(),
         hash: location.hash || "(none)"
       },
       env: {
@@ -3105,7 +3410,7 @@ MEDIA_JS = r"""
       counts[row.kind].all = (counts[row.kind].all || 0) + 1;
       var label = st.s;
       if (row.kind === "video" && st.s !== "failed" && st.s !== "waiting") label += " " + st.pct + "%";
-      var nums = row.slides.map(function (n) { return n + 1; }).join(", ");
+      var nums = row.slides.map(function (n) { return n < window.animatic.count() ? n + 1 : "shelf"; }).join(", ");
       html.push('<li class="media-row media-' + st.s + '" data-slide="' + row.slides[0] + '">' +
         '<span class="media-state">' + label + '</span>' +
         '<span class="media-kind">' + row.kind + '</span>' +
@@ -3206,7 +3511,12 @@ MEDIA_JS = r"""
   btn.addEventListener("click", function (e) { e.preventDefault(); loadAll(); });
   list.addEventListener("click", function (e) {
     var li = e.target.closest ? e.target.closest("li[data-slide]") : null;
-    if (li && window.animatic) window.animatic.go(Number(li.getAttribute("data-slide")));
+    if (li && window.animatic) {
+      // a shelf slide is a jump, so Esc can still return to the talk
+      var si = Number(li.getAttribute("data-slide"));
+      if (si >= window.animatic.count()) window.animatic.jump(si);
+      else window.animatic.go(si);
+    }
   });
   document.addEventListener("keydown", function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -3226,6 +3536,83 @@ MEDIA_JS = r"""
   }
 })();
 """
+
+
+# ---------------------------------------------------------------------------
+# QUICK SELECT (docs/quick-select.md)
+#
+# The scripts above carry the quick-select logic for every deck: a deck with no
+# `quick_sections` simply has an empty shelf (mainCount equals the slide count,
+# no slide has data-quick).  This block is the presenter window's search markup,
+# its style, and the text the build indexes for it.
+# ---------------------------------------------------------------------------
+
+
+QUICK_CSS = """<style>
+  .presenter-shelf { color: var(--stage-accent); font-size: 0.9rem; letter-spacing: 0.04em; }
+  .presenter-shelf[hidden], .presenter-quick[hidden], .quick[hidden] { display: none; }
+  .presenter-quick { flex: 1 0 100%; margin: 0; font-size: 0.85rem; color: var(--stage-accent); }
+  .quick {
+    position: fixed; inset: 0; z-index: 90;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 6vh 4vw 4vh;
+    background: color-mix(in srgb, var(--stage-bg) 82%, transparent);
+  }
+  .quick-panel {
+    width: min(70rem, 100%); max-height: 88vh;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr); column-gap: 1.2rem; row-gap: 0.7rem;
+    padding: 1rem 1.2rem 1.2rem; border-radius: 0.7em;
+    background: var(--stage-bg); color: var(--stage-ink);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 28%, transparent);
+    box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.45);
+  }
+  .quick-input {
+    grid-column: 1 / -1; font: inherit; font-size: 1.15rem;
+    padding: 0.45em 0.7em; border-radius: 0.4em;
+    color: var(--stage-ink); background: var(--stage-overlay-bg);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 30%, transparent);
+  }
+  .quick-input:focus { outline: 2px solid var(--stage-accent); outline-offset: 1px; }
+  .quick-results { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; }
+  .quick-row, .quick-none {
+    display: flex; flex-direction: column; gap: 0.1rem;
+    padding: 0.4em 0.6em; border-radius: 0.35em; cursor: pointer;
+  }
+  .quick-none { cursor: default; color: var(--stage-muted); }
+  .quick-row.sel { background: color-mix(in srgb, var(--stage-accent) 22%, transparent); }
+  .quick-title { font-size: 1rem; overflow-wrap: anywhere; }
+  .quick-label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--stage-muted); }
+  .quick-prev { container-type: inline-size; min-width: 0; align-self: start; }
+  .quick-prev .preview { width: 100%; max-height: none; min-height: 0; }
+</style>
+"""
+
+QUICK_HTML = """<div class="quick" id="quick" role="dialog" aria-label="quick select" hidden>
+<div class="quick-panel">
+<input type="text" class="quick-input" id="quick-input" autocomplete="off" spellcheck="false" placeholder="Find a slide or a topic" aria-label="quick select search">
+<ul class="quick-results" id="quick-results" role="listbox" aria-label="results"></ul>
+<div class="quick-prev"><div class="preview" id="quick-preview"></div></div>
+</div>
+</div>
+"""
+
+
+def search_text(screen: Screen) -> str:
+    """The text a screen shows, one line per block, for the presenter's quick
+    search.  Stage notes and handout-only blocks are left out: they are not
+    what an audience asks about."""
+    lines = []
+    for b in screen.blocks:
+        if b.kind in ("heading", "quote", "quote-source", "stat", "lower",
+                      "credits", "paraphrase", "code"):
+            if b.text.strip():
+                lines.append(plain_md(b.text))
+        elif b.kind == "list":
+            lines.extend(plain_md(i) for i in b.items if i.strip())
+        elif b.kind == "table":
+            lines.extend(plain_md(" ".join(r)) for r in b.rows)
+    return "\n".join(lines)
 
 
 def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
@@ -3347,6 +3734,15 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
             # a live screen has nothing to preview: the presenter labels it
             # instead of showing a thumbnail
             "live": bool(ref is not None and ref.live),
+            # quick select: the search text (what the screen shows, what is
+            # said; never the stage notes), and the section a screen belongs
+            # to, with its title and keywords
+            **({"quick": True} if screen.shelf else {}),
+            **({"sec": screen.section[0], "sec_title": screen.section[1],
+                "sec_kw": list(screen.section[2])}
+               if screen.section else {}),
+            "st": search_text(screen),
+            "sc": screen_script(screen),
         })
 
     cue_index = json.dumps(
@@ -3363,7 +3759,7 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} — presenter view</title>
 {theme_style_blocks(theme)}
-</head>
+{QUICK_CSS}</head>
 <body class="view-presenter">
 <div class="presenter">
 <header class="presenter-head">
@@ -3377,12 +3773,13 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 <button type="button" id="presenter-restart" class="presenter-restart" title="Restart elapsed time and all timers (t)">restart (t)</button></span></p>
 <nav class="presenter-nav" aria-label="deck navigation">
 <button type="button" id="presenter-prev" aria-label="previous screen">&#8249;</button>
-<span class="presenter-pos"><span id="presenter-ordinal">1</span> / <span id="presenter-count">1</span></span>
+<span class="presenter-pos"><span id="presenter-ordinal">1</span> / <span id="presenter-count">1</span></span><span class="presenter-shelf" id="presenter-shelf" hidden></span>
 <button type="button" id="presenter-smaller" aria-label="smaller notes text" title="Smaller notes text ([)">A&minus;</button>
 <button type="button" id="presenter-bigger" aria-label="bigger notes text" title="Bigger notes text (])">A+</button>
 <button type="button" id="presenter-flip" class="presenter-flip" aria-label="put the notes above the slide image" title="Swap notes and slide image, top / bottom (f)">&#8645;</button>
 <button type="button" id="presenter-next" aria-label="next screen">&#8250;</button>
 </nav>
+<p class="presenter-quick" id="presenter-quick" hidden></p>
 </header>
 <p class="presenter-cue" id="presenter-cue"></p>
 <main class="presenter-panes">
@@ -3401,7 +3798,7 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 </section>
 </main>
 <p class="presenter-status" id="presenter-status" role="status"></p>
-<script type="application/json" id="cue-index">{cue_index}</script>
+{QUICK_HTML}<script type="application/json" id="cue-index">{cue_index}</script>
 <script>
 {PRESENTER_UI_JS}
 </script>
@@ -3837,6 +4234,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     if black:
         cls += " black-beat"
     slide_inner = "".join(inner)
+    # a shelf screen names its section, so the pager can keep paging inside it
+    quick_attr = (f' data-quick="{html.escape(screen.section[0], quote=True)}"'
+                  if screen.shelf and screen.section else "")
     if bare_reveal_empty(screen):
         print(f"warn      : {cue_id}: reveal has nothing to reveal on this screen "
               f"(no list of 2 or more items, no timer); ignored")
@@ -3852,7 +4252,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 f'data-timer-reveal="{"first" if timer_first(screen) else "last"}" class="timer-plate pending ', 1)
     return (
         f'<section id="{cue_id}" class="{cls}" data-movement="{mv}"'
-        f' data-kind="{screen_kind(screen)}">'
+        f' data-kind="{screen_kind(screen)}"{quick_attr}>'
         f'{slide_inner}'
         f'<aside class="notes">{notes_html}</aside>'
         f"</section>"
@@ -4293,7 +4693,8 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 
     for screen in talk.screens:
         cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"
-        by_movement.setdefault(screen.movement, []).append(cue_id)
+        if not screen.shelf:      # a shelf screen is in no movement of the talk
+            by_movement.setdefault(screen.movement, []).append(cue_id)
 
         screen_obj = {"kind": "screen"}
         text = []
@@ -4350,6 +4751,8 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             # live-only: shown in the live deck, never in a recorded video or
             # the handout.  A video renderer must skip cues where this is true.
             **({"live_only": True} if screen.live_only else {}),
+            # quick select: on the shelf, after the talk (docs/quick-select.md)
+            **({"quick": True} if screen.shelf else {}),
             # a countdown (spec: Timer screens): integer seconds, the index of
             # the `screen_text` entry whose text holds the token, and `corner`
             **({"timer": screen.timer[0], "timer_in": timer_at,
@@ -4565,7 +4968,8 @@ def render_nav(talk: Talk, out_dir: Path) -> Path:
         omitted = is_black_screen(screen) or screen.live_only
         document: dict = {"present": not omitted}
         if omitted:
-            document["reason"] = "black-beat" if is_black_screen(screen) else "live-only"
+            document["reason"] = ("black-beat" if is_black_screen(screen)
+                                  else "shelf" if screen.shelf else "live-only")
         screens[cue_id] = {
             "ordinal": screen.idx,
             "movement": screen.movement,
@@ -4573,6 +4977,7 @@ def render_nav(talk: Talk, out_dir: Path) -> Path:
             "lines": {"start": start, "end": end},
             "document": document,
             **({"include": screen.include} if screen.include else {}),
+            **({"quick": True} if screen.shelf else {}),
         }
     payload = {
         "schema": "animatic.nav.v1",

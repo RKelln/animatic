@@ -77,6 +77,11 @@ def main(argv=None) -> int:
                     help="symlink media into OUT/_media instead of copying it: "
                          "for throwaway and test builds (no disk cost), not "
                          "for a folder you will move or share")
+    ap.add_argument("--quick-sections", default=None, metavar="DIR",
+                    help="quick select: shelve the sections in DIR that declare "
+                         "a `quick:` block, overriding the talkfile's "
+                         "`quick_sections:` line (relative to the working "
+                         "directory); for trial builds without editing a talk")
     ap.add_argument("--watch", action="store_true",
                     help="stay running and rebuild whenever the talkfile, a "
                          "file beside it, its media/ dir or the remap changes; "
@@ -111,7 +116,8 @@ def main(argv=None) -> int:
 
 
 def build(talk_path: Path, args) -> int:
-    talk = talkparse.build_talk(talk_path)
+    talk = talkparse.build_talk(talk_path,
+                                quick_sections=getattr(args, "quick_sections", None))
     if args.theme:
         talk.meta["theme"] = args.theme
     resolver = MediaResolver(talk_dir=talk_path.parent, meta=talk.meta)
@@ -185,8 +191,12 @@ def build(talk_path: Path, args) -> int:
           f"({', '.join(str(m.index) for m in talk.movements)})")
     for virtual, fname, line in resolver.pool_log:
         print(f"pool      : {virtual} <- {fname or 'NO FILE'} (line {line})")
-    print(f"screens   : {len(talk.screens)} (cues); "
-          f"opening={sum(1 for s in talk.screens if s.movement == 0)}")
+    print(f"screens   : {len(talk.main_screens)} (cues); "
+          f"opening={sum(1 for s in talk.main_screens if s.movement == 0)}")
+    if talk.shelf_screens:
+        print(f"shelf     : {len(talk.shelf_screens)} screen(s) in "
+              f"{len({s.section[0] for s in talk.shelf_screens})} section(s), "
+              f"after the talk (quick select; not in the handout)")
     roles = {r: 0 for r in ("stat", "lower", "credits")}
     for s in talk.screens:
         for b in s.blocks:
@@ -240,7 +250,9 @@ def watched_files(talk_path: Path, args) -> dict:
     if args.media_remap:
         paths.append(Path(args.media_remap).expanduser().resolve())
     try:                                  # files pulled in by `include:`
-        paths += talkparse.build_talk(talk_path).includes
+        t_ = talkparse.build_talk(talk_path, quick_sections=getattr(
+            args, "quick_sections", None))
+        paths += t_.includes + t_.shelf_files
     except Exception:                     # a half-saved talkfile: watch the rest
         pass
     snap = {}

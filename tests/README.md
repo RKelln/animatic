@@ -48,6 +48,17 @@ One command, one exit code:
   showing, then one item per press, Back past the timer's press resets it) (run it directly; it
   exits 77 when no chromium is installed, and needs the scratch directory inside
   the repo because a snap chromium cannot read /tmp).
+  `fixtures/quick/` is the quick-select deck (not a golden: the runner does not
+  build it). A talk with `quick_sections`, a shelf of sections (a plain one, one
+  with a video, one with a live screen, one the talk also includes) and a section
+  with its own `cites:`. `properties/quick_props.py` builds a copy in /tmp and
+  pins the shelf's placement and order, dedupe, absence from the document view
+  and the web export, timing, citations not leaking, the cue index, determinism,
+  a deck with no shelf (an empty one) having the same slides, document view, cues and nav as with one, and check 48. `browser_quick_select.py`
+  is the real-browser half (docs/quick-select.md): the pager, jump and return,
+  timers, the warm bookkeeping, and the presenter window's search box driven over
+  http through the deck's own `s` popup (exit 77 without chromium; the video
+  asserts need ffmpeg).
   `timing-drift.talk.md` declares `dur: 45 min` on a two-screen deck: the
   clock (check 19) must report the divergence and the deck must still build
   (spec: Timing; T15).
