@@ -63,6 +63,34 @@ Full design: `docs/quick-select.md`.
 - Properties: `tests/properties/quick_props.py`; the browser test is
   `tests/browser_quick_select.py`.
 
+## Waypoints
+
+When the talk reaches a marked slide the deck publishes one word, so participants'
+agents can tell them where the room is. Full design: `docs/waypoints.md` (the service and
+the machine-side hook are other repos; this is the deck's half).
+
+- Mark a slide with `<!-- waypoint: expanding -->` on its own line, just before the screen
+  it applies to, and give the talk `waypoints: { url: https://.../W11 }` in its
+  frontmatter. A word is lowercase letters, digits and hyphens, up to 24, used once. Put
+  `start` on the first screen. Directives belong in the talkfile, never in a section.
+- `ANIMATIC_WAYPOINT_TOKEN=... python3 build.py <talk>` builds a deck that publishes. The
+  token goes into `present/index.html` and nowhere else, and is never printed. Without it
+  the build is **inert**: nothing is sent and there is no status line or `w` key, so a
+  rehearsal build cannot touch a live room.
+- A publishing deck POSTs the bare word with `Authorization: Bearer <token>` (async, 3 s
+  timeout, one retry, never blocks paging) when `next()` arrives at a marked slide later
+  than the last word sent, and on load at screen 1 with no `#` in the address (`start`).
+  Never on prev, a hash change, a quick-select jump or return, or a `next()` pressed while
+  a jump is out. It works from `file://` and localhost.
+- The presenter window shows `Waypoint: expanding ✓ 7:04pm` or `✗ not sent, w to retry`.
+  `w` (deck or presenter window) re-sends the latest word at or before the current slide,
+  which is also how to correct a mistake: go back, press `w`.
+- `cues.json` and `nav.json` gain a `waypoint` field on marked screens; nothing else in a
+  deck changes. Check 49 (fatal): a bad word, a duplicate, a directive inside a section, a
+  directive with nothing after it, or directives without a valid `waypoints.url`.
+- Properties: `tests/properties/waypoint_props.py`; the browser test is
+  `tests/browser_waypoint.py`.
+
 ## Repo layout
 
 - `docs/format-spec-v1.md` — the talkfile grammar (normative; v1.0 draft, hardening 2026-09-08)

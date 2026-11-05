@@ -11,6 +11,7 @@ no present or presenter view, no cues.json, no originals.  Refuses to ship a
 page that points outside its own folder or names a local path.
 """
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -39,7 +40,8 @@ def main() -> int:
     out = Path(a.out).resolve()
     work = Path(a.work) if a.work else Path(tempfile.mkdtemp(prefix="animatic-web-"))
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work),
-                        "--no-handout-placeholders"], stdout=subprocess.DEVNULL)
+                        "--no-handout-placeholders"], stdout=subprocess.DEVNULL,
+                       env={k: v for k, v in os.environ.items() if k != "ANIMATIC_WAYPOINT_TOKEN"})
     if r.returncode:
         return r.returncode
     html = (work / "document" / "index.html").read_text(encoding="utf-8")

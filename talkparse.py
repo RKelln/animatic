@@ -73,6 +73,11 @@ SHOT_RE = re.compile(r"^\s*<!--\s*shot(?::\s*(.*?))?\s*-->\s*$")
 # screens in (spec: Includes).  Only the `live` modifier exists so far.
 INCLUDE_RE = re.compile(r"^\s*<!--\s*include:\s*(\S+)((?:\s+\S+)*?)\s*-->\s*$")
 INCLUDE_FLAGS = ("live",)
+# `<!-- waypoint: word -->` on its own line marks the NEXT screen with a word the
+# deck publishes when the talk reaches it (docs/waypoints.md).  Check 49.
+WAYPOINT_RE = re.compile(r"^\s*<!--\s*waypoint\b(.*?)-->\s*$")
+WAYPOINT_WORD_RE = re.compile(r"^[a-z0-9-]{1,24}$")
+WAYPOINT_OPEN_RE = re.compile(r"^\s*<!--\s*waypoint\b")
 INCLUDE_MAX_DEPTH = 3
 # Role vocabulary (Tier A frozen, config-driven via roles.yaml).
 # The yaml drives the vocabulary; this set is the frozen token set the
@@ -484,6 +489,10 @@ class Screen:
     # Quick select: True for a screen on the shelf (a section the deck carries
     # but the talk never reaches in normal paging).  Always after the talk.
     shelf: bool = False
+    # Waypoints (docs/waypoints.md): the word the deck publishes on reaching
+    # this screen, and the directive's source line.  Never on a shelf screen.
+    waypoint: Optional[str] = None
+    waypoint_line: int = 0
 
     def has_content(self) -> bool:
         return bool(self.blocks)
@@ -979,6 +988,9 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
             continue
         if line.lstrip().startswith("<!--"):
             if "-->" not in line:
+                if WAYPOINT_OPEN_RE.match(line):
+                    raise _waypoint_error(source, lineno, "a waypoint directive "
+                                          "must be on one line: <!-- waypoint: word -->")
                 comment_buf = [line]
                 comment_start = lineno
                 continue
@@ -990,6 +1002,19 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
                     {"kind": "shot", "shot": shot, "line": lineno,
                      "line_end": lineno}
                 )
+            elif WAYPOINT_OPEN_RE.match(line):
+                wm = WAYPOINT_RE.match(line)
+                word = ""
+                if wm and wm.group(1).strip().startswith(":"):
+                    word = wm.group(1).strip()[1:].strip()
+                if not WAYPOINT_WORD_RE.match(word):
+                    raise _waypoint_error(
+                        source, lineno, f"bad waypoint {word or line.strip()!r}: "
+                        f"write <!-- waypoint: word --> with a word of lowercase "
+                        f"letters, digits and hyphens, up to 24 characters")
+                flush_para()
+                blocks.append({"kind": "waypoint", "word": word, "line": lineno,
+                               "line_end": lineno})
             else:
                 im = INCLUDE_RE.match(line)
                 if im:
@@ -1501,6 +1526,37 @@ def _include_error(source: str, line: int, msg: str) -> ValueError:
     return ValueError(f"{source}:{line}: check 22: {msg}")
 
 
+def _waypoint_error(source: str, line: int, msg: str) -> ValueError:
+    # register check 49, same shape as check 22 so check.py reports a fatal
+    return ValueError(f"{source}:{line}: check 49: {msg}")
+
+
+def _attach_waypoints(raw_blocks: list, source: str) -> list:
+    """Take each waypoint block out of the list and tag the block after it
+    (`rb["wp"] = (word, line)`), so the directive's position between a heading
+    and a shot changes nothing about how the others read each other.  Two in a
+    row, or one with nothing after it, is check 49."""
+    if not any(rb["kind"] == "waypoint" for rb in raw_blocks):
+        return raw_blocks
+    out: list = []
+    pend = None
+    for rb in raw_blocks:
+        if rb["kind"] == "waypoint":
+            if pend is not None:
+                raise _waypoint_error(source, rb["line"], "two waypoint directives "
+                                      "in a row: each marks the next screen")
+            pend = (rb["word"], rb["line"])
+            continue
+        if pend is not None:
+            rb["wp"] = pend
+            pend = None
+        out.append(rb)
+    if pend is not None:
+        raise _waypoint_error(source, pend[1], "nothing follows the waypoint "
+                              "directive: it marks the next screen")
+    return out
+
+
 def _quick_error(source: str, line: int, msg: str) -> ValueError:
     # register check 48, same shape as check 22 so check.py reports a fatal
     return ValueError(f"{source}:{line}: check 48: {msg}")
@@ -1561,6 +1617,11 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
         offset = body.count("\n") + 1 - len(lines)
         fblocks = _lex_blocks(lines, fsource, role_vocab, layout_vocab,
                               line_offset=offset)
+        for fb in fblocks:
+            if fb["kind"] == "waypoint":
+                raise _waypoint_error(fsource, fb["line"], "a waypoint directive "
+                                      "cannot sit in a section: it would fire in every talk "
+                                      "that includes it; put it in the talkfile")
         fblocks = _expand_includes(fblocks, target, fsource, role_vocab,
                                    layout_vocab, stack + (target,), includes,
                                    frag_meta, quick_on)
@@ -1588,6 +1649,25 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
                     sh.flags[f] = ""
             out.append(fb)
     return out
+
+
+def _check_waypoints(talk: "Talk", source: str) -> None:
+    """Check 49 once the screens exist: a talk that marks anything has a
+    frontmatter `waypoints: {url: http(s)://...}`, and a `waypoints:` that is
+    there is well formed.  (Duplicates are caught in assemble, where each
+    directive meets its screen.)"""
+    marked = [s_ for s_ in talk.screens if s_.waypoint]
+    wp = talk.meta.get("waypoints")
+    line = marked[0].waypoint_line if marked else 1
+    if wp is None:
+        if marked:
+            raise _waypoint_error(source, line, "the talk marks waypoints but its "
+                                  "frontmatter has no `waypoints: {url: ...}`")
+        return
+    url = wp.get("url") if isinstance(wp, dict) else None
+    if not (isinstance(url, str) and re.match(r"^https?://\S+$", url.strip())):
+        raise _waypoint_error(source, line, "`waypoints:` needs a `url:` that "
+                              "starts with http:// or https://")
 
 
 def _quick_dir(meta: dict, path, source: str, override) -> tuple:
@@ -1721,9 +1801,11 @@ def build_talk(path, source: Optional[str] = None,
                 merged = dict(fm[key])
                 merged.update(meta.get(key) if isinstance(meta.get(key), dict) else {})
                 meta[key] = merged
+    raw_blocks = _attach_waypoints(raw_blocks, source)
     talk = assemble(meta, raw_blocks, source, role_vocab=role_vocab,
                     layout_vocab=layout_vocab, role_bundles=role_bundles)
     talk.includes = includes
+    _check_waypoints(talk, source)
     if qdir is not None:
         _append_shelf(talk, path, qdir, qline, role_vocab, layout_vocab,
                       role_bundles, source)
@@ -1751,10 +1833,16 @@ def assemble(meta: dict, raw_blocks: list, source: str,
     # the speaker notes can go.
     spoken_seen = False
 
+    wp_pending = None             # (word, line) waiting for its screen
+    wp_seen: dict = {}            # word -> line of the directive that used it
+
     def new_screen(line: int) -> Screen:
-        nonlocal cur, spoken_seen
+        nonlocal cur, spoken_seen, wp_pending
         cur = Screen(idx=len(screens) + 1, movement=movement_index, line=line)
         screens.append(cur)
+        if wp_pending is not None:
+            cur.waypoint, cur.waypoint_line = wp_pending
+            wp_pending = None
         spoken_seen = False      # a new screen starts the count over
         return cur
 
@@ -1815,6 +1903,19 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         for k, b in enumerate(raw_blocks))
     for i_rb, rb in enumerate(raw_blocks):
         kind = rb["kind"]
+        if wp_pending is not None and not (
+                pending_handout or cur is None
+                or raw_blocks[i_rb - 1]["kind"] == "hr"):
+            raise _waypoint_error(source, wp_pending[1], "the waypoint directive "
+                                  "is not followed by a new screen: put it just "
+                                  "before the screen's shot")
+        if rb.get("wp"):
+            word, wline = rb["wp"]
+            if word in wp_seen:
+                raise _waypoint_error(source, wline, f"waypoint {word!r} is used "
+                                      f"twice (first at line {wp_seen[word]})")
+            wp_seen[word] = wline
+            wp_pending = (word, wline)
         close_print()
         if rb.get("print") and kind not in ("shot", "include") and cur is not None:
             print_open = (cur, len(cur.blocks))
@@ -2162,6 +2263,9 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         talk.warnings.append(f"line {rb.get('line', 0)}: unhandled block kind {kind}")
 
     close_print()
+    if wp_pending is not None:
+        raise _waypoint_error(source, wp_pending[1], "nothing follows the waypoint "
+                              "directive: it marks the next screen")
     if pending_role is not None:
         talk.warnings.append(
             f"line {role_line}: role shot never consumed a payload paragraph"

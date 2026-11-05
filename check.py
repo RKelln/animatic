@@ -167,6 +167,7 @@ REGISTER = [
     (47, "a presenter-only `([Timer: ...])` on a screen that also has `reveal=timer` or another timer: the presenter window shows one timer per screen; the first timer on the screen wins and `reveal=timer` is ignored for a presenter-only one", WARNING, "implemented: check.py"),
     (46, "an unclosed `(` parenthetical: the rest of the paragraph is read as spoken text and prints in the handout", WARNING, "enforced: talkparse.py"),
     (48, "quick select: `quick_sections:` (or `--quick-sections`) names a missing directory, or a section's `quick:` block has no `title:` or a `keywords:` that is not a list", FATAL, "enforced: talkparse.py"),
+    (49, "waypoints: a `<!-- waypoint: word -->` with a bad word (lowercase letters, digits and hyphens, up to 24), a word used twice, a directive inside a section, a directive with no screen after it, or directives (or a `waypoints:` block) without a valid `waypoints.url`", FATAL, "enforced: talkparse.py"),
 ]
 
 DEFERRED = {
@@ -1275,7 +1276,7 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
         talk = talkparse.build_talk(p)
     except ValueError as exc:
         msg = str(exc)
-        m = re.search(r":(\d+): check (22|48):", msg)
+        m = re.search(r":(\d+): check (22|48|49):", msg)
         if m:
             report.parse_error = f"{msg}"
             report.add(int(m.group(2)), FATAL, msg, line=int(m.group(1)))

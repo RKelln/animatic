@@ -187,6 +187,26 @@ fatal (check 48). Shelf screens are live-only: in the present view and `cues.jso
 the timing totals. A shelf section's `cites:` and `sources:` serve its own screens and
 are never printed in the handout. A deck with neither field is unchanged.
 
+### Waypoints
+
+Two optional pieces let the deck tell participants' agents where the talk is
+(`docs/waypoints.md`):
+
+- **`waypoints:`** (talk frontmatter) — `url:`, an `http://` or `https://` address the deck
+  POSTs a word to. Required when the talk marks anything.
+- **`<!-- waypoint: word -->`** — on its own line (one line, not a multi-line comment);
+  marks the next screen. The word is lowercase letters, digits and hyphens, 1 to 24, used
+  once per talk. It may sit before a heading that titles the next screen's shot.
+
+The directive must be in the talkfile itself: inside an included or shelved section it
+would fire in every talk that includes it, so it is fatal there. A directive with a bad
+word, a repeated word, another directive straight after it, nothing after it, text on an
+already open screen after it, a missing `waypoints.url` or a `waypoints:` whose `url` is
+not http(s) is fatal (check 49). `cues.json` and `nav.json` carry `waypoint` on marked
+screens; the present view publishes only in a build that was given
+`ANIMATIC_WAYPOINT_TOKEN`; the document view, the handout and the web export never show
+a word. A deck with neither piece is unchanged.
+
 ### Version fields
 
 `format-version` names the grammar; `content-version` is the talk's own
@@ -1239,7 +1259,8 @@ equal to a role name · a heading that begins with `Movement`
 <title>` (the author intended structure; guessing wrong silently corrupts
 screen boundaries) · a quick-select shelf that cannot be built: `quick_sections`
 naming a missing directory, or a `quick:` block with no `title` or with `keywords`
-that is not a list (check 48).
+that is not a list (check 48) · a malformed waypoint directive or `waypoints:` block
+(check 49).
 
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a

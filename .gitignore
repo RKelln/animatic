@@ -10,3 +10,6 @@ __pycache__/
 
 # agent scratch: plans and notes that live with the workspace, not the code
 .hermes/
+
+# a browser test killed mid-run leaves its Chromium profile
+waypoint-profile-*/

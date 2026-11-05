@@ -59,6 +59,18 @@ One command, one exit code:
   timers, the warm bookkeeping, and the presenter window's search box driven over
   http through the deck's own `s` popup (exit 77 without chromium; the video
   asserts need ffmpeg).
+  `fixtures/waypoints/` is the waypoint deck (docs/waypoints.md): four marked screens
+  (one with the directive between a heading and its shot), a shelf, a `waypoints.url`.
+  `properties/waypoint_props.py` pins the parse, check 49 (every case, with its line),
+  `waypoint` in `cues.json` / `nav.json` only, the word absent from the document view,
+  handout, web export and presenter page, the token in `present/index.html` and nowhere
+  else (no other output, no build log, no web export), the inert build, and a deck with
+  the directives out being the same deck bar the field.
+  `browser_waypoint.py` is the real-browser half: it runs a throwaway HTTP server that
+  records every request, preflight included, and drives the publish rules from
+  `file://`, the failure and retry paths (the 3 s timeout in real time, because headless
+  Chromium's virtual time stands still while a fetch is pending), the presenter's `w`
+  and the quick search swallowing it, and an inert build (exit 77 without chromium).
   `timing-drift.talk.md` declares `dur: 45 min` on a two-screen deck: the
   clock (check 19) must report the divergence and the deck must still build
   (spec: Timing; T15).

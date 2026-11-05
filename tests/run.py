@@ -49,7 +49,7 @@ sys.path.insert(0, str(TESTS))
 import build as build_mod  # noqa: E402
 from properties import (check_props, code_props, corpus_props, cue_props, html_props,  # noqa: E402
                         ingest_props, include_props, timer_props, manifest_props, nav_props, playback_props,
-                        quick_props, timing_props)
+                        quick_props, timing_props, waypoint_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
 GOLDEN_FILES = ("cues.json", "media-manifest.json")
@@ -257,6 +257,19 @@ def main(argv=None) -> int:
     else:
         passed.append("quick")
         print("ok    quick")
+
+    # waypoints: marking, check 49, the token (the browser half is
+    # tests/browser_waypoint.py)
+    waypoint_errors: list = []
+    waypoint_props.check(waypoint_errors)
+    if waypoint_errors:
+        failed.append("waypoint")
+        print("FAIL  waypoint")
+        for e in waypoint_errors[:12]:
+            print(f"      {e}")
+    else:
+        passed.append("waypoint")
+        print("ok    waypoint")
 
     # ingest name matching: a throwaway deck and inbox, --no-recover only
     ingest_errors: list = []

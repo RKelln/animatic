@@ -9,6 +9,7 @@ The work dir (the full build) defaults to ~/animatic-handout-build/<slug>.
 It must be under $HOME and not hidden: a snap-packaged Chromium cannot read /tmp.
 """
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -39,7 +40,8 @@ def main() -> int:
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work)]
                        + (["--handout-figures", a.figures] if a.figures else [])
                        + (["--no-handout-pools"] if a.no_pools else [])
-                       + (["--no-handout-placeholders"] if a.no_placeholders else []))
+                       + (["--no-handout-placeholders"] if a.no_placeholders else []),
+                       env={k: v for k, v in os.environ.items() if k != "ANIMATIC_WAYPOINT_TOKEN"})
     if r.returncode:
         return r.returncode
     pdf.parent.mkdir(parents=True, exist_ok=True)

@@ -31,6 +31,7 @@ never writes outside OUTDIR.  Deterministic output; out/ is gitignored.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -176,8 +177,13 @@ def build(talk_path: Path, args) -> int:
               f"but no `cites:` map (working receipts never print; `handout-sources: working` "
               f"for a draft copy)")
 
-    present = render_present(talk, resolver, out / "present")
-    presenter = render_presenter(talk, resolver, out / "present")
+    # waypoints (docs/waypoints.md): the token goes into present/index.html only,
+    # and a build without it publishes nothing.  It is never printed.
+    wp_token = os.environ.get("ANIMATIC_WAYPOINT_TOKEN", "").strip()
+    present = render_present(talk, resolver, out / "present",
+                             waypoint_token=wp_token)
+    presenter = render_presenter(talk, resolver, out / "present",
+                                 waypoints_live=bool(wp_token))
     document = render_document(talk, resolver, out / "document", figures=args.handout_figures,
                                pools=False if args.no_handout_pools else None,
                                placeholders=False if args.no_handout_placeholders else None)
@@ -197,6 +203,12 @@ def build(talk_path: Path, args) -> int:
         print(f"shelf     : {len(talk.shelf_screens)} screen(s) in "
               f"{len({s.section[0] for s in talk.shelf_screens})} section(s), "
               f"after the talk (quick select; not in the handout)")
+    wp_marked = [s for s in talk.screens if s.waypoint]
+    if wp_marked:
+        print(f"waypoints : {len(wp_marked)} marked; "
+              + ("publishing ON in present/index.html (token from "
+                 "ANIMATIC_WAYPOINT_TOKEN)" if wp_token else
+                 "inert (ANIMATIC_WAYPOINT_TOKEN not set)"))
     roles = {r: 0 for r in ("stat", "lower", "credits")}
     for s in talk.screens:
         for b in s.blocks:

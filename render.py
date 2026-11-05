@@ -844,6 +844,9 @@ PAGER_JS = """
   // (the presenter window wants every arrival; the live module owns onChange).
   var listeners = [];
   var stepListeners = [];
+  // fired after next() arrives on a new slide (never for prev, a hash change,
+  // a jump or a return): the one place "the talk advanced" is true
+  var nextListeners = [];
   // stepped slides (reveal=list, stepped-image cards): stepAt[i] is slide i's step.
   var stepAt = [];
   // quick select (docs/quick-select.md): the shelf sits after the talk, as
@@ -1360,7 +1363,12 @@ PAGER_JS = """
   function next() {
     var r = revealOf(cur);
     if (r && getStep(cur) < r.total) { stepAt[cur] = getStep(cur) + 1; stepped(); }
-    else if (cur < hiOf(cur)) go(cur + 1);
+    else if (cur < hiOf(cur)) {
+      go(cur + 1);
+      for (var ni = 0; ni < nextListeners.length; ni++) {
+        try { nextListeners[ni](cur); } catch (err) { /* never break nav */ }
+      }
+    }
   }
   function prev() {
     var r = revealOf(cur);
@@ -1445,6 +1453,9 @@ PAGER_JS = """
     addOnStep: function (fn) {
       if (typeof fn === "function") stepListeners.push(fn);
     },
+    addOnNext: function (fn) {
+      if (typeof fn === "function") nextListeners.push(fn);
+    },
     onChange: null,
     addOnChange: function (fn) {
       if (typeof fn === "function") listeners.push(fn);
@@ -1486,6 +1497,113 @@ PAGER_JS = """
 
   fromHash();
   render();
+})();
+"""
+
+
+WAYPOINT_JS = r"""
+(function () {
+  "use strict";
+  // Waypoints (docs/waypoints.md): publish one word when the talk reaches a
+  // marked screen.  Shipped only in a build that was given the token, so every
+  // other build has none of this.  The config below is {url, token, words},
+  // words being {"<slide index>": "<word>"}.
+  var CFG = __WAYPOINT_CFG__;
+  var A = window.animatic;
+  if (!A || !CFG || !CFG.words) return;
+  var TIMEOUT_MS = 3000, RETRY_MS = 500;
+  var idxs = Object.keys(CFG.words).map(Number).sort(function (a, b) { return a - b; });
+  var hw = -1;                   // slide index of the last word published
+  var st = { word: null, status: null, at: null };   // status: pending | ok | fail
+  var listeners = [];
+  var seq = 0, ctrl = null, retryTimer = null;
+
+  function changed() {
+    for (var i = 0; i < listeners.length; i++) {
+      try { listeners[i](); } catch (err) { /* never break nav */ }
+    }
+  }
+
+  // One word, one POST, a 3 s timeout, one retry.  Asynchronous throughout:
+  // nothing here is awaited by paging.  A newer publish cancels an older one
+  // still in flight, so a slow old response cannot change the status. A request
+  // that has already left can still reach the service late: `w` corrects that.
+  function publish(idx) {
+    var word = CFG.words[String(idx)];
+    if (word === undefined) return false;
+    hw = idx;
+    var mine = ++seq;
+    if (ctrl) { try { ctrl.abort(); } catch (err) {} ctrl = null; }
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    st = { word: word, status: "pending", at: null };
+    changed();
+    function finish(ok) {
+      if (mine !== seq) return;
+      st = { word: word, status: ok ? "ok" : "fail", at: Date.now() };
+      changed();
+    }
+    function attempt(n) {
+      if (mine !== seq) return;
+      var settled = false, c = null, timer = null;
+      function done(ok) {
+        if (settled || mine !== seq) return;
+        settled = true;
+        clearTimeout(timer);
+        if (ok) { finish(true); return; }
+        if (n < 2) { retryTimer = setTimeout(function () { retryTimer = null; attempt(2); }, RETRY_MS); }
+        else finish(false);
+      }
+      try {
+        c = typeof AbortController === "function" ? new AbortController() : null;
+        ctrl = c;
+        timer = setTimeout(function () {
+          if (c) { try { c.abort(); } catch (err) {} }
+          done(false);
+        }, TIMEOUT_MS);
+        fetch(CFG.url, {
+          method: "POST", mode: "cors", credentials: "omit", cache: "no-store",
+          headers: { "Authorization": "Bearer " + CFG.token, "Content-Type": "text/plain" },
+          body: word, signal: c ? c.signal : undefined
+        }).then(function (r) { done(!!r.ok); }, function () { done(false); });
+      } catch (err) { done(false); }
+    }
+    attempt(1);
+    return true;
+  }
+
+  // The latest word at or before the slide the talk is on (the saved slide
+  // while a quick-select jump is out).
+  function resend() {
+    var at = A.current();
+    if (at >= A.count()) at = A.returnTo() === null ? A.count() - 1 : A.returnTo();
+    var found = -1;
+    for (var k = 0; k < idxs.length; k++) if (idxs[k] <= at) found = idxs[k];
+    if (found < 0) return false;
+    return publish(found);
+  }
+
+  // Only next() arriving on a marked screen advances the talk.  prev, a hash
+  // change, jump() and returnFromJump() never reach here, and a next() pressed
+  // while a jump is out is not the talk advancing either.
+  A.addOnNext(function (i) {
+    if (A.jumped() || A.moveKind() !== "nav") return;
+    if (CFG.words[String(i)] !== undefined && i > hw) publish(i);
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if ((e.key === "w" || e.key === "W") && !e.repeat) resend();
+  });
+
+  A.waypoint = {
+    state: function () { return { enabled: true, word: st.word, status: st.status, at: st.at }; },
+    resend: resend,
+    addOnChange: function (fn) { if (typeof fn === "function") listeners.push(fn); }
+  };
+
+  // Opened at screen 1 with no hash: this is a fresh run, so say `start`.  A
+  // reload mid-talk has a hash and publishes nothing.
+  if (!location.hash && A.current() === 0 && CFG.words["0"] !== undefined) publish(0);
 })();
 """
 
@@ -2246,7 +2364,8 @@ PRESENTER_JS = r"""
       preview: previewOf(i),
       nextPreview: i + 1 < n ? previewOf(i + 1) : null,
       liveCue: liveCueOf(i),
-      timer: window.animatic.timer ? window.animatic.timer.state() : null
+      timer: window.animatic.timer ? window.animatic.timer.state() : null,
+      waypoint: window.animatic.waypoint ? window.animatic.waypoint.state() : null
     };
   }
 
@@ -2360,6 +2479,9 @@ PRESENTER_JS = r"""
       if (window.animatic.timer) window.animatic.timer.resetAll();
       push();
     }
+    else if (d.type === "animatic-waypoint-resend" && window.animatic.waypoint) {
+      window.animatic.waypoint.resend();
+    }
     else if (d.type === "animatic-timer" && window.animatic.timer) {
       window.animatic.timer.command(d.cmd);
     }
@@ -2377,6 +2499,7 @@ PRESENTER_JS = r"""
   window.animatic.addOnChange(push);
   window.animatic.addOnStep(push);
   if (window.animatic.timer) window.animatic.timer.addOnChange(push);
+  if (window.animatic.waypoint) window.animatic.waypoint.addOnChange(push);
 
   // Read-only surface for the diagnostics dump: whether a presenter window is
   // actually open right now. Nothing here drives the presenter.
@@ -2623,6 +2746,7 @@ PRESENTER_UI_JS = r"""
     fitNotes();
     say("");
     quickPaint();
+    waypointPaint();
   }
 
   function liveLabel(state_) {
@@ -2851,6 +2975,9 @@ PRESENTER_UI_JS = r"""
         break;
       case "s": case "S": e.preventDefault(); window.close(); break;
       case "t": case "T": post({ type: "animatic-restart-clock" }); break;
+      case "w": case "W":
+        if (state && state.waypoint && !e.repeat) post({ type: "animatic-waypoint-resend" });
+        break;
       case "f": case "F": flipNotes(); break;
       case "[": setNotesScale(notesScale - 0.1, true); break;
       case "]": setNotesScale(notesScale + 0.1, true); break;
@@ -3083,6 +3210,25 @@ PRESENTER_UI_JS = r"""
         ? "Quick: " + ((c && c.sec_title) || cueTitle(c)) + " · Esc returns to " + (state.returnTo + 1)
         : "";
     }
+  }
+
+  // The waypoint line (docs/waypoints.md): shown only when the deck says it is
+  // publishing (a build with the token), so a rehearsal build has no trace of it.
+  var wpLine = document.getElementById("presenter-waypoint");
+  function waypointPaint() {
+    if (!wpLine) return;
+    var w = state && state.waypoint;
+    wpLine.hidden = !w;
+    if (!w) { wpLine.textContent = ""; return; }
+    var t = "";
+    if (w.at) {
+      var d = new Date(w.at), h = d.getHours();
+      t = " " + (h % 12 || 12) + ":" + ("0" + d.getMinutes()).slice(-2) + (h < 12 ? "am" : "pm");
+    }
+    wpLine.textContent = !w.word ? "Waypoint: none yet"
+      : w.status === "ok" ? "Waypoint: " + w.word + " \u2713" + t
+      : w.status === "fail" ? "Waypoint: " + w.word + " \u2717 not sent, w to retry"
+      : "Waypoint: " + w.word + " \u2026 sending";
   }
 
   // Test surface for the layout harness (tools/presenter-probe.html): it fills
@@ -3615,7 +3761,27 @@ def search_text(screen: Screen) -> str:
     return "\n".join(lines)
 
 
-def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
+def waypoint_words(talk: Talk) -> dict:
+    """{slide index: word} for the screens the talk marks (docs/waypoints.md)."""
+    return {i: s.waypoint for i, s in enumerate(talk.screens) if s.waypoint}
+
+
+def waypoint_script(talk: Talk, token: Optional[str]) -> str:
+    """The publishing module, or "" for a build without the token or without
+    marks.  This is the ONLY place the token is written into any output."""
+    token = (token or "").strip()
+    words = waypoint_words(talk)
+    wp = talk.meta.get("waypoints")
+    if not token or not words or not isinstance(wp, dict) or not wp.get("url"):
+        return ""
+    cfg = json.dumps({"url": str(wp["url"]).strip(), "token": token,
+                      "words": {str(i): w for i, w in words.items()}},
+                     separators=(",", ":")).replace("<", "\\u003c")
+    return f"<script>\n{WAYPOINT_JS.replace('__WAYPOINT_CFG__', cfg)}\n</script>\n"
+
+
+def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path,
+                   waypoint_token: Optional[str] = None) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     theme = resolve_theme(talk)
     sections = []
@@ -3638,6 +3804,7 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     # none keeps byte-identical HTML
     timer_script = (f"<script>\n{TIMER_JS}\n</script>\n"
                     if any(s.timer is not None for s in talk.screens) else "")
+    waypoint_mod = waypoint_script(talk, waypoint_token)
     hookup = (
         '<aside class="hookup-panel" id="hookup-panel" aria-label="demo hookup">\n'
         '<h2 class="hookup-title">Demo hookup</h2>\n'
@@ -3679,7 +3846,7 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
 {hookup}<script>
 {PAGER_JS}
 </script>
-{timer_script}<script>
+{timer_script}{waypoint_mod}<script>
 {PRESENTER_JS}
 </script>
 <script>
@@ -3696,7 +3863,8 @@ def render_present(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     return path
 
 
-def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
+def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path,
+                     waypoints_live: bool = False) -> Path:
     """The presenter window: present/presenter.html (docs/presenter-view.md).
 
     The speaker UI lives in a SECOND window, which means it cannot be a copy of
@@ -3752,6 +3920,9 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
         ensure_ascii=False, separators=(",", ":"),
     ).replace("<", "\\u003c")   # cannot open a script element from data
 
+    # the status line exists only in a build that publishes (it had the token)
+    waypoint_line = ('<p class="presenter-quick" id="presenter-waypoint" hidden></p>\n'
+                     if waypoints_live and waypoint_words(talk) else "")
     doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3780,7 +3951,7 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path
 <button type="button" id="presenter-next" aria-label="next screen">&#8250;</button>
 </nav>
 <p class="presenter-quick" id="presenter-quick" hidden></p>
-</header>
+{waypoint_line}</header>
 <p class="presenter-cue" id="presenter-cue"></p>
 <main class="presenter-panes">
 <section class="presenter-pane presenter-pane-current">
@@ -4753,6 +4924,8 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             **({"live_only": True} if screen.live_only else {}),
             # quick select: on the shelf, after the talk (docs/quick-select.md)
             **({"quick": True} if screen.shelf else {}),
+            # waypoints: the word published on reaching this screen
+            **({"waypoint": screen.waypoint} if screen.waypoint else {}),
             # a countdown (spec: Timer screens): integer seconds, the index of
             # the `screen_text` entry whose text holds the token, and `corner`
             **({"timer": screen.timer[0], "timer_in": timer_at,
@@ -4978,6 +5151,7 @@ def render_nav(talk: Talk, out_dir: Path) -> Path:
             "document": document,
             **({"include": screen.include} if screen.include else {}),
             **({"quick": True} if screen.shelf else {}),
+            **({"waypoint": screen.waypoint} if screen.waypoint else {}),
         }
     payload = {
         "schema": "animatic.nav.v1",

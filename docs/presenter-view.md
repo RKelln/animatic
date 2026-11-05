@@ -14,8 +14,8 @@ second.
 
 | Surface | Keys |
 | --- | --- |
-| deck | arrows / space / PageUp / PageDown / Home / End to move, `s` presenter window, `n` in-page notes, `d` demo hookup panel, `Escape` closes a panel (then, after a quick-select jump, returns) |
-| presenter window | arrows / space to move the deck, `/` quick select (a deck with a shelf only: see below), `Escape` returns from a quick-select jump, `f` (or the ⇅ button) puts the notes above the slide image instead of below, remembered per browser, `[` / `]` (or the A− / A+ buttons) shrink / grow the current screen's notes text, also remembered, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
+| deck | arrows / space / PageUp / PageDown / Home / End to move, `w` re-sends the latest waypoint (a publishing build only), `s` presenter window, `n` in-page notes, `d` demo hookup panel, `Escape` closes a panel (then, after a quick-select jump, returns) |
+| presenter window | arrows / space to move the deck, `w` re-sends the latest waypoint (a deck built with `ANIMATIC_WAYPOINT_TOKEN` only: see below), `/` quick select (a deck with a shelf only: see below), `Escape` returns from a quick-select jump, `f` (or the ⇅ button) puts the notes above the slide image instead of below, remembered per browser, `[` / `]` (or the A− / A+ buttons) shrink / grow the current screen's notes text, also remembered, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
 | timer screens (either window) | `p` pause / resume, `0` reset and run, `+` / `=` add a minute, `-` take a minute off (spec: Timer screens) |
 
 ## Quick select
@@ -44,6 +44,18 @@ here), `jumped`, `returnTo` and `move` (`"jump"`, `"return"` or `"nav"`, so a la
 consumer can tell a jump from advancing). On a shelf screen the header shows the section
 title in place of "n / m", and a status line, `Quick: <title> · Esc returns to <n>`,
 shows while the deck is away from the talk. The projector shows neither.
+
+## Waypoints
+
+A deck built with `ANIMATIC_WAYPOINT_TOKEN` (docs/waypoints.md) publishes a word as the
+talk reaches marked slides, and this window shows the result on its own line under the
+header, `Waypoint: expanding ✓ 7:04pm`, or `Waypoint: expanding ✗ not sent, w to retry`
+(and `… sending` while a request is out, `none yet` before the first word). The deck owns
+the publishing, and the token never leaves `present/index.html`: this page learns the
+state through the existing `animatic-state` message (a `waypoint` object, `null` when the
+build is inert) and asks for a re-send with `animatic-waypoint-resend`, posted by `w`.
+`w` does nothing in an inert build, and the status line is not even in the page. While
+the quick search is open it swallows `w` with every other key, like the rest.
 
 ## Why two windows and not a bigger panel
 
@@ -160,6 +172,10 @@ overflows by 180px there, while the same screen fits in two columns at 1080p.
 That is a fact about how long that screen's notes are rather than a layout
 defect: no readable font size makes 3300 characters fit a small window. The
 probe reports it with the pixels so the decision is visible.
+
+**TODO: `warm (file://)` in `tests/browser_quick_select.py` failed once in about 12 runs on
+2026-11-05, right after several browser tests in a row, and passed the rest. Likely timing;
+the failing check wasn't captured. Print it next time it fails.**
 
 **TODO: update the probe's live-control expectations.** Its `live control: stalled`
 and `live control: idle` cases fail on every deck with a live screen. They still expect
