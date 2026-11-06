@@ -630,7 +630,7 @@
       ],
       "script": "Work on it together.",
       "stage": null,
-      "est_seconds": 1.6,
+      "est_seconds": 180.0,
       "timer": 180,
       "timer_in": 1
     }

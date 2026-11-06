@@ -137,10 +137,12 @@ def check(fx, errors: list) -> None:
         if "timer" in c and words == 0 and c.get("media") is None:
             if abs(c["est_seconds"] - c["timer"]) > 5e-4:
                 err(errors, f"{cid}: est_seconds {c['est_seconds']} != timer {c['timer']} (no voice-over)")
-        if "timer" in c and words > 0 and c.get("media") is None and not c.get("stage"):
-            w = round(timing.estimate_seconds(words, c["kind"]), 3)
-            if abs(c["est_seconds"] - w) > 5e-4:
-                err(errors, f"{cid}: est_seconds {c['est_seconds']} counts the timer (words alone give {w})")
+        if "timer" in c and words > 0 and c.get("media") is None:
+            spoken = timing.estimate_seconds(words, c["kind"])
+            want = (round(words / timing.DEFAULT_WPM * 60 + c["timer"], 3)
+                    if c.get("timer_reveal") else max(spoken, float(c["timer"])))
+            if c["est_seconds"] < want - 5e-4:
+                err(errors, f"{cid}: est_seconds {c['est_seconds']} under-counts the timer (want at least {want})")
 
     if 'class="timer-plate' in doc or 'role="timer"' in doc:
         err(errors, "document view carries a live timer plate")

@@ -18,6 +18,7 @@ Two layers:
 
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import subprocess
 import tempfile
@@ -44,6 +45,7 @@ def check(fx, errors: list) -> None:
     _units(errors)
     _fixture_clock(fx, errors)
     _check19_fixtures(fx, errors)
+    _report(fx, errors)
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +222,31 @@ def _check19_fixtures(fx, errors: list) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _report(fx, errors: list) -> None:
+    """tools/timing-report.py agrees with the clock: buckets add up to each
+    screen, screens add up to the total, and the total is what cues.json says
+    once shelf screens and overrides are accounted for."""
+    spec = importlib.util.spec_from_file_location(
+        "timing_report", Path(__file__).resolve().parents[2] / "tools" / "timing-report.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    r = mod.build_report(fx.talkfile)
+    for x in r["screens"]:
+        got = sum(x["buckets"].values())
+        if abs(got - x["seconds"]) > 1e-6:
+            err(errors, f"timing report {x['id']}: buckets {got} != {x['seconds']}")
+        if min(x["buckets"].values()) < -1e-9:
+            err(errors, f"timing report {x['id']}: negative bucket {x['buckets']}")
+    if abs(sum(x["seconds"] for x in r["screens"]) - r["total_seconds"]) > 1e-6:
+        err(errors, "timing report: screens do not add up to the total")
+    if abs(sum(m["seconds"] for m in r["movements"]) - r["total_seconds"]) > 1e-6:
+        err(errors, "timing report: movements do not add up to the total")
+    est = {c["id"]: c["est_seconds"] for c in fx.cues()["cues"]}
+    for x in r["screens"]:
+        if x["tier"] == "estimated" and abs(est.get(x["id"], -1) - x["seconds"]) > 1e-6:
+            err(errors, f"timing report {x['id']}: {x['seconds']} != cues.json {est.get(x['id'])}")
+
+
 def _units(errors: list) -> None:
     _unit_words(errors)
     _unit_dur(errors)
@@ -282,6 +309,19 @@ def _unit_floors(errors: list) -> None:
         err(errors, f"computed time should win over a short video: "
                     f"{short_video}, want 120.0")
     # the speech rate is honoured
+    # a plain timer runs while the words are spoken; a revealed one follows them
+    for words, armed, want in ((150, False, 300.0), (1000, False, 400.0),
+                               (150, True, 360.0), (0, False, 300.0),
+                               (0, True, 300.0)):
+        got = timing.estimate_seconds(words, "card", timer_seconds=300,
+                                      timer_armed=armed)
+        if got != want:
+            err(errors, f"{words} words, 5 min timer, armed={armed}: "
+                        f"estimate {got}, want {want}")
+    capped = timing.estimate_seconds(150, "media", video_seconds=900.0,
+                                     timer_seconds=300, timer_armed=True)
+    if capped != 900.0:
+        err(errors, f"a video must floor a timer estimate: {capped}, want 900.0")
     fast = timing.estimate_seconds(150, "card", wpm=300.0)
     if fast != 30.0:
         err(errors, f"150 words at 300 wpm = {fast}, want 30.0")

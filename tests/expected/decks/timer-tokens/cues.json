@@ -41,7 +41,7 @@
       ],
       "script": "A spoken sentence that stays voice-over while the break runs.",
       "stage": null,
-      "est_seconds": 4.0,
+      "est_seconds": 480.0,
       "timer": 480,
       "timer_in": 1
     },

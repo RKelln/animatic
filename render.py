@@ -301,6 +301,19 @@ def has_beat_note(screen: Screen) -> bool:
                for b in screen.blocks for s in b.stage)
 
 
+def cue_video_seconds(screen: Screen, resolver: MediaResolver) -> Optional[float]:
+    """The real length of the screen's video, or None when it has no video."""
+    shot = screen.media_shot
+    if shot is None or not shot.slug:
+        return None
+    ref = resolver.resolve(shot.slug)
+    if not ref.found or not ref.file:
+        return None
+    if ref.type == "video" or Path(ref.file).suffix.lower() in VIDEO_EXTS:
+        return timing.probe_video_seconds(ref.origin or ref.file)
+    return None
+
+
 def cue_estimate(screen: Screen, resolver: MediaResolver,
                  wpm: float = timing.DEFAULT_WPM) -> float:
     """The screen's `estimated` tier, in seconds (spec: Timing).
@@ -314,21 +327,15 @@ def cue_estimate(screen: Screen, resolver: MediaResolver,
     the artifact and the check can never disagree about the clock.
     """
     words = timing.word_count(screen_script(screen))
-    video_seconds = None
-    shot = screen.media_shot
-    if shot is not None and shot.slug:
-        ref = resolver.resolve(shot.slug)
-        if ref.found and ref.file:
-            suffix = Path(ref.file).suffix.lower()
-            if ref.type == "video" or suffix in VIDEO_EXTS:
-                video_seconds = timing.probe_video_seconds(ref.origin or ref.file)
+    video_seconds = cue_video_seconds(screen, resolver)
     tm = screen.timer
     return timing.estimate_seconds(
         words, screen_kind(screen),
         video_seconds=video_seconds, wpm=wpm,
         credits_read=is_credits_screen(screen),
         beat=has_beat_note(screen),
-        timer_seconds=tm[0] if tm else None)
+        timer_seconds=tm[0] if tm else None,
+        timer_armed=timer_armed(screen))
 
 
 def cited_sources(talk: Talk) -> list[dict]:

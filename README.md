@@ -128,6 +128,10 @@ the machine-side hook are other repos; this is the deck's half).
   `--strict` (warnings fatal). Check 19 reports when the deck's effective
   timing diverges from the declared `dur` by more than 30% (never a warning).
   See `python3 check.py --register`.
+- `tools/timing-report.py` — the clock as a report: total against `dur` (or `--dur`), the
+  total at 130 and 150 wpm, and time by movement, timer and longest screen, split into
+  spoken, timer, video, minimum and override. A plain timer runs while the words are
+  spoken (the longer counts); a `reveal=timer` follows them (the two add).
 - `corpus.yaml` — the machine-local content-root declaration the corpus
   harness (check 21) scans; a shipped copy rewrites its paths.
 

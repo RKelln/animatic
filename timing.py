@@ -187,16 +187,21 @@ def estimate_seconds(words: int, kind: str, *,
                      wpm: float = DEFAULT_WPM,
                      credits_read: bool = False,
                      beat: bool = False,
-                     timer_seconds: Optional[int] = None) -> float:
+                     timer_seconds: Optional[int] = None,
+                     timer_armed: bool = False) -> float:
     """The `estimated` tier for one cue: max(computed, floor), rounded to
     milliseconds so the artifact is byte-stable across runs.
 
-    A screen with a countdown timer and no voice-over lasts as long as the
-    timer (a video's real duration is still a floor); with voice-over the
-    estimate is the words' and the timer adds nothing (no double count)."""
-    if timer_seconds and words == 0:
-        return round(max(float(timer_seconds), float(video_seconds or 0.0)), 3)
+    A countdown timer counts in full.  A plain timer starts on arrival, so the
+    words are spoken while it runs: the longer of the two.  A revealed timer
+    (`timer_armed`) starts on a next-press after the words: the two add.  A
+    video's real duration is still a floor."""
     computed = (float(words) / wpm) * 60.0 if words > 0 and wpm > 0 else 0.0
+    if timer_seconds:
+        computed = (computed + timer_seconds if timer_armed
+                    else max(computed, float(timer_seconds)))
+        if words == 0:
+            return round(max(computed, float(video_seconds or 0.0)), 3)
     floor = floor_for(kind, words=words, video_seconds=video_seconds,
                       credits_read=credits_read, beat=beat)
     return round(max(computed, floor), 3)
