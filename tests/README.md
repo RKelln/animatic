@@ -142,8 +142,8 @@ One command, one exit code:
     integer equal to the first valid token, `timer_in` / `timer_corner` agree with the
     token, no token in `script`, one `.timer-plate` of the right shape per timer cue,
     no plate or clock in the document view, which prints `<duration> timer`, and
-    `est_seconds` follows the rule (timer seconds with no voice-over, the words' own
-    estimate with it). The countdown itself (start, keep running, pause, reset,
+    `est_seconds` follows the rule (the longer of the words and a plain timer, the
+    two added for a revealed timer). The countdown itself (start, keep running, pause, reset,
     overtime, presenter sync) is browser behaviour and was verified in headless
     Chromium by driving real key presses, not in this suite.
   - `code-fences-wrap` - width never shrinks a fenced block: the four-bullet
