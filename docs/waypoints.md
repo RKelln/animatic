@@ -37,10 +37,12 @@ waypoints:
 ```
 
 ```markdown
-<!-- waypoint: expanding -->
+<!-- shot: waypoint=expanding -->
+<!-- shot: reveal=timer live waypoint=expanding -->   (with other shot tokens)
 ```
 
-- The directive goes on its own line and applies to the next screen.
+- `waypoint=word` is a flag in the screen's shot, so it marks the screen that shot opens.
+  Every screen starts with a shot, so there is always a place to put it.
 - A word is lowercase letters, digits and hyphens, up to 24 characters, and can be
   used once per talk.
 - It must be in the talkfile itself. In a `*.section.md` it would fire in every
@@ -50,8 +52,9 @@ waypoints:
 - `cues.json` and `nav.json` gain a `waypoint` field on marked screens. Document
   view and handout don't show it. Decks without waypoints keep the same slides and data; only the
   scripts in their present pages change.
-- Register check 49 (48 is quick select's): bad word, duplicate, directive inside a
-  section, nothing following the directive, or directives with no `waypoints.url`.
+- Register check 49 (48 is quick select's): bad word, duplicate, a waypoint in a section's
+  shot, one on a shot that opens no screen, the removed standalone `<!-- waypoint: ... -->`
+  line, or waypoints with no `waypoints.url`.
 
 ### Token
 
@@ -82,15 +85,16 @@ correct a mistake: go back to the right place and press `w`.
 
 Built as specified. What the code does, and where it goes beyond or away from the text above:
 
-- **Parsing.** The directive is lexed as its own block and then folded into the block after it
-  (`talkparse._attach_waypoints`), so it can sit between a heading and the shot that heading
-  titles without changing how either reads. `Screen.waypoint` carries the word.
+- **Parsing.** `waypoint=word` is a known shot flag. `_parse_shot` stores it on the `Shot` (not in
+  `flags`), `talkparse._attach_waypoints` validates the word and tags the shot's block, and the
+  assembler hands it to the screen that shot opens. `Screen.waypoint` carries the word. (Until
+  2026-11-06 it was a standalone `<!-- waypoint: word -->` line above the shot; that line is now a
+  fatal that says where the word goes.)
 - **Check 49 (free; 48 is quick select's)** is enforced in `talkparse.py` and registered in
-  `check.py --register`. Beyond the listed cases it is also fatal when: the directive is split
-  over several lines; two directives are in a row; text that joins an already open screen
-  follows the directive (it marks the *next screen*, so there is none); or `waypoints:` is
-  present with no `http(s)://` `url`, marks or not. A directive in a section is fatal whether the
-  section is included or shelved, so no shelf screen can carry one.
+  `check.py --register`. Beyond the listed cases it is also fatal when: the shot carrying the word
+  opens no new screen, or `waypoints:` is present with no `http(s)://` `url`, marks or not. A
+  waypoint in a section's shot is fatal whether the section is included or shelved, so no shelf
+  screen can carry one.
 - **Outputs.** `cues.json` and `nav.json` gain `waypoint` on marked screens only, token or not.
   The word is in no other output (document view, handout, web export, presenter page).
   The token and the words reach `present/index.html` through one `<script>` block that exists
@@ -115,8 +119,9 @@ Built as specified. What the code does, and where it goes beyond or away from th
   failure. 3 s timeout per attempt through an `AbortController`, one retry after 500 ms, so a dead
   service shows `✗` after about 6.5 s. A newer publish aborts an older one still in flight, so a
   slow old response cannot change the status. A request already sent can still reach the service
-  after a newer one, rarely, and `w` corrects it. Build without the token under `--watch`: each
-  reload on screen 1 publishes `start` again. Chromium sent the preflight the spec predicted
+  after a newer one, rarely, and `w` corrects it. Built with the token under `--watch`, each
+  reload on screen 1 publishes `start` again. A second `--watch` on the same `--out` stops the first, so a
+  watcher started without the token is replaced by one with it (README, Build). Chromium sent the preflight the spec predicted
   (`OPTIONS` with `Access-Control-Request-Headers: authorization`) from `file://` (`Origin: null`)
   and from `http://127.0.0.1`; the service must answer it for both (section 2 already says so).
 - **Presenter.** The deck posts the state in `animatic-state` (`waypoint`: `{enabled, word,
@@ -345,7 +350,7 @@ Likely shape, to design when it's picked up:
 3. Animatic: golden suite unchanged, `tests/properties/waypoint_props.py`, and a
    browser test for publish rules, especially no publish on `prev()`, hash or `jump()`.
 4. `scripts/check_waypoints.py <talk.md> <waypoints.txt>`: each word in the talk has a line
-   in `waypoints.txt`, and the reverse, and the first directive is `start`. A mismatch fails silently in the room, so this
+   in `waypoints.txt`, and the reverse, and the first waypoint is `start`. A mismatch fails silently in the room, so this
    check is what catches it.
 5. A live check through the public URL with a test event, as
    `scripts/check_takehome_live.py` does for take-home.

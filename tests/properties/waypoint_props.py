@@ -4,13 +4,12 @@ A throwaway copy of the fixture deck under /tmp, built through build.py.  The
 browser half (the publish rules, failure and retry, the presenter's `w`, the inert
 build) is tests/browser_waypoint.py.
 
-- `<!-- waypoint: word -->` marks the NEXT screen, wherever it sits relative to a
-  heading, and the screens come out in order with the right words; a word of 24
-  characters is fine;
+- `waypoint=word` in a screen's shot (`<!-- shot: waypoint=word -->`) marks that screen, and the
+  screens come out in order with the right words; a word of 24 characters is fine; the old
+  standalone `<!-- waypoint: word -->` line is a fatal that says where the word goes now;
 - check 49 is a fatal with the file and line for: a bad word (capitals, a space,
-  25 characters, empty, a missing colon), a word used twice, two directives in a
-  row, a directive with nothing after it, one that does not precede a new screen,
-  one inside a section (included, or on the shelf), directives with no
+  25 characters, empty), a word used twice, one on a shot that opens no new screen,
+  one inside a section (included, or on the shelf), waypoints with no
   `waypoints.url`, a `waypoints:` with a url that is not http(s); check.py reports it;
 - `cues.json` and `nav.json` carry `waypoint` on marked screens and nowhere else,
   with a token or without; the document view, the handout and the web export never
@@ -98,8 +97,8 @@ def check(errors: list) -> None:
             err(errors, f"waypoint: marked screens {got}, want {want}")
         if any(s.waypoint for s in t.shelf_screens):
             err(errors, "waypoint: a shelf screen carries a waypoint")
-        if talkparse.build_talk(talk_md).screens[3].waypoint_line != src.split("\n").index("<!-- waypoint: key-choice -->") + 1:
-            err(errors, "waypoint: the directive's line is not the talkfile's own")
+        if talkparse.build_talk(talk_md).screens[3].waypoint_line != src.split("\n").index("<!-- shot: waypoint=key-choice -->") + 1:
+            err(errors, "waypoint: the shot's line is not the talkfile's own")
 
         # --- check 49 ---------------------------------------------------------------
         bad = tmp / "bad"
@@ -117,43 +116,43 @@ def check(errors: list) -> None:
                 (bad / "sections" / "s.section.md").write_text(section, encoding="utf-8")
             return bad / "talk.md"
 
+        def shot_wp(word: str) -> str:
+            return f"<!-- shot: waypoint={word} -->\n# Hi\n\nHello.\n"
+
         shot = "<!-- shot -->\n# Hi\n\nHello.\n"
         ok24 = "a" * 24
-        t24 = talkparse.build_talk(talk_with(f"<!-- waypoint: {ok24} -->\n" + shot))
+        t24 = talkparse.build_talk(talk_with(shot_wp(ok24)))
         if t24.screens[0].waypoint != ok24:
             err(errors, "waypoint: a 24-character word was refused")
-        for word, label in (("Start", "capital"), ("two words", "space"), ("a" * 25, "25 characters"),
+        for word, label in (("Start", "capital"), ("a" * 25, "25 characters"),
                             ("", "empty"), ("under_score", "underscore")):
-            _fatal(talk_with(f"<!-- waypoint: {word} -->\n" + shot), "bad waypoint", errors, f"bad word ({label})")
-        _fatal(talk_with("<!-- waypoint -->\n" + shot), "bad waypoint", errors, "no colon")
-        _fatal(talk_with("<!-- waypoint: x\n-->\n" + shot), "one line", errors, "two lines")
-        _fatal(talk_with("<!-- waypoint: a -->\n" + shot + "\n<!-- waypoint: a -->\n" + shot), "used twice", errors, "duplicate")
-        _fatal(talk_with("<!-- waypoint: a -->\n<!-- waypoint: b -->\n" + shot), "two waypoint", errors, "two in a row")
-        _fatal(talk_with(shot + "\n<!-- waypoint: a -->\n"), "nothing follows", errors, "nothing after (end of file)")
-        _fatal(talk_with(shot + "\n<!-- waypoint: a -->\n\n---\n"), "nothing follows", errors, "nothing after (rule)")
-        _fatal(talk_with(shot + "\n<!-- waypoint: a -->\nMore words on the same screen.\n"), "waypoint directive",
-               errors, "directive before text on an open screen")
-        _fatal(talk_with(shot + "\n<!-- waypoint: a -->\nMore words on the same screen.\n\n<!-- shot -->\nNext.\n"),
-               "not followed by a new screen", errors, "directive before text, then a shot")
-        _fatal(talk_with("<!-- waypoint: a -->\n" + shot, front=head.replace("waypoints: { url: http://127.0.0.1:1/x }\n", "")),
+            _fatal(talk_with(shot_wp(word)), "bad waypoint", errors, f"bad word ({label})")
+        # a role-first shot and a slug-first shot take the flag too
+        tr = talkparse.build_talk(talk_with("<!-- shot: stat waypoint=stat-one -->\n# Hi\n\nHello.\n"))
+        if tr.screens[0].waypoint != "stat-one":
+            err(errors, "waypoint: a role shot did not take waypoint=")
+        _fatal(talk_with("<!-- waypoint: x -->\n" + shot), "standalone waypoint line is gone", errors, "old standalone line")
+        _fatal(talk_with("<!-- waypoint: x\n-->\n" + shot), "standalone waypoint line is gone", errors, "old two-line form")
+        _fatal(talk_with(shot_wp("a") + "\n" + shot_wp("a")), "used twice", errors, "duplicate")
+        _fatal(talk_with(shot_wp("a"), front=head.replace("waypoints: { url: http://127.0.0.1:1/x }\n", "")),
                "no `waypoints:", errors, "no url")
-        _fatal(talk_with("<!-- waypoint: a -->\n" + shot, front=head.replace("http://127.0.0.1:1/x", "ftp://x")),
+        _fatal(talk_with(shot_wp("a"), front=head.replace("http://127.0.0.1:1/x", "ftp://x")),
                "http:// or https://", errors, "url not http")
         _fatal(talk_with(shot, front=head.replace("{ url: http://127.0.0.1:1/x }", "yes")),
                "http:// or https://", errors, "waypoints: with no url")
-        _fatal(talk_with("<!-- include: sections/s.section.md -->\n", section="---\ntitle: S\n---\n<!-- waypoint: a -->\n" + shot),
+        _fatal(talk_with("<!-- include: sections/s.section.md -->\n", section="---\ntitle: S\n---\n" + shot_wp("a")),
                "cannot sit in a section", errors, "in an included section")
         _fatal(talk_with(shot, front=head + "quick_sections: sections\n",
-                         section="---\nquick:\n  title: T\n---\n<!-- waypoint: a -->\n" + shot),
+                         section="---\nquick:\n  title: T\n---\n" + shot_wp("a")),
                "cannot sit in a section", errors, "in a shelf section")
-        rep = check_mod.check_file(talk_with("<!-- waypoint: A -->\n" + shot))
+        rep = check_mod.check_file(talk_with(shot_wp("A")))
         if not any(f.check == 49 and f.severity == check_mod.FATAL for f in rep.findings):
             err(errors, "waypoint: check.py did not report check 49 as a fatal")
         rep_ok = check_mod.check_file(talk_md)
         if any(f.check == 49 for f in rep_ok.findings):
             err(errors, "waypoint: a good fixture reported check 49")
-        # a directive between a heading and its shot changes nothing else about the screens
-        plain = src.replace("<!-- waypoint: key-choice -->\n", "")
+        # the flag changes nothing else about the screens
+        plain = src.replace(" waypoint=key-choice", "").replace("<!-- shot: -->", "<!-- shot -->")
         (deck / "plain-between.md").write_text(plain, encoding="utf-8")
         tp = talkparse.build_talk(deck / "plain-between.md")
         if [len(s.blocks) for s in tp.screens] != [len(s.blocks) for s in t.screens]:
@@ -188,7 +187,7 @@ def check(errors: list) -> None:
         # a distinctive word, so "not in the document view" means something
         zq = src
         for w in ("start", "key-choice", "expanding", "sharing"):
-            zq = zq.replace(f"waypoint: {w} ", f"waypoint: zq-{w} ")
+            zq = zq.replace(f"waypoint={w} ", f"waypoint=zq-{w} ")
         (deck / "zq.md").write_text(zq, encoding="utf-8")
         out_z = tmp / "out-z"
         _build(deck / "zq.md", out_z, TOKEN)
@@ -271,7 +270,7 @@ def check(errors: list) -> None:
         # --- a deck with the directives out is the same deck, bar the field ---------------------
         bare = tmp / "bare"
         bare.mkdir()
-        txt = re.sub(r"<!-- waypoint: [a-z-]+ -->\n", "", src)
+        txt = re.sub(r" waypoint=[a-z0-9-]+", "", src).replace("<!-- shot: -->", "<!-- shot -->")
         txt = txt.replace("waypoints: { url: http://127.0.0.1:8472/tpl_2026/waypoint/W99 }\n", "")
         (bare / "talk.md").write_text(txt, encoding="utf-8")
         shutil.copytree(deck / "sections", bare / "sections")

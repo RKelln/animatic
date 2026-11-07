@@ -9,8 +9,7 @@ dur: 3 min
 quick_sections: sections
 waypoints: { url: http://127.0.0.1:8472/tpl_2026/waypoint/W99 }
 ---
-<!-- waypoint: start -->
-<!-- shot -->
+<!-- shot: waypoint=start -->
 # Opening
 
 The talk opens here.
@@ -27,9 +26,8 @@ Nothing marked.
 - second item
 - third item
 
-<!-- waypoint: key-choice -->
 ### The key choice
-<!-- shot -->
+<!-- shot: waypoint=key-choice -->
 
 The first marked screen after the start.
 
@@ -38,8 +36,7 @@ The first marked screen after the start.
 
 Nothing marked.
 
-<!-- waypoint: expanding -->
-<!-- shot -->
+<!-- shot: waypoint=expanding -->
 ### Expanding
 
 The second marked screen.
@@ -49,8 +46,7 @@ The second marked screen.
 
 Nothing marked.
 
-<!-- waypoint: sharing -->
-<!-- shot -->
+<!-- shot: waypoint=sharing -->
 ### Sharing
 
 The last marked screen.

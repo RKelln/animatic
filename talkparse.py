@@ -73,9 +73,10 @@ SHOT_RE = re.compile(r"^\s*<!--\s*shot(?::\s*(.*?))?\s*-->\s*$")
 # screens in (spec: Includes).  Only the `live` modifier exists so far.
 INCLUDE_RE = re.compile(r"^\s*<!--\s*include:\s*(\S+)((?:\s+\S+)*?)\s*-->\s*$")
 INCLUDE_FLAGS = ("live",)
-# `<!-- waypoint: word -->` on its own line marks the NEXT screen with a word the
-# deck publishes when the talk reaches it (docs/waypoints.md).  Check 49.
-WAYPOINT_RE = re.compile(r"^\s*<!--\s*waypoint\b(.*?)-->\s*$")
+# `waypoint=word` in a screen's shot (`<!-- shot: waypoint=word -->`) marks that screen with a
+# word the deck publishes when the talk reaches it (docs/waypoints.md).  Check 49.  The old
+# standalone `<!-- waypoint: word -->` line is gone; WAYPOINT_OPEN_RE only recognises it to
+# say where the word goes now.
 WAYPOINT_WORD_RE = re.compile(r"^[a-z0-9-]{1,24}$")
 WAYPOINT_OPEN_RE = re.compile(r"^\s*<!--\s*waypoint\b")
 INCLUDE_MAX_DEPTH = 3
@@ -94,7 +95,7 @@ CONTINUE_WORDS = ("continue", "cont")
 LAYOUTS = ("piece", "duo", "titled")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
-               "under", "blur", "anchor", "still", "reveal", "live")
+               "under", "blur", "anchor", "still", "reveal", "live", "waypoint")
 # `reveal=list` shows a list's items one per next-press (and steps a stepped-
 # image card's frames in lockstep); `reveal=off` turns a card's image stepping
 # off for that screen (spec: The shot directive, `reveal`).
@@ -420,6 +421,9 @@ class Shot:
     # `continue` shot: True from the tokenizer; the assembler then fills
     # `slug`/`flags` from the previous screen's media shot.
     cont: bool = False
+    # `waypoint=word`: the word the deck publishes when the talk reaches this shot's screen.
+    # Kept as written; check 49 validates it with the screen's source in hand.
+    waypoint: Optional[str] = None
     # Chain id shared by a media shot and every `continue` screen after it
     # (the head's line number as a string); None when the shot is in no chain.
     chain: Optional[str] = None
@@ -989,8 +993,7 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
         if line.lstrip().startswith("<!--"):
             if "-->" not in line:
                 if WAYPOINT_OPEN_RE.match(line):
-                    raise _waypoint_error(source, lineno, "a waypoint directive "
-                                          "must be on one line: <!-- waypoint: word -->")
+                    raise _waypoint_error(source, lineno, _WAYPOINT_MOVED)
                 comment_buf = [line]
                 comment_start = lineno
                 continue
@@ -1003,18 +1006,7 @@ def _lex_blocks(lines: list, source: str, role_vocab=None, layout_vocab=None,
                      "line_end": lineno}
                 )
             elif WAYPOINT_OPEN_RE.match(line):
-                wm = WAYPOINT_RE.match(line)
-                word = ""
-                if wm and wm.group(1).strip().startswith(":"):
-                    word = wm.group(1).strip()[1:].strip()
-                if not WAYPOINT_WORD_RE.match(word):
-                    raise _waypoint_error(
-                        source, lineno, f"bad waypoint {word or line.strip()!r}: "
-                        f"write <!-- waypoint: word --> with a word of lowercase "
-                        f"letters, digits and hyphens, up to 24 characters")
-                flush_para()
-                blocks.append({"kind": "waypoint", "word": word, "line": lineno,
-                               "line_end": lineno})
+                raise _waypoint_error(source, lineno, _WAYPOINT_MOVED)
             else:
                 im = INCLUDE_RE.match(line)
                 if im:
@@ -1273,6 +1265,9 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
             f"{', '.join(KNOWN_FLAGS)} — token ignored"
         )
         return
+    if name == "waypoint":
+        shot.waypoint = value
+        return
     if name == "fit" and not value:
         # Removed form (The shot directive): historic bare `fit` took its meaning from what
         # followed the shot (lookahead).  No meaning of its own now.
@@ -1526,35 +1521,32 @@ def _include_error(source: str, line: int, msg: str) -> ValueError:
     return ValueError(f"{source}:{line}: check 22: {msg}")
 
 
+_WAYPOINT_MOVED = ("the standalone waypoint line is gone: put the word in the screen's shot, "
+                    "<!-- shot: waypoint=word -->")
+
+
 def _waypoint_error(source: str, line: int, msg: str) -> ValueError:
     # register check 49, same shape as check 22 so check.py reports a fatal
     return ValueError(f"{source}:{line}: check 49: {msg}")
 
 
 def _attach_waypoints(raw_blocks: list, source: str) -> list:
-    """Take each waypoint block out of the list and tag the block after it
-    (`rb["wp"] = (word, line)`), so the directive's position between a heading
-    and a shot changes nothing about how the others read each other.  Two in a
-    row, or one with nothing after it, is check 49."""
-    if not any(rb["kind"] == "waypoint" for rb in raw_blocks):
-        return raw_blocks
-    out: list = []
-    pend = None
+    """Tag each shot that carries `waypoint=word` (`rb["wp"] = (word, line)`), so the
+    assembler hands the word to the screen that shot opens.  A word that is not
+    lowercase letters, digits and hyphens (up to 24) is check 49."""
     for rb in raw_blocks:
-        if rb["kind"] == "waypoint":
-            if pend is not None:
-                raise _waypoint_error(source, rb["line"], "two waypoint directives "
-                                      "in a row: each marks the next screen")
-            pend = (rb["word"], rb["line"])
+        if rb["kind"] != "shot":
             continue
-        if pend is not None:
-            rb["wp"] = pend
-            pend = None
-        out.append(rb)
-    if pend is not None:
-        raise _waypoint_error(source, pend[1], "nothing follows the waypoint "
-                              "directive: it marks the next screen")
-    return out
+        word = rb["shot"].waypoint
+        if word is None:
+            continue
+        if not WAYPOINT_WORD_RE.match(word):
+            raise _waypoint_error(
+                source, rb.get("line", 0),
+                f"bad waypoint {word!r}: write <!-- shot: waypoint=word --> with a word "
+                f"of lowercase letters, digits and hyphens, up to 24 characters")
+        rb["wp"] = (word, rb.get("line", 0))
+    return raw_blocks
 
 
 def _quick_error(source: str, line: int, msg: str) -> ValueError:
@@ -1618,9 +1610,9 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
         fblocks = _lex_blocks(lines, fsource, role_vocab, layout_vocab,
                               line_offset=offset)
         for fb in fblocks:
-            if fb["kind"] == "waypoint":
-                raise _waypoint_error(fsource, fb["line"], "a waypoint directive "
-                                      "cannot sit in a section: it would fire in every talk "
+            if fb["kind"] == "shot" and fb["shot"].waypoint is not None:
+                raise _waypoint_error(fsource, fb["line"], "waypoint= cannot sit in a "
+                                      "section's shot: it would fire in every talk "
                                       "that includes it; put it in the talkfile")
         fblocks = _expand_includes(fblocks, target, fsource, role_vocab,
                                    layout_vocab, stack + (target,), includes,
@@ -1906,9 +1898,9 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         if wp_pending is not None and not (
                 pending_handout or cur is None
                 or raw_blocks[i_rb - 1]["kind"] == "hr"):
-            raise _waypoint_error(source, wp_pending[1], "the waypoint directive "
-                                  "is not followed by a new screen: put it just "
-                                  "before the screen's shot")
+            raise _waypoint_error(source, wp_pending[1], "waypoint= is on a shot "
+                                  "that opens no new screen: put it on the shot "
+                                  "that starts the screen")
         if rb.get("wp"):
             word, wline = rb["wp"]
             if word in wp_seen:

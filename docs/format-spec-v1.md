@@ -195,14 +195,15 @@ Two optional pieces let the deck tell participants' agents where the talk is
 
 - **`waypoints:`** (talk frontmatter) — `url:`, an `http://` or `https://` address the deck
   POSTs a word to. Required when the talk marks anything.
-- **`<!-- waypoint: word -->`** — on its own line (one line, not a multi-line comment);
-  marks the next screen. The word is lowercase letters, digits and hyphens, 1 to 24, used
-  once per talk. It may sit before a heading that titles the next screen's shot.
+- **`waypoint=word`** — a flag in a screen's shot (`<!-- shot: waypoint=word -->`, or with
+  other tokens: `<!-- shot: reveal=timer live waypoint=word -->`); marks that screen. The
+  word is lowercase letters, digits and hyphens, 1 to 24, used once per talk. The old
+  standalone `<!-- waypoint: word -->` line is gone and is fatal, with a message that says
+  where the word goes now.
 
-The directive must be in the talkfile itself: inside an included or shelved section it
-would fire in every talk that includes it, so it is fatal there. A directive with a bad
-word, a repeated word, another directive straight after it, nothing after it, text on an
-already open screen after it, a missing `waypoints.url` or a `waypoints:` whose `url` is
+The flag must be in the talkfile itself: inside an included or shelved section it
+would fire in every talk that includes it, so it is fatal there. A bad
+word, a repeated word, a waypoint on a shot that opens no new screen, a missing `waypoints.url` or a `waypoints:` whose `url` is
 not http(s) is fatal (check 49). `cues.json` and `nav.json` carry `waypoint` on marked
 screens; the present view publishes only in a build that was given
 `ANIMATIC_WAYPOINT_TOKEN`; the document view, the handout and the web export never show
@@ -692,7 +693,7 @@ through them, and start the clock with one press while the room works.
   with no voice-over). `[next]` marks in a screen's script count the timer's press
   (check 40).
 - **No timer, no effect.** On a screen with no valid timer the flag warns (check 44;
-  the build prints `warn : <cue id>: reveal=timer needs a [Timer: ...] on the
+  the build prints `warn : <cue id> (line N): reveal=timer needs a [Timer: ...] on the
   screen; ignored`) and nothing is hidden. A bad or zero duration or a second timer
   is check 37 as always, so the screen then has no valid timer and check 44 follows.
 
@@ -796,8 +797,9 @@ of its normal size**; a short block grows to fill the slide, and a long line
 wraps instead of holding the size down. Beyond the floor under hero the
 behaviour is the same as above (clipped, marked `floor`). `reveal=list` on a
 screen whose only block is a fence has no list to step: the builder prints
-`warn      : <cue id>: reveal=list needs a list of 2 or more items on the screen; ignored`
-(a build note, not a numbered check) and the flag does nothing.
+`warn      : <cue id> (line N): reveal=list needs a list of 2 or more items on the screen; ignored`
+(a build note, not a numbered check; the `reveal` build notes all carry the screen's line, and for a screen from an
+included file the directive's line and the file, `(line N, from ../_sections/x.section.md)`) and the flag does nothing.
 
 **Document view and handout.** A `<pre class="code-block">` with the theme's
 code styling (mono, a tinted callout panel and an accent rule), `white-space:

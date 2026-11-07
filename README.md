@@ -77,10 +77,10 @@ When the talk reaches a marked slide the deck publishes one word, so participant
 agents can tell them where the room is. Full design: `docs/waypoints.md` (the service and
 the machine-side hook are other repos; this is the deck's half).
 
-- Mark a slide with `<!-- waypoint: expanding -->` on its own line, just before the screen
-  it applies to, and give the talk `waypoints: { url: https://.../W11 }` in its
+- Mark a slide with `waypoint=expanding` in its shot (`<!-- shot: waypoint=expanding -->`, or
+  alongside other tokens: `<!-- shot: reveal=timer live waypoint=expanding -->`), and give the talk `waypoints: { url: https://.../W11 }` in its
   frontmatter. A word is lowercase letters, digits and hyphens, up to 24, used once. Put
-  `start` on the first screen. Directives belong in the talkfile, never in a section.
+  `start` on the first screen. It belongs in the talkfile, never in a section.
 - `ANIMATIC_WAYPOINT_TOKEN=... python3 build.py <talk>` builds a deck that publishes. The
   token goes into `present/index.html` and nowhere else, and is never printed. Without it
   the build is **inert**: nothing is sent and there is no status line or `w` key, so a
@@ -94,8 +94,8 @@ the machine-side hook are other repos; this is the deck's half).
   `w` (deck or presenter window) re-sends the latest word at or before the current slide,
   which is also how to correct a mistake: go back, press `w`.
 - `cues.json` and `nav.json` gain a `waypoint` field on marked screens; nothing else in a
-  deck changes. Check 49 (fatal): a bad word, a duplicate, a directive inside a section, a
-  directive with nothing after it, or directives without a valid `waypoints.url`.
+  deck changes. Check 49 (fatal): a bad word, a duplicate, a waypoint inside a section's shot, one
+  on a shot that opens no screen, the old standalone `<!-- waypoint: ... -->` line, or waypoints without a valid `waypoints.url`.
 - Properties: `tests/properties/waypoint_props.py`; the browser test is
   `tests/browser_waypoint.py`.
 
