@@ -25,7 +25,7 @@ coding agent. Edit here, never there.
 
     python3 build.py <talkfile> [--out OUTDIR]     # render present + document views
     ANIMATIC_WAYPOINT_TOKEN=... python3 build.py <talkfile>   # a deck that publishes waypoints; without it, inert (docs/waypoints.md)
-    python3 build.py <talkfile> --watch [...]      # rebuild on save, open pages reload (Ctrl-C stops)
+    python3 build.py <talkfile> --watch [...]      # rebuild on save, open pages reload (Ctrl-C stops); replaces any watcher already on that --out
     python3 build.py <talkfile> --quick-sections DIR   # trial-build with a quick-select shelf (docs/quick-select.md)
     python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see README: Handout PDF)
     python3 tools/timing-report.py <talkfile> [--dur 2h] [--wpm N] [--screens] [--json]   # how long it runs, by movement, timer and screen

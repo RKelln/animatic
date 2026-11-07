@@ -326,6 +326,42 @@ def inject_reload(out: Path, stamp: str) -> None:
         encoding="utf-8")
 
 
+def _is_watcher(pid: int) -> bool:
+    """True if `pid` is a live `build.py ... --watch` (not a recycled pid)."""
+    try:
+        cmd = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+    except OSError:
+        return False
+    return any(c.endswith(b"build.py") for c in cmd) and b"--watch" in cmd
+
+
+def take_over_watch(pidfile: Path) -> None:
+    """One watcher per --out: two fight over the same staging folder, and one
+    started without ANIMATIC_WAYPOINT_TOKEN would keep rebuilding an inert deck
+    over a good one.  The newest watcher wins: stop the old one, then record
+    ourselves.  Only the pid in the file is touched, and only if it is still a
+    build.py --watch."""
+    import signal
+    import time
+    try:
+        old = int(pidfile.read_text().strip())
+    except (OSError, ValueError):
+        old = 0
+    if old and old != os.getpid() and _is_watcher(old):
+        print(f"replacing the watcher already running for this --out (pid {old})")
+        try:
+            os.kill(old, signal.SIGTERM)
+        except OSError:
+            pass
+        for _ in range(40):
+            if not _is_watcher(old):
+                break
+            time.sleep(0.1)
+        else:
+            print(f"warning: pid {old} did not stop; two watchers may fight", file=sys.stderr)
+    pidfile.write_text(f"{os.getpid()}\n")
+
+
 def watch(talk_path: Path, args, interval: float = 0.5) -> int:
     """Rebuild on every change until Ctrl-C.  A failed build prints its
     traceback and waits for the next save; it never ends the watch."""
@@ -339,6 +375,21 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
     # stamping _watch.js into a deck that might get carried to a venue.
     lease = Path(args.lease).expanduser() if args.lease else None
     started = time.monotonic()
+
+    import atexit
+    import signal
+    out_final = Path(args.out).expanduser().resolve()
+    pidfile = out_final.with_name(f".{out_final.name}.watch.pid")
+    take_over_watch(pidfile)
+
+    def _forget():
+        try:
+            if pidfile.read_text().strip() == str(os.getpid()):
+                pidfile.unlink()
+        except OSError:
+            pass
+    atexit.register(_forget)
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
 
     def lease_stale() -> bool:
         if lease is None:

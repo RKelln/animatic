@@ -13,3 +13,6 @@ __pycache__/
 
 # a browser test killed mid-run leaves its Chromium profile
 waypoint-profile-*/
+
+# build.py --watch: which watcher owns an --out
+.*.watch.pid
