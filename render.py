@@ -4050,6 +4050,15 @@ def timer_plate_html(timer: tuple, shape: str) -> str:
     )
 
 
+def screen_where(screen) -> str:
+    """Where an author finds a screen: its line in the talkfile, or, for a screen
+    that came from an included file, the include directive's line and that file
+    (the shots of an included file are pinned to the directive's line)."""
+    start = screen.line_range[0]
+    inc = screen.include
+    return f"line {start}, from {inc}" if inc else f"line {start}"
+
+
 def timer_reveal_wanted(screen: Screen) -> bool:
     """True when any shot of the screen says `reveal=timer`."""
     return any("timer" in reveal_modes(sh.flags) for sh in screen.shots)
@@ -4239,11 +4248,11 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         step_sources = "source" in modes and any(
             b.kind == "quote" and quote_source_block(screen, b) is not None for b in blocks)
         if "list" in named and not step_list:
-            print(f"warn      : {cue_id}: reveal=list needs a list of 2 or more items on the screen; ignored")
+            print(f"warn      : {cue_id} ({screen_where(screen)}): reveal=list needs a list of 2 or more items on the screen; ignored")
         if "quote" in named and not step_quotes:
-            print(f"warn      : {cue_id}: reveal=quote needs 2 or more quotes on the screen; ignored")
+            print(f"warn      : {cue_id} ({screen_where(screen)}): reveal=quote needs 2 or more quotes on the screen; ignored")
         if "source" in named and not step_sources:
-            print(f"warn      : {cue_id}: reveal=source needs a quote with a ~ source line on the screen; ignored")
+            print(f"warn      : {cue_id} ({screen_where(screen)}): reveal=source needs a quote with a ~ source line on the screen; ignored")
         # `reveal=list` / `reveal=quote` (a bare `reveal` does both): the first
         # list's items and the stacked quotes step one per press, numbered in
         # document order.  The first thing that steps carries the arrival marker:
@@ -4416,12 +4425,12 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     quick_attr = (f' data-quick="{html.escape(screen.section[0], quote=True)}"'
                   if screen.shelf and screen.section else "")
     if bare_reveal_empty(screen):
-        print(f"warn      : {cue_id}: reveal has nothing to reveal on this screen "
+        print(f"warn      : {cue_id} ({screen_where(screen)}): reveal has nothing to reveal on this screen "
               f"(no list of 2 or more items, no timer); ignored")
     if timer_reveal_wanted(screen):
         if screen.timer is None:
             if any("timer" in reveal_named(sh.flags) for sh in screen.shots):
-                print(f"warn      : {cue_id}: reveal=timer needs a [Timer: ...] on the screen; ignored")
+                print(f"warn      : {cue_id} ({screen_where(screen)}): reveal=timer needs a [Timer: ...] on the screen; ignored")
         else:
             # hidden from the start (the pager's step shows it); the timer
             # module starts it on that step, never on arrival
