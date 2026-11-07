@@ -876,6 +876,18 @@ PAGER_JS = """
     return i;
   }
   var saved = null;        // {index, step}: where Esc returns to (the first jump's)
+  // A --watch rebuild reloads the page; keep the way back across it (per tab).
+  var SAVED_KEY = "animatic-return:" + location.pathname;
+  function keepSaved() {
+    try {
+      if (saved) sessionStorage.setItem(SAVED_KEY, JSON.stringify(saved));
+      else sessionStorage.removeItem(SAVED_KEY);
+    } catch (err) {}
+  }
+  try {
+    var kept = JSON.parse(sessionStorage.getItem(SAVED_KEY) || "null");
+    if (kept && kept.index >= 0 && kept.index < mainCount) saved = kept;
+  } catch (err) {}
   var moveKind = "nav";    // "jump" | "return" | "nav", readable from onChange listeners
   totalEl.textContent = String(mainCount);
 
@@ -1426,16 +1438,26 @@ PAGER_JS = """
   function jump(i) {
     var n = Math.floor(Number(i));
     if (!isFinite(n) || n < 0 || n >= slides.length) return false;
-    if (saved === null && cur < mainCount) saved = { index: cur, step: getStep(cur) };
+    if (saved === null && cur < mainCount) { saved = { index: cur, step: getStep(cur) }; keepSaved(); }
     moveKind = "jump";
     go(n, true, landStep(n));
     moveKind = "nav";
     return true;
   }
   function returnFromJump() {
-    if (saved === null) return false;
+    // On a shelf screen with nothing saved (a reload or a #N link landed here,
+    // so no jump ever happened) Esc still has to lead somewhere: the talk's
+    // last screen.
+    if (saved === null) {
+      if (cur < mainCount || mainCount < 1) return false;
+      moveKind = "return";
+      go(mainCount - 1, true, landStep(mainCount - 1));
+      moveKind = "nav";
+      return true;
+    }
     var s = saved;
     saved = null;
+    keepSaved();
     moveKind = "return";
     go(s.index, true, s.step);
     moveKind = "nav";
@@ -3020,6 +3042,9 @@ PRESENTER_UI_JS = r"""
   var qList = document.getElementById("quick-results");
   var qPrev = document.getElementById("quick-preview");
   var qHead = document.getElementById("presenter-quick");
+  var qHeadText = document.getElementById("presenter-quick-text");
+  var qBack = document.getElementById("presenter-quick-back");
+  if (qBack) qBack.addEventListener("click", function () { post({ type: "animatic-return" }); });
   var qOpen = false, qRows = [], qSel = 0, qReq = 0;
   var QUICK_MAX = 12;
 
@@ -3212,10 +3237,11 @@ PRESENTER_UI_JS = r"""
     if (pos) pos.hidden = shelf;
     if (sh) { sh.hidden = !shelf; sh.textContent = shelf ? (c.sec_title || "shelf") : ""; }
     if (qHead) {
-      qHead.hidden = !state.jumped;
-      qHead.textContent = state.jumped
-        ? "Quick: " + ((c && c.sec_title) || cueTitle(c)) + " · Esc returns to " + (state.returnTo + 1)
-        : "";
+      var away = state.jumped || shelf;
+      qHead.hidden = !away;
+      qHeadText.textContent = !away ? ""
+        : "Quick: " + ((c && c.sec_title) || cueTitle(c)) + " · Esc returns to " +
+          (state.jumped ? (state.returnTo + 1) : "the talk");
     }
   }
 
@@ -3704,6 +3730,7 @@ MEDIA_JS = r"""
 QUICK_CSS = """<style>
   .presenter-shelf { color: var(--stage-accent); font-size: 0.9rem; letter-spacing: 0.04em; }
   .presenter-shelf[hidden], .presenter-quick[hidden], .quick[hidden] { display: none; }
+  .presenter-quick-back { margin-left: 0.6rem; font: inherit; padding: 0.1rem 0.7rem; cursor: pointer; }
   .presenter-quick { flex: 1 0 100%; margin: 0; font-size: 0.85rem; color: var(--stage-accent); }
   .quick {
     position: fixed; inset: 0; z-index: 90;
@@ -3957,7 +3984,7 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path,
 <button type="button" id="presenter-flip" class="presenter-flip" aria-label="put the notes above the slide image" title="Swap notes and slide image, top / bottom (f)">&#8645;</button>
 <button type="button" id="presenter-next" aria-label="next screen">&#8250;</button>
 </nav>
-<p class="presenter-quick" id="presenter-quick" hidden></p>
+<p class="presenter-quick" id="presenter-quick" hidden><span id="presenter-quick-text"></span> <button type="button" id="presenter-quick-back" class="presenter-quick-back">Back to deck</button></p>
 {waypoint_line}</header>
 <p class="presenter-cue" id="presenter-cue"></p>
 <main class="presenter-panes">

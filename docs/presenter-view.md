@@ -43,7 +43,7 @@ index (`title`, `st` the screen text, `sc` the script, and `sec` / `sec_title` /
 here), `jumped`, `returnTo` and `move` (`"jump"`, `"return"` or `"nav"`, so a later
 consumer can tell a jump from advancing). On a shelf screen the header shows the section
 title in place of "n / m", and a status line, `Quick: <title> · Esc returns to <n>`,
-shows while the deck is away from the talk. The projector shows neither.
+shows while the deck is away from the talk, with a **Back to deck** button beside it that does what `Esc` does (for when the keyboard focus is elsewhere). If the deck lands on a shelf screen without a jump (a reload or a `#N` link), the line and button still show, and Esc or the button go to the talk's last screen. The projector shows neither.
 
 ## Waypoints
 

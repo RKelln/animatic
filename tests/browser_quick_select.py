@@ -372,7 +372,8 @@ POPUP_DRIVER = r"""
       await wait(400);
       ok("Enter jumps to the section's first screen and closes the box", A.current() === 8 && A.jumped() && q("quick").hidden === true, A.current());
       ok("the status line names the section and where Esc returns", q("presenter-quick").hidden === false &&
-         q("presenter-quick").textContent === "Quick: What's an agent? · Esc returns to 1", q("presenter-quick").textContent);
+         q("presenter-quick-text").textContent === "Quick: What's an agent? · Esc returns to 1", q("presenter-quick-text").textContent);
+      ok("a Back to deck button shows while away", q("presenter-quick-back").offsetParent !== null);
       ok("on a shelf screen the presenter shows the section title, not a number",
          q("presenter-shelf").hidden === false && q("presenter-shelf").textContent === "What's an agent?" &&
          getComputedStyle(D.querySelector(".presenter-pos")).display === "none");
@@ -396,6 +397,43 @@ POPUP_DRIVER = r"""
       ok("second Esc returns", A.current() === 0 && !A.jumped(), A.current());
       ok("the status line goes away", q("presenter-quick").hidden === true);
       ok("the ordinal is back", getComputedStyle(D.querySelector(".presenter-pos")).display !== "none" && q("presenter-ordinal").textContent === "1");
+
+      // --- the Back to deck button does what Esc does ---
+      pkey("/", D.body);
+      await wait(100);
+      type("agent");
+      pkey("Enter", q("quick-input"));
+      await wait(400);
+      ok("jumped again before the button test", A.jumped() && A.current() === 8, A.current());
+      q("presenter-quick-back").click();
+      await wait(300);
+      ok("Back to deck button returns", A.current() === 0 && !A.jumped(), A.current());
+
+      // --- quick to quick: a second search from a shelf screen, then Esc ---
+      pkey("/", D.body);
+      await wait(100);
+      type("agent");
+      pkey("Enter", q("quick-input"));
+      await wait(400);
+      pkey("/", D.body);
+      await wait(100);
+      type("agent");
+      pkey("Enter", q("quick-input"));
+      await wait(400);
+      ok("second quick jump keeps the way back", A.jumped() && A.returnTo() === 0, A.returnTo());
+      pkey("Escape", D.body);
+      await wait(300);
+      ok("Esc after quick to quick returns", A.current() === 0 && !A.jumped(), A.current());
+
+      // --- landed on the shelf without a jump (reload on #9, a link): Esc and the button still lead back ---
+      A.go(8);
+      await wait(300);
+      ok("on the shelf with nothing saved", A.current() === 8 && !A.jumped(), A.current());
+      ok("the way-back line and button show anyway", q("presenter-quick").hidden === false &&
+         q("presenter-quick-back").offsetParent !== null);
+      pkey("Escape", D.body);
+      await wait(300);
+      ok("Esc goes to the talk's last screen", A.current() === A.count() - 1, A.current());
 
       // --- last main slide: next-up is the end of the deck, not the shelf ---
       A.go(7);
