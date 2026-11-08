@@ -60,7 +60,7 @@ waypoints:
 
 The token comes from `ANIMATIC_WAYPOINT_TOKEN` at build time, and goes only into
 `present/index.html`. A build without it is inert: nothing is published and no
-status appears, so ordinary and rehearsal builds can't touch a live room. Web
+status appears, so ordinary and rehearsal builds can't touch a live room. An inert build also **refuses to replace** an output that already publishes (it finds the publisher in the existing `present/index.html`), including a `--watch` rebuild, which keeps the keyed deck and prints `build FAILED (exit 2)`. `--allow-inert` replaces it on purpose. (W13, 2026-11-07: a token-less rebuild silently replaced the keyed deck that was then carried to the venue.) Web
 export ships no present view, so the token can't reach a public page.
 
 ### When the deck publishes

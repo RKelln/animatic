@@ -254,6 +254,22 @@ def check(errors: list) -> None:
         if any(TOKEN.encode() in p.read_bytes() for p in out_q.rglob("*") if p.is_file()):
             err(errors, "waypoint: a talk with no waypoints carries the token")
 
+        # --- an inert build will not replace a publishing one ---------------------------
+        out_g = tmp / "out-guard"
+        _build(talk_md, out_g, TOKEN)
+        try:
+            _build(talk_md, out_g)
+            err(errors, "waypoint: an inert build replaced a publishing one")
+        except RuntimeError:
+            pass
+        if b"Bearer " not in (out_g / "present" / "index.html").read_bytes():
+            err(errors, "waypoint: the refused inert build still damaged the publishing output")
+        _build(talk_md, out_g, TOKEN)          # a keyed rebuild is fine
+        _build(talk_md, out_g, None, "--allow-inert")
+        if b"Bearer " in (out_g / "present" / "index.html").read_bytes():
+            err(errors, "waypoint: --allow-inert did not replace the publishing output")
+        _build(talk_md, tmp / "out-guard-fresh")   # an inert build into a fresh folder is fine
+
         # --- the web export never carries it ------------------------------------------------
         web = tmp / "web"
         env = dict(os.environ, ANIMATIC_WAYPOINT_TOKEN=TOKEN)

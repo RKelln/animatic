@@ -83,6 +83,10 @@ def main(argv=None) -> int:
                          "a `quick:` block, overriding the talkfile's "
                          "`quick_sections:` line (relative to the working "
                          "directory); for trial builds without editing a talk")
+    ap.add_argument("--allow-inert", action="store_true",
+                    help="let a build without ANIMATIC_WAYPOINT_TOKEN replace an "
+                         "output that publishes waypoints (refused by default: it "
+                         "would silently turn a live-room deck inert)")
     ap.add_argument("--watch", action="store_true",
                     help="stay running and rebuild whenever the talkfile, a "
                          "file beside it, its media/ dir or the remap changes; "
@@ -114,6 +118,15 @@ def main(argv=None) -> int:
     if args.watch:
         return watch(talk_path, args)
     return build(talk_path, args)
+
+
+def publishes_waypoints(present_index: Path) -> bool:
+    """True if this built present page carries the waypoint publisher (a build
+    with the token has the Authorization header in it; an inert one has not)."""
+    try:
+        return b"Bearer " in present_index.read_bytes()
+    except OSError:
+        return False
 
 
 def build(talk_path: Path, args) -> int:
@@ -150,6 +163,19 @@ def build(talk_path: Path, args) -> int:
         for line, msg in shelf_errors:
             print(f"error     : {talk.source}:{line}: {msg}", file=sys.stderr)
         return 1
+
+    # A build without the token must not silently replace one that has it: the
+    # deck that was carried to the venue would stop publishing and say nothing
+    # (W13, 2026-11-07).  A watcher builds beside the output and swaps it in,
+    # so it names the folder it will replace in args.replaces.
+    if not os.environ.get("ANIMATIC_WAYPOINT_TOKEN", "").strip() and not getattr(args, "allow_inert", False):
+        prior = Path(getattr(args, "replaces", None) or args.out).expanduser().resolve() / "present" / "index.html"
+        if publishes_waypoints(prior):
+            print(f"error: {prior.parent.parent} holds a deck that publishes waypoints, "
+                  f"and this build has no ANIMATIC_WAYPOINT_TOKEN, so it would replace it "
+                  f"with one that publishes nothing.  Set the token, or pass --allow-inert "
+                  f"to replace it on purpose.", file=sys.stderr)
+            return 2
 
     out = Path(args.out).expanduser().resolve()
     if out.exists():
@@ -415,6 +441,7 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
             stage = final.with_name(f".{final.name}.building")
             shutil.rmtree(stage, ignore_errors=True)
             args.out = str(stage)
+        args.replaces = str(final)
         try:
             rc = build(talk_path, args)
             if rc == 0:
