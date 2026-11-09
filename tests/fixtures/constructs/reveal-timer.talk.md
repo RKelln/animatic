@@ -56,3 +56,10 @@ Nothing here counts.
 - b
 
 [Timer: 45s]
+
+<!-- shot: reveal=timer -->
+### Already has a next cue
+
+Read the directions first. [next] Then the timer runs.
+
+[Timer: 4:00]

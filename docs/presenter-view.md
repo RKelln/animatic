@@ -18,6 +18,14 @@ second.
 | presenter window | arrows / space to move the deck, `w` re-sends the latest waypoint (a deck built with `ANIMATIC_WAYPOINT_TOKEN` only: see below), `/` quick select (see below), `Escape` returns from a quick-select jump, `f` (or the ⇅ button) puts the notes above the slide image instead of below, remembered per browser, `[` / `]` (or the A− / A+ buttons) shrink / grow the current screen's notes text, also remembered, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
 | timer screens (either window) | `p` pause / resume, `0` reset and run, `+` / `=` add a minute, `-` take a minute off (spec: Timer screens) |
 
+## Timer reminder
+
+A screen with `reveal=timer` and a valid `[Timer: ...]` whose script has no `[n]` / `[next]`
+cue gets one generated line at the end of its notes, `Press next to start the timer (5:00)`,
+because the countdown stays hidden until that press. It lives in the present view's notes
+only (this window and the `n` panel): not in the reading copy, the document view, or the
+cue timing. A screen with a `[next]` cue gets nothing.
+
 ## Quick select
 
 A deck built with a shelf (`quick_sections`, `docs/quick-select.md`) adds a search to

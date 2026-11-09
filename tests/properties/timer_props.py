@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 
+import render
 import talkparse
 import timing
 
@@ -122,6 +123,20 @@ def check(fx, errors: list) -> None:
         if bool(c.get("timer_reveal")) != armed_attr:
             err(errors, f"{cid}: timer_reveal {c.get('timer_reveal')!r} but the plate's hidden-until-press "
                         f"marker is {'present' if armed_attr else 'absent'}")
+        # presenter reminder: an armed screen with no [n]/[next] cue gets one line at the
+        # END of its notes; one with a cue, or any unarmed screen, gets none
+        notes_m = re.search(r'<aside class="notes">(.*?)</aside>', sec, re.DOTALL)
+        notes = notes_m.group(1) if notes_m else ""
+        want_rem = armed_attr and "next-mark" not in notes
+        n_rem = notes.count('class="timer-reminder"')
+        if n_rem != (1 if want_rem else 0):
+            err(errors, f"{cid}: {n_rem} timer reminders in the notes, want {1 if want_rem else 0}")
+        if want_rem and not notes.rstrip().endswith("</p>"):
+            err(errors, f"{cid}: timer reminder is not last in the notes")
+        if want_rem and f"({render.timer_clock(c['timer'])})" not in notes:
+            err(errors, f"{cid}: timer reminder does not show the duration")
+        if "timer-reminder" in doc:
+            err(errors, "document view carries a timer reminder")
         # a token that is not the live one stays visible as text
         for t in entries:
             if t.get("kind") == "timer" and ("timer" not in c or t["text"] != entries[c["timer_in"]]["text"]):

@@ -4098,6 +4098,19 @@ def timer_armed(screen: Screen) -> bool:
     return screen.timer is not None and timer_reveal_wanted(screen)
 
 
+def timer_reminder_html(screen: Screen) -> str:
+    """Presenter-view-only line at the END of the notes of a `reveal=timer` screen
+    whose script has no `[n]` / `[next]` cue: the presenter must press next to start
+    the timer and keeps forgetting. Generated, never authored; not in speaker_notes(),
+    so the reading copy, document view and cue estimate never see it."""
+    if not timer_armed(screen):
+        return ""
+    if any(b.nexts for b in screen.blocks if b.kind == "vo"):
+        return ""
+    return ('<p class="timer-reminder"><strong>Press next to start the timer '
+            f'({timer_clock(screen.timer[0])})</strong></p>')
+
+
 def timer_first(screen: Screen) -> bool:
     """Document order for the revealables: a revealed timer comes BEFORE the
     revealed list's items when its `[Timer: ...]` is written above the list (a
@@ -4407,6 +4420,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     # slide's text, on a screen with no words of its own (spec: Text — The
     # reading copy).
     notes_html = "".join(html for _b, html in speaker_notes(screen))
+    notes_html += timer_reminder_html(screen)
 
     cls = "animatic-slide" + first
     if sflags.get("fit") == "hero" and not credits_screen and (

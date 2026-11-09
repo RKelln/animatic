@@ -285,6 +285,40 @@
       "timer": 45,
       "timer_in": 2,
       "timer_reveal": true
+    },
+    {
+      "id": "reveal-timer-009",
+      "ordinal": 9,
+      "movement": 0,
+      "kind": "card",
+      "title": "Already has a next cue",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "timer"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Already has a next cue"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 4:00]"
+        }
+      ],
+      "script": "Read the directions first. Then the timer runs.",
+      "stage": null,
+      "est_seconds": 243.2,
+      "timer": 240,
+      "timer_in": 1,
+      "timer_reveal": true
     }
   ],
   "warnings": [
