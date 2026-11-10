@@ -1085,6 +1085,100 @@ PAGER_JS = """
   // On a slide with a fenced block the content must also stay inside the
   // body's padding, so a block sized to the last pixel never touches the edge.
   // `pad` forces the padding check on a hero list, stat or table as well.
+  // A corner timer's plate floats over the slide: text must not run into it,
+  // whether or not it is showing yet (a reveal=timer plate is only hidden).
+  // Only the plate's own rectangle matters: every line of text is tested
+  // against it, so the rest of the width stays usable.
+  var TIMER_GAP = 0.2;   // clearance kept around the plate, in em of the text
+  function hitsTimer(sl, body) {
+    var plate = sl.querySelector(".timer-corner");
+    if (!plate) return false;
+    var pr = plate.getBoundingClientRect();
+    var gap = parseFloat(getComputedStyle(body).fontSize) * TIMER_GAP;
+    var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
+    var range = document.createRange(), n;
+    while ((n = walker.nextNode())) {
+      if (!/\\S/.test(n.nodeValue) || plate.contains(n)) continue;
+      range.selectNodeContents(n);
+      var rs = range.getClientRects();
+      for (var i = 0; i < rs.length; i++) {
+        var q = rs[i];
+        if (q.right > pr.left - gap && q.left < pr.right + gap &&
+            q.bottom > pr.top - gap && q.top < pr.bottom + gap) return true;
+      }
+    }
+    return false;
+  }
+  // First choice for text under the plate: wrap it. Any line of a block that
+  // runs into the plate's rectangle makes that block (list item, paragraph,
+  // heading, quote) narrower, so its words wrap before the plate and only
+  // that block gets taller. Repeats because a wrapped block moves what is
+  // below it. A block too narrow to be worth it (under 8em) is left to
+  // shrinking, then lifting.
+  function textRectsHit(sl, body, fn) {
+    var plate = sl.querySelector(".timer-corner");
+    if (!plate) return;
+    var pr = plate.getBoundingClientRect();
+    var gap = parseFloat(getComputedStyle(body).fontSize) * TIMER_GAP;
+    var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
+    var range = document.createRange(), n;
+    while ((n = walker.nextNode())) {
+      if (!/\\S/.test(n.nodeValue) || plate.contains(n)) continue;
+      range.selectNodeContents(n);
+      var rs = range.getClientRects();
+      for (var i = 0; i < rs.length; i++) {
+        var q = rs[i];
+        if (q.right > pr.left - gap && q.left < pr.right + gap &&
+            q.bottom > pr.top - gap && q.top < pr.bottom + gap) { fn(n, q, pr, gap); break; }
+      }
+    }
+  }
+  function unwrapForTimer(body) {
+    var done = body.querySelectorAll("[data-timer-wrap]");
+    for (var i = 0; i < done.length; i++) {
+      done[i].style.maxWidth = "";
+      done[i].style.textWrap = "";
+      done[i].removeAttribute("data-timer-wrap");
+    }
+  }
+  function wrapAroundTimer(sl, body) {
+    if (!sl.querySelector(".timer-corner")) return;
+    // One block per pass, the lowest one that reaches the plate: wrapping it
+    // makes the (centred) text taller and moves everything above it up and
+    // out of the plate's way, so the blocks above often need no wrap at all.
+    for (var pass = 0; pass < 8; pass++) {
+      var pick = null, pickBottom = -1;
+      textRectsHit(sl, body, function (node, q, pr, gap) {
+        var el = node.parentNode && node.parentNode.closest &&
+          node.parentNode.closest("li, p, h1, h2, h3, h4, h5, h6, blockquote");
+        if (!el || !body.contains(el)) return;
+        var box = el.getBoundingClientRect();
+        var avail = pr.left - gap - box.left;
+        var em = parseFloat(getComputedStyle(el).fontSize) || 16;
+        if (avail < em * 8 || avail >= box.width - 1) return;
+        if (q.bottom > pickBottom) { pick = { el: el, avail: avail, em: em }; pickBottom = q.bottom; }
+      });
+      if (!pick) break;
+      // in em of the block itself, not px: a presenter preview is a clone drawn
+      // at another scale, and em keeps the wrap proportional there
+      pick.el.style.maxWidth = (pick.avail / pick.em).toFixed(3) + "em";
+      pick.el.style.textWrap = "balance";   // no one-word last line
+      pick.el.setAttribute("data-timer-wrap", "");
+    }
+  }
+  // Last resort when shrinking to the floor still leaves text under the plate:
+  // raise the text's bottom edge to the plate's top (the body's bottom padding
+  // grows to match), so the text sits above it instead of beneath it.
+  function liftFromTimer(sl, body) {
+    var plate = sl.querySelector(".timer-corner");
+    if (!plate || !hitsTimer(sl, body)) return false;
+    var gap = parseFloat(getComputedStyle(body).fontSize) * TIMER_GAP;
+    var need = body.getBoundingClientRect().bottom - plate.getBoundingClientRect().top + gap;
+    if (need <= parseFloat(getComputedStyle(body).paddingBottom)) return false;
+    // em of the body (see wrapAroundTimer: a preview clone scales em, not px)
+    body.style.paddingBottom = (need / (parseFloat(getComputedStyle(body).fontSize) || 16)).toFixed(3) + "em";
+    return true;
+  }
   function overflows(sl, body, pad) {
     if (body.scrollHeight > body.clientHeight + 1) return true;
     // layout=cols: a column cell is only as wide as its share, so a word that
@@ -1093,6 +1187,7 @@ PAGER_JS = """
     for (var c = 0; c < cells.length; c++) {
       if (cells[c].scrollWidth > cells[c].clientWidth + 1) return true;
     }
+    if (hitsTimer(sl, body)) return true;
     if (!pad && !codeBlocks(sl).length) return false;
     var r = body.getBoundingClientRect(), cs = getComputedStyle(body);
     var top = r.top + parseFloat(cs.paddingTop), bot = r.bottom - parseFloat(cs.paddingBottom);
@@ -1107,14 +1202,26 @@ PAGER_JS = """
       var sl = slides[i];
       var body = sl.querySelector(".screen-body");
       if (!body || sl.classList.contains("text-fit")) continue;
-      body.style.fontSize = "";
+      body.style.paddingBottom = "";
       sl.removeAttribute("data-fit");
+      // one size step: set the text size, then wrap again from scratch (what
+      // reaches the plate depends on the size, so wraps made at a larger size
+      // must not outlive it)
+      var setScale = function (sc) {
+        body.style.fontSize = sc === 1 ? "" : sc.toFixed(2) + "em";
+        unwrapForTimer(body);
+        wrapAroundTimer(sl, body);
+      };
+      setScale(1);
       if (!overflows(sl, body)) continue;
       var scale = 1;
       while (overflows(sl, body) && scale > FIT_FLOOR + 1e-6) {
         scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
-        body.style.fontSize = scale.toFixed(2) + "em";
+        setScale(scale);
       }
+      // still under the plate at the floor: raise the text above it (it can
+      // only get here at the floor, so there is nothing left to shrink)
+      liftFromTimer(sl, body);
       if (overflows(sl, body)) {
         sl.setAttribute("data-fit", "floor");
         if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
@@ -1152,6 +1259,7 @@ PAGER_JS = """
         parents.push(parseFloat(getComputedStyle(pre.parentNode).fontSize) || 1);
       });
       sl.removeAttribute("data-fit");
+      body.style.paddingBottom = "";
       var set = function (sc) {
         blocks.forEach(function (pre, k) {
           pre.style.fontSize = (bases[k] * sc / parents[k]).toFixed(3) + "em";
@@ -1177,7 +1285,9 @@ PAGER_JS = """
           scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
           set(scale);
         }
-        if (!fits()) {
+        if (!fits() && liftFromTimer(sl, body) && fits()) {
+          // clear of the plate once the text sits above it
+        } else if (!fits()) {
           sl.setAttribute("data-fit", "floor");
           if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
           continue;

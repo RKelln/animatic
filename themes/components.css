@@ -521,6 +521,7 @@
   .animatic-slide.over-media .timer-inline .timer-digits { text-shadow: var(--stage-text-glow); }
   .timer-corner {
     position: absolute; right: 2.2em; bottom: 1.6em; z-index: 3;
+    font-size: var(--slide-base);   /* one size on every slide, hero included */
     padding: 0.8em 0.8em 0.72em;   /* digits are trimmed to their figures (below), so this is the true gap; the bottom is a touch less because figures overshoot the baseline */
     /* mostly opaque stage colour (not the quote plate's thin alpha): the room
        reads this from the back, over any picture, in either theme */
@@ -533,7 +534,7 @@
   }
   /* block-level flex: as inline-flex the digits sit on a line box whose strut
      leaves a gap under them */
-  .timer-corner .timer-digits { font-size: 4.4em; display: flex; }
+  .timer-corner .timer-digits { font-size: 3.4em; display: flex; }
   /* the empty state line reserved 1.3em under the digits, pushing them up in
      the plate; in the corner it only takes room while it has words */
   /* the state label sits ABOVE the digits: the plate is anchored bottom-right,
@@ -548,10 +549,13 @@
     .timer-corner .timer-digits > span { text-box: trim-both cap alphabetic; }
   }
   .timer-corner .timer-state:empty { display: none; }
-  /* a credits line or paper lower third shares the lower-right corner: lift
+  /* the slide's text keeps clear of the plate's own rectangle (not a band
+     across the slide): the fit step in render.py shrinks text that would run
+     into it, whether or not a reveal=timer plate is showing yet.
+     A credits line or paper lower third shares the lower-right corner: lift
      them clear of the plate */
   .animatic-slide.timer-has-corner .credits-line,
-  .animatic-slide.timer-has-corner .lower-third { bottom: 14em; }
+  .animatic-slide.timer-has-corner .lower-third { bottom: 8em; }
   @media (prefers-reduced-motion: no-preference) {
     .timer-plate.pulse { animation: timer-pulse 1.4s ease-out 1; }
   }
