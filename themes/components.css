@@ -22,11 +22,15 @@
        pager needs an explicit stage scale or em sizes fall back to the
        browser's 16px and read small from a distance. 3vh tracks the
        projection height. */
-    font-size: 3.6vh;
+    font-size: var(--slide-base);
+    --slide-base: 4.8vh;   /* body text; raised from 3.6vh (2026-11-10) for the back of the room */
+    --title-k: 0.875;      /* 4.2/4.8: titles stay at their 4.2vh-base size while body text grows */
+    --hero-base: 3.6vh;    /* fit=hero slides keep the old base: their sizes were tuned to it */
   }
   @media (max-height: 640px) {
-    .stage { font-size: 19px; }
+    .stage { --slide-base: 25px; --hero-base: 19px; }
   }
+  .animatic-slide.text-fit { font-size: var(--hero-base); }
 
   .animatic-slide {
     position: absolute; inset: 0;
@@ -202,10 +206,10 @@
     max-width: 24em;
   }
   /* slide titles are all close to one size whatever the heading level */
-  .animatic-slide h1.slide-title { font-size: 2.6em; letter-spacing: 0.01em; }
-  .animatic-slide h2.slide-title { font-size: 2.5em; }
-  .animatic-slide h3.slide-title { font-size: 2.4em; }
-  .animatic-slide h4.slide-title { font-size: 2.3em; }
+  .animatic-slide h1.slide-title { font-size: calc(2.6em * var(--title-k, 1)); letter-spacing: 0.01em; }
+  .animatic-slide h2.slide-title { font-size: calc(2.5em * var(--title-k, 1)); }
+  .animatic-slide h3.slide-title { font-size: calc(2.4em * var(--title-k, 1)); }
+  .animatic-slide h4.slide-title { font-size: calc(2.3em * var(--title-k, 1)); }
 
   /* vertical rhythm: the reset zeroes every margin, so headings need their own.
      Space below scales with the heading (em), a heading after other content gets
@@ -468,7 +472,7 @@
   .animatic-slide .md-table th { font-weight: 600; }
 
   /* timer (the `[Timer: 8:00]` token in screen text): a countdown that starts
-     when the presenter arrives. Sized in em of the slide (3.6vh on the stage), so
+     when the presenter arrives. Sized in em of the slide (4.8vh on the stage), so
      the presenter previews scale it like everything else. Digits sit in
      fixed-width cells (.d, .c, .sg) so the figures never jiggle whatever the
      display face's numerals are. Three shapes: .timer-block, a token alone on
@@ -516,8 +520,8 @@
   .animatic-slide.over-media .timer-block .timer-digits,
   .animatic-slide.over-media .timer-inline .timer-digits { text-shadow: var(--stage-text-glow); }
   .timer-corner {
-    position: absolute; right: 2.2em; bottom: 2.6em; z-index: 3;
-    padding: 0.35em 0.8em 0.3em;
+    position: absolute; right: 2.2em; bottom: 1.6em; z-index: 3;
+    padding: 0.8em 0.8em 0.72em;   /* digits are trimmed to their figures (below), so this is the true gap; the bottom is a touch less because figures overshoot the baseline */
     /* mostly opaque stage colour (not the quote plate's thin alpha): the room
        reads this from the back, over any picture, in either theme */
     background: color-mix(in srgb, var(--stage-bg) 90%, transparent);
@@ -527,11 +531,27 @@
     -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
   }
-  .timer-corner .timer-digits { font-size: 4.4em; }
+  /* block-level flex: as inline-flex the digits sit on a line box whose strut
+     leaves a gap under them */
+  .timer-corner .timer-digits { font-size: 4.4em; display: flex; }
+  /* the empty state line reserved 1.3em under the digits, pushing them up in
+     the plate; in the corner it only takes room while it has words */
+  /* the state label sits ABOVE the digits: the plate is anchored bottom-right,
+     so it grows upward when the label appears and the digits never move */
+  .timer-corner { display: flex; flex-direction: column-reverse; align-items: center; }
+  .timer-corner .timer-state { min-height: 0; margin: 0 0 0.9em; }
+  /* digits sit in line boxes taller than their figures by a font-dependent
+     amount (more below the baseline than above), so a plain padding looks
+     lopsided. Trim each cell to cap height / baseline and the plate's equal
+     padding is then equal ink-to-edge. */
+  @supports (text-box: trim-both cap alphabetic) {
+    .timer-corner .timer-digits > span { text-box: trim-both cap alphabetic; }
+  }
+  .timer-corner .timer-state:empty { display: none; }
   /* a credits line or paper lower third shares the lower-right corner: lift
      them clear of the plate */
   .animatic-slide.timer-has-corner .credits-line,
-  .animatic-slide.timer-has-corner .lower-third { bottom: 15em; }
+  .animatic-slide.timer-has-corner .lower-third { bottom: 14em; }
   @media (prefers-reduced-motion: no-preference) {
     .timer-plate.pulse { animation: timer-pulse 1.4s ease-out 1; }
   }
@@ -1151,7 +1171,8 @@
   /* 0.9cqw, not 0.9vw: the clone has to scale to the box, or a pane that is
      now 1/3 of the window crops rather than shrinks (the vw line stays as the
      fallback for a browser without container queries). */
-  .preview .animatic-slide { font-size: 0.9vw; font-size: 0.9cqw; opacity: 1; visibility: visible; transition: none; }
+  .preview .animatic-slide { font-size: 1.2vw; font-size: 1.2cqw; opacity: 1; visibility: visible; transition: none; }
+  .preview .animatic-slide.text-fit { font-size: 0.9vw; font-size: 0.9cqw; }
   .preview video, .preview button { pointer-events: none; }
   .preview-note {
     position: absolute; inset: 0; margin: 0; padding: 1rem;

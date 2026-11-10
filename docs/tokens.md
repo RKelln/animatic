@@ -199,3 +199,7 @@ default in every theme); the framed "piece" look is opt-in per shot.
   second "hero" Ryan named; heading heroes are done).
 - Backdrop blur over VIDEO is the expensive case (re-blurs per frame);
   a reduced-blur mode behind a flag if quote plates stack on video.
+- Base raised 2026-11-10: slide body base 3.6vh -> 4.8vh (default text was still
+  small from a distance, and fit=hero was being used just for legibility).
+  fit=hero slides keep 3.6vh (`--hero-base`) and plain titles keep their
+  4.2vh-era size (`--title-k`), so only non-title text grew.
