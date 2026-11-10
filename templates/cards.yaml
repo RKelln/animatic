@@ -10,6 +10,8 @@
 #
 # Any card may carry `text: light|dark` (light for dark art, dark for bright art):
 # the default text= flag for every shot that uses the slug; a shot's own text= wins.
+# Likewise `bg: "#rrggbb"` or `bg: auto` (the media's own top-left colour) sets the
+# ground behind contained media, so it meets the frame without a letterbox seam.
 
 - slug: garden-title
   type: image

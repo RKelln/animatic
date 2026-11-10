@@ -54,7 +54,7 @@ from talkparse import (
     strip_timer_tokens,
     timer_match,
 )
-from mediaresolve import VIDEO_EXTS, MediaResolver, MediaRef
+from mediaresolve import VIDEO_EXTS, MediaResolver, MediaRef, corner_colour
 
 THEMES_DIR = Path(__file__).resolve().parent / "themes"
 KNOWN_THEMES = ("lecture", "workshop")
@@ -4541,6 +4541,21 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         cls += " over-media"
     if black:
         cls += " black-beat"
+    # slide ground (shot flag / card key `bg`): a hex colour, or `auto` = the
+    # media's own top-left colour, so a contained picture meets its letterbox
+    # without a seam.  Unreadable media under `auto` leaves the theme ground.
+    bg_val = sflags.get("bg")
+    if bg_val == "auto":
+        bg_val = (corner_colour(ref.origin or ref.file)
+                  if ref is not None and ref.found and not ref.live else None)
+        # `auto` also picks the text: light on a dark ground, dark on a bright
+        # one, unless the shot or its card already says (`text=`)
+        if bg_val and sflags.get("text") not in ("light", "dark"):
+            r, g, b = (int(bg_val[i:i + 2], 16) / 255 for i in (1, 3, 5))
+            lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
+            lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+            cls += " text-dark" if lum > 0.18 else " text-light"
+    bg_attr = f' style="background:{bg_val}"' if bg_val else ""
     slide_inner = "".join(inner)
     # a shelf screen names its section, so the pager can keep paging inside it
     quick_attr = (f' data-quick="{html.escape(screen.section[0], quote=True)}"'
@@ -4569,7 +4584,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 f'data-timer-reveal="{"first" if timer_first(screen) else "last"}" class="timer-plate pending ', 1)
     return (
         f'<section id="{cue_id}" class="{cls}" data-movement="{mv}"'
-        f' data-kind="{screen_kind(screen)}"{quick_attr}>'
+        f' data-kind="{screen_kind(screen)}"{quick_attr}{bg_attr}>'
         f'{slide_inner}'
         f'<aside class="notes">{notes_html}</aside>'
         f"</section>"

@@ -88,7 +88,7 @@ import re
 
 import yaml
 
-from talkparse import parse_still
+from talkparse import parse_still, valid_bg
 
 MEDIA_EXTS = {
     ".mp4": "video", ".webm": "video", ".mov": "video", ".m4v": "video",
@@ -202,10 +202,22 @@ def pool_pick(slug: str, card: dict, files: list, n: int, deck: str = ""):
 
 def expand_pools(talk, resolver) -> None:
     """Give every use of a pool slug its own virtual slug (`<slug>--NN`),
-    in document order, then apply each card's `text:` default to its shots.
+    in document order, then apply each card's `text:` and `bg:` defaults to its shots.
     Call once, right after the resolver is made."""
     _expand_pool_uses(talk, resolver)
     _apply_text_defaults(talk, resolver)
+    _apply_bg_defaults(talk, resolver)
+
+
+def _apply_bg_defaults(talk, resolver) -> None:
+    """A card's `bg:` (`#rrggbb` or `auto`) is the default `bg=` for every shot
+    that uses its slug; the shot's own `bg=` wins."""
+    for scr in talk.screens:
+        for shot in scr.shots:
+            if shot.slug and "bg" not in shot.flags:
+                val = resolver.bg_default_for(shot.slug)
+                if val:
+                    shot.flags["bg"] = val
 
 
 def _apply_text_defaults(talk, resolver) -> None:
@@ -434,6 +446,16 @@ class MediaResolver:
             kind = "pool" if c.get("pool") else "card"
             self.pool_issues.append((str(c["slug"]),
                 f"{kind} '{c['slug']}': text: {c['text']!r}; expected light or dark (ignored)"))
+        seen_bg = set()
+        for c in list(self.cards) + list(self.library):
+            if not (isinstance(c, dict) and c.get("slug")) or "bg" not in c:
+                continue
+            if str(c["slug"]) in seen_bg or valid_bg(c["bg"]):
+                continue
+            seen_bg.add(str(c["slug"]))
+            kind = "pool" if c.get("pool") else "card"
+            self.pool_issues.append((str(c["slug"]),
+                f"{kind} '{c['slug']}': bg: {c['bg']!r}; expected #rrggbb, #rgb or auto (ignored)"))
         for c in self.cards:
             if not (isinstance(c, dict) and c.get("slug") and c.get("pool")):
                 continue
@@ -513,6 +535,14 @@ class MediaResolver:
                 return src["text"]
             if isinstance(src, dict) and "text" in src:
                 return None
+        return None
+
+    def bg_default_for(self, slug: str) -> Optional[str]:
+        """The `bg:` default of the card, else the shared-library entry, that
+        this slug resolves to; None when there is none or it is invalid."""
+        for src in (self.card_for(slug), self.library_entry_for(slug)):
+            if isinstance(src, dict) and "bg" in src:
+                return src["bg"] if valid_bg(src["bg"]) else None
         return None
 
     def library_entry_for(self, slug: str) -> Optional[dict]:
@@ -1169,6 +1199,47 @@ def _image_small(src: Path, dst: Path) -> bool:
         return True
     except Exception:
         return False
+
+
+_CORNER_CACHE: dict = {}
+
+
+def corner_colour(path) -> Optional[str]:
+    """`#rrggbb` of the top-left corner of an image, or of a video's first
+    frame (the mean of a 3x3 block, so one noisy JPEG pixel does not decide);
+    None when it cannot be read or the corner is transparent."""
+    if not path:
+        return None
+    key = str(path)
+    if key not in _CORNER_CACHE:
+        _CORNER_CACHE[key] = _read_corner(Path(path))
+    return _CORNER_CACHE[key]
+
+
+def _read_corner(src: Path) -> Optional[str]:
+    try:
+        if src.suffix.lower() in VIDEO_EXTS:
+            if shutil.which("ffmpeg") is None:
+                return None
+            proc = subprocess.run(
+                ["ffmpeg", "-v", "error", "-i", str(src), "-frames:v", "1",
+                 "-vf", "crop=3:3:0:0,scale=1:1:flags=area", "-f", "rawvideo",
+                 "-pix_fmt", "rgb24", "-"], capture_output=True, timeout=120)
+            px = proc.stdout[:3]
+            if proc.returncode != 0 or len(px) < 3:
+                return None
+            r, g, b = px
+        else:
+            from PIL import Image
+            with Image.open(src) as im:
+                im = im.convert("RGBA").crop((0, 0, min(3, im.width), min(3, im.height)))
+                px = list(im.getdata())
+            if not px or sum(p[3] for p in px) / len(px) < 128:
+                return None   # a transparent corner has no ground colour
+            r, g, b = (round(sum(p[i] for p in px) / len(px)) for i in range(3))
+        return f"#{r:02x}{g:02x}{b:02x}"
+    except Exception:
+        return None
 
 
 def _video_still(src: Path, dst: Path, spec: Optional[tuple] = None) -> bool:

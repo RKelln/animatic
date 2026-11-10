@@ -292,6 +292,7 @@ Flags are the per-shot knobs. The top-level namespace is fixed:
 | `kb` | `in` / `out` / `zoom-top` | slow drift of the media layer inside a static lens; `zoom-top` is one slow push-in (about 30 s) anchored at the top edge that then holds, for a picture with lettering near its top |
 | `dim` | `0`–`1` | a dark scrim at that opacity, to keep on-screen text readable; on a screen with no on-screen text it is check 30's warning (fix a too-bright image in the file instead) |
 | `text` | `light` / `dark` | per-screen text treatment, overriding the theme default |
+| `bg` | `#rrggbb` / `#rgb` / `auto` | the slide's ground colour, which is what shows in the letterbox of `fit=contain` media (and behind any transparent media). `auto` takes the media's own top-left colour (the mean of a 3x3 block; a video's first frame) at build time, so a picture on a flat ground meets its frame without a seam. `auto` on media with a transparent or unreadable corner, or on live capture, leaves the theme ground. Anything else is check 25's warning. With `auto`, and no `text=` on the shot or its card, the text colour follows the ground too (dark text on a bright ground, light on a dark one); a hex `bg` leaves `text=` alone, so pick it yourself |
 | `advance` | (none) | when the screen's video ends, move to the next screen; the video plays once instead of looping. On media that is not a video it is check 31's warning |
 | `playback` | `once` / `loop` / `advance` | this screen's playback, over the card's `playback:`; `playback=advance` is the same flag as `advance`. `pingpong` is card-only (a baked file) and is check 25's warning. On media that is not a video it is check 31's warning |
 | `sound` | (none) / `true` / `false` | this screen's sound, over the card's `sound:`: bare `sound` is `sound=true`. On media that is not a video it is check 31's warning |
@@ -1234,7 +1235,15 @@ check 41 warning. A deck card shadows a library entry of the same slug, text inc
 - slug: lighthouse-harbor
   type: image
   text: light      # shots of this slug get text=light unless they say otherwise
+  bg: auto         # ground = the picture's own top-left colour
 ```
+
+### Card background default
+
+Any card, or shared-library entry, may carry `bg: "#rrggbb"` (or `#rgb`) or
+`bg: auto`. It is the default `bg=` flag for every shot that uses the slug (see the
+flag table for what it does, including the automatic text colour under `auto`); a shot's own `bg=` wins. Any other value is ignored
+with a check 41 warning. Quote a hex in YAML: an unquoted `#` starts a comment.
 
 ### Slug scope and uniqueness
 

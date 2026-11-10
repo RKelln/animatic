@@ -280,6 +280,6 @@
     "line 31: check 37: '[Timer: 8m bottom]' is not a timer: write a duration like 90s, 8m, 1h30m or 5:00 (not zero), then optionally 'corner' — left as text",
     "line 37: check 37: more than one timer on a screen — '[Timer: 6m]' ignored, the first stays",
     "line 41: check 38: '[Timer: 4h]' is a timer over 3 hours; probably a slip (kept as written)",
-    "line 47: check 25: unknown flag 'timer=5m'; known flags: kb, dim, fit, text, advance, playback, sound, silent, under, blur, anchor, still, reveal, live, waypoint — token ignored"
+    "line 47: check 25: unknown flag 'timer=5m'; known flags: kb, dim, fit, text, advance, playback, sound, silent, under, blur, anchor, still, reveal, live, waypoint, bg — token ignored"
   ]
 }

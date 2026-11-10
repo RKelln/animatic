@@ -95,7 +95,15 @@ CONTINUE_WORDS = ("continue", "cont")
 LAYOUTS = ("piece", "duo", "titled")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
-               "under", "blur", "anchor", "still", "reveal", "live", "waypoint")
+               "under", "blur", "anchor", "still", "reveal", "live", "waypoint", "bg")
+# `bg=#rrggbb` / `#rgb` / `auto`: the ground behind slide media (the letterbox).
+# `auto` takes the media's own top-left pixel at build time.
+BG_RE = re.compile(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})|auto")
+
+
+def valid_bg(value) -> bool:
+    """A `bg` value (shot flag or card key): a hex colour or `auto`."""
+    return isinstance(value, str) and BG_RE.fullmatch(value) is not None
 # `reveal=list` shows a list's items one per next-press (and steps a stepped-
 # image card's frames in lockstep); `reveal=off` turns a card's image stepping
 # off for that screen (spec: The shot directive, `reveal`).
@@ -1352,6 +1360,12 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
         shot.warnings.append(
             f"check 25: {token!r}: under names the backdrop image by slug, "
             f"under=<slug> — token ignored"
+        )
+        return
+    if name == "bg" and not valid_bg(value):
+        shot.warnings.append(
+            f"check 25: {token!r}: bg is the ground behind the media, "
+            f"bg=#rrggbb (or #rgb) or bg=auto — token ignored"
         )
         return
     if name == "blur":
