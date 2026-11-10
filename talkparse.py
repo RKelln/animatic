@@ -141,9 +141,13 @@ TIMER_UNITS_RE = re.compile(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?")
 TIMER_CLOCK_RE = re.compile(r"(\d+):([0-5]\d)")
 TIMER_MAX_SECONDS = 3 * 3600
 # Anything bracketed that starts with `timer` and a colon is meant as a timer;
-# whether it parses is decided by parse_timer_token.  Other bracketed text is
-# ordinary text.
-TIMER_TOKEN_RE = re.compile(r"\[\s*timer\s*:([^\]]*)\]", re.IGNORECASE)
+# whether it parses is decided by parse_timer_token.  `[timer]` / `[timer corner]`
+# with no colon is a continuation: the same countdown as the nearest timer above
+# it (spec: Timer screens, "Continued timers").  Group 1 is what follows the colon,
+# None for a continuation; group 2 is a continuation's `corner`.  Other bracketed
+# text is ordinary text.
+TIMER_PATTERN = r"\[\s*timer(?:\s*:([^\]]*)|(\s+corner)?\s*)\]"
+TIMER_TOKEN_RE = re.compile(TIMER_PATTERN, re.IGNORECASE)
 
 
 def parse_timer(spec) -> Optional[tuple]:
@@ -189,6 +193,16 @@ def parse_timer_token(inner: str) -> Optional[tuple]:
     return parsed[0], parsed[1], len(words) == 2
 
 
+def timer_match(m) -> Optional[tuple]:
+    """What a TIMER_TOKEN_RE match is: ("timer", (seconds, phrase, corner)) for a
+    valid countdown, ("cont", corner) for a continuation, None for an invalid
+    `[Timer: ...]`."""
+    if m.group(1) is None:
+        return "cont", m.group(2) is not None
+    got = parse_timer_token(m.group(1))
+    return ("timer", got) if got is not None else None
+
+
 # `[n]` / `[next]` in a spoken paragraph: where the presenter presses next.  It is
 # a cue for the presenter, never speech, so the parser takes it out of the text
 # (timing, captions, the document view and the handout never see it) and keeps
@@ -216,7 +230,7 @@ def split_next_tokens(text: str) -> tuple:
 
 
 # `([Timer: 5m])` alone in a paragraph: a timer only the presenter window shows.
-QUIET_TIMER_RE = re.compile(r"\(\s*(\[\s*timer\s*:[^\]]*\])\s*\)", re.IGNORECASE)
+QUIET_TIMER_RE = re.compile(r"\(\s*(" + TIMER_PATTERN + r")\s*\)", re.IGNORECASE)
 
 
 def strip_timer_tokens(text: str) -> str:
@@ -224,6 +238,34 @@ def strip_timer_tokens(text: str) -> str:
     out = TIMER_TOKEN_RE.sub(" ", text)
     out = re.sub(r"[ \t]+", " ", out).strip()
     return re.sub(r"\s+([.,;:!?])", r"\1", out)
+
+
+def link_timer_continuations(talk) -> None:
+    """Give each `[timer]` continuation its parent: the nearest screen above it
+    with a real countdown, and the parent its span.  It runs once per parsed
+    file, before a quick-select shelf is appended, so a shelf section links only
+    inside itself.  A continuation with no timer above it warns (check 52) and is
+    left as literal text, like any token that is not a timer."""
+    parent = None
+    for pos, s in enumerate(talk.screens):
+        b = s.timer_block
+        if b is None:
+            continue
+        if not b.timer_cont:
+            parent = s
+            continue
+        if parent is None:
+            talk.warnings.append(
+                f"line {b.line}: check 52: [timer] continues the countdown above it, "
+                f"but there is no timer above it; write a duration ([timer:5m]) to "
+                f"start one — left as text")
+            b.timer, b.timer_cont = None, False
+            continue
+        secs, phrase, _c = parent.timer
+        b.timer = (secs, phrase, b.timer[2])
+        b.timer_parent = parent
+        start = talk.screens.index(parent) + 1
+        parent.timer_span = talk.screens[start:pos + 1]
 
 
 FIT_VALUES = ("cover", "contain", "hero")
@@ -475,6 +517,12 @@ class Block:
     # runs in the presenter window and counts toward the timing estimate, and
     # the audience's slide draws nothing.
     timer_quiet: bool = False
+    # A continuation (`[timer]`): `timer` carries the parent's seconds and phrase
+    # with this token's own `corner`, and `timer_parent` is the parent Screen
+    # (an object, so it survives renumbering).  Set after parsing; None on a real
+    # timer.
+    timer_cont: bool = False
+    timer_parent: Optional["Screen"] = None
     # vo only: offsets in `text` where the author wrote `[n]` / `[next]`, the
     # point the presenter presses next.  Speaker notes show them; nothing else does.
     nexts: list = field(default_factory=list)
@@ -497,6 +545,10 @@ class Screen:
     # this screen, and the directive's source line.  Never on a shelf screen.
     waypoint: Optional[str] = None
     waypoint_line: int = 0
+    # A screen whose countdown is continued below (`[timer]`): the screens after
+    # it, up to and including its last continuation.  Their time is spent inside
+    # the countdown (spec: Timer screens, "Continued timers").  Empty otherwise.
+    timer_span: list = field(default_factory=list, repr=False)
 
     def has_content(self) -> bool:
         return bool(self.blocks)
@@ -543,6 +595,12 @@ class Screen:
         `continue` screen starts clean: text never carries, so a timer does not."""
         b = self.timer_block
         return b.timer if b is not None else None
+
+    @property
+    def timer_parent(self) -> Optional["Screen"]:
+        """The screen whose countdown this screen continues, or None."""
+        b = self.timer_block
+        return b.timer_parent if b is not None and b.timer_cont else None
 
     @property
     def media_shot(self) -> Optional[Shot]:
@@ -1855,8 +1913,9 @@ def assemble(meta: dict, raw_blocks: list, source: str,
         one, or a second, warns and stays as literal text so the mistake shows."""
         for m in TIMER_TOKEN_RE.finditer(text):
             tok = m.group(0)
-            got = parse_timer_token(m.group(1))
-            if got is None:
+            kind_got = timer_match(m)
+            got = kind_got[1] if kind_got else None
+            if kind_got is None:
                 talk.warnings.append(
                     f"line {line}: check 37: {tok!r} is not a timer: write a duration "
                     f"like 90s, 8m, 1h30m or 5:00 (not zero), then optionally "
@@ -1866,6 +1925,10 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                 talk.warnings.append(
                     f"line {line}: check 37: more than one timer on a screen — "
                     f"{tok!r} ignored, the first stays")
+                continue
+            if kind_got[0] == "cont":
+                # seconds and phrase come from the parent, after parsing
+                block.timer, block.timer_cont = (0, "", got), True
                 continue
             if got[0] > TIMER_MAX_SECONDS:
                 talk.warnings.append(
@@ -2273,6 +2336,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
     talk.screens = kept
     for i, s in enumerate(talk.screens, start=1):
         s.idx = i
+    link_timer_continuations(talk)
     # Line spans (spec: Outputs — nav.json maps cue id -> line range).  Every
     # item carries where it starts; anything built without an explicit end
     # occupies exactly one line, so the default here — never a silent 0 —

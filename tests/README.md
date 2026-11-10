@@ -38,6 +38,10 @@ One command, one exit code:
   inside its items stays last; `reveal=list+timer` and the bare form match;
   `reveal=timer` alone leaves an unrevealed list showing; cues carry
   `timer_reveal_first` only when the timer comes first.
+  `timer-continue.talk.md` pins continued countdowns (`[timer]`, `[timer corner]`,
+  `([timer])`): `timer_continues` on the cue, `data-timer-from` / `data-timer-span`
+  on the plates, a span that counts the countdown once, the orphan (check 52, left
+  as text) and `reveal=timer` on a continuation (ignored).
   `browser_reveal_timer.py` is the real-browser check for both: it builds each
   fixture, drives the present page in headless chromium with real
   ArrowRight/ArrowLeft keydowns, and asserts hidden and stopped on arrival,

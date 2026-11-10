@@ -31,9 +31,9 @@ coding agent. Edit here, never there.
     python3 tools/timing-report.py <talkfile> [--dur 2h] [--wpm N] [--screens] [--json]   # how long it runs, by movement, timer and screen
     python3 build.py --corpus                      # every deck under corpus.yaml roots
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
-    python3 check.py --register                    # the canonical check register (1-50)
+    python3 check.py --register                    # the canonical check register (1-52)
     python3 check.py --corpus [ROOT] --strict      # warnings become deck failures
-    python3 tests/run.py                           # golden suite (profiles: 62, passed: 69)
+    python3 tests/run.py                           # golden suite (profiles: 63, passed: 70)
     python3 tests/browser_waypoint.py              # real-browser test for waypoints (exit 77: no chromium)
     python3 tests/browser_quick_select.py          # real-browser test for quick select (exit 77: no chromium)
 

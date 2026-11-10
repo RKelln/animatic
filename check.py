@@ -171,6 +171,7 @@ REGISTER = [
     (49, "waypoints: a shot's `waypoint=word` with a bad word (lowercase letters, digits and hyphens, up to 24), a word used twice, a waypoint inside a section's shot, one on a shot that opens no screen, the removed standalone `<!-- waypoint: word -->` line, or waypoints (or a `waypoints:` block) without a valid `waypoints.url`", FATAL, "enforced: talkparse.py"),
     (50, "shared media: two files in `_media/` match one slug (`_media/<slug>.<ext>` and `_media/<slug>/<slug>.<ext>`, or two extensions), the flat file, then the first extension in the resolver's order, is used; or a library entry's `file:` is not there", WARNING, "implemented: check.py + mediaresolve.py"),
     (51, "shared media with no credit: a file from `_media/` has no library entry or one with no `credit:`, so the handout credits nobody", WARNING, "implemented: check.py"),
+    (52, "a `[timer]` continuation that cannot continue: no timer above it in the file (left as literal text), or `reveal=timer` on a continuation (ignored: its countdown is already the parent's)", WARNING, "enforced: talkparse.py (no parent) + check.py (reveal)"),
 ]
 
 DEFERRED = {
@@ -1000,6 +1001,22 @@ def check_45_bare_reveal_empty(talk, resolver, report: Report) -> None:
                    line=sh.line, screen=s.idx)
 
 
+def check_52_reveal_on_continuation(talk, resolver, report: Report) -> None:
+    """`reveal=timer` on a `[timer]` continuation: its countdown is the one above
+    it, started there, so there is nothing to reveal.  The build ignores the flag
+    (spec: Timer screens, "Continued timers")."""
+    for s in talk.screens:
+        if s.timer_parent is None:
+            continue
+        sh = next((sh for sh in s.shots if "timer" in render.reveal_named(sh.flags)), None)
+        if sh is not None:
+            report.add(52, WARNING,
+                       "`reveal=timer` on a `[timer]` continuation is ignored: it shows "
+                       "the countdown above it, which starts there (spec: Timer screens, "
+                       "Continued timers)",
+                       line=sh.line, screen=s.idx)
+
+
 def check_47_private_timer(talk, resolver, report: Report) -> None:
     """A presenter-only `([Timer: ...])` is the screen's one timer: the presenter
     window shows one per screen, and a revealed timer is a visible one."""
@@ -1270,6 +1287,7 @@ def run_checks(talk, resolver, source_text: str,
     check_44_reveal_timer_without_timer(talk, resolver, report)
     check_45_bare_reveal_empty(talk, resolver, report)
     check_47_private_timer(talk, resolver, report)
+    check_52_reveal_on_continuation(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

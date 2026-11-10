@@ -1,0 +1,292 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "timer-continue",
+    "title": "A countdown that runs across several screens",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [],
+  "cues": [
+    {
+      "id": "timer-continue-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "A continuation before any timer stays as text",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A continuation before any timer stays as text"
+        },
+        {
+          "kind": "timer",
+          "text": "[timer]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0
+    },
+    {
+      "id": "timer-continue-002",
+      "ordinal": 2,
+      "movement": 0,
+      "kind": "card",
+      "title": "3 · Build it",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "timer"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "3 · Build it"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 25m]"
+        }
+      ],
+      "script": "Tell it go.",
+      "stage": null,
+      "est_seconds": 1484.8,
+      "timer": 1500,
+      "timer_in": 1,
+      "timer_reveal": true
+    },
+    {
+      "id": "timer-continue-003",
+      "ordinal": 3,
+      "movement": 0,
+      "kind": "card",
+      "title": "Side talk, corner plate",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Side talk, corner plate"
+        },
+        {
+          "kind": "timer",
+          "text": "[timer corner]"
+        }
+      ],
+      "script": "A short talk while the room works, a few sentences long so the span has words in it.",
+      "stage": null,
+      "est_seconds": 7.2,
+      "timer": 1500,
+      "timer_in": 1,
+      "timer_corner": true,
+      "timer_continues": "timer-continue-002"
+    },
+    {
+      "id": "timer-continue-004",
+      "ordinal": 4,
+      "movement": 0,
+      "kind": "card",
+      "title": "Untimed screen inside the span",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Untimed screen inside the span"
+        }
+      ],
+      "script": "No token here: it is inside the span, and draws no clock.",
+      "stage": null,
+      "est_seconds": 4.8
+    },
+    {
+      "id": "timer-continue-005",
+      "ordinal": 5,
+      "movement": 0,
+      "kind": "card",
+      "title": "Inline continuation [timer] and a reveal that is ignored",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "reveal": "timer"
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Inline continuation [timer] and a reveal that is ignored"
+        }
+      ],
+      "script": "More talk while they work.",
+      "stage": null,
+      "est_seconds": 2.0,
+      "timer": 1500,
+      "timer_in": 0,
+      "timer_continues": "timer-continue-002"
+    },
+    {
+      "id": "timer-continue-006",
+      "ordinal": 6,
+      "movement": 0,
+      "kind": "card",
+      "title": "Presenter-only continuation",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Presenter-only continuation"
+        },
+        {
+          "kind": "timer",
+          "text": "[timer]"
+        }
+      ],
+      "script": "The last screen of the span.",
+      "stage": null,
+      "est_seconds": 2.4,
+      "timer": 1500,
+      "timer_in": 1,
+      "timer_continues": "timer-continue-002"
+    },
+    {
+      "id": "timer-continue-007",
+      "ordinal": 7,
+      "movement": 0,
+      "kind": "card",
+      "title": "After the span",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "After the span"
+        }
+      ],
+      "script": "Talk after the countdown's span ends.",
+      "stage": null,
+      "est_seconds": 2.4
+    },
+    {
+      "id": "timer-continue-008",
+      "ordinal": 8,
+      "movement": 0,
+      "kind": "card",
+      "title": "A plain timer, continued by a block",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "A plain timer, continued by a block"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 2m]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 117.0,
+      "timer": 120,
+      "timer_in": 1
+    },
+    {
+      "id": "timer-continue-009",
+      "ordinal": 9,
+      "movement": 0,
+      "kind": "card",
+      "title": "Its continuation, as a block",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Its continuation, as a block"
+        },
+        {
+          "kind": "timer",
+          "text": "[timer]"
+        }
+      ],
+      "script": "",
+      "stage": null,
+      "est_seconds": 3.0,
+      "timer": 120,
+      "timer_in": 1,
+      "timer_continues": "timer-continue-008"
+    }
+  ],
+  "warnings": [
+    "line 14: check 52: [timer] continues the countdown above it, but there is no timer above it; write a duration ([timer:5m]) to start one — left as text"
+  ]
+}

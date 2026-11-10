@@ -560,9 +560,11 @@ is an unknown flag like any other; the one shot flag that touches a timer is
   (check 39). Inside a **fenced code block** it stays literal text. Inside a
   **parenthetical** `( ... )` it stays inert stage-note text: parentheticals never
   have behaviour (see "Directions"), and this is not an exception. A bracketed
-  phrase that does not start with `timer:` is ordinary text. A `continue` screen
-  does not inherit a timer (text never carries); write a new token on it for a new
-  countdown, which starts when that screen is shown.
+  phrase that does not start with `timer:` is ordinary text, except `[timer]` and
+  `[timer corner]` with no colon, which continue the countdown above (see "Continued
+  timers"). A `continue` screen does not inherit a timer (text never carries); write
+  a new token on it for a new countdown, which starts when that screen is shown, or
+  `[timer]` to show the one already running.
 - **Anything that starts `[Timer:` and does not parse** (a typo in the duration, zero,
   an unknown trailing word) warns (check 37) and is **left as literal text** on the
   screen, so the mistake is visible. A second timer on one screen warns (check 37),
@@ -712,9 +714,65 @@ Shot flags.
 [Timer: 9:00]
 ```
 
+**Continued timers.** One countdown can run across several screens: a workshop
+phase whose directions stay up for 25 minutes while the facilitator talks over other
+slides, then comes back to the directions. `[timer]` with no duration (no colon) shows
+the countdown of the **nearest timer above it in the file**, the same clock, never a
+new one:
+
+```
+<!-- shot: live reveal=timer -->
+### 3 · Build the key feature
+[Timer: 25m]
+
+<!-- shot: ryan-art -->
+### Where apps live
+[timer corner]
+```
+
+- **The token.** `[timer]`, `[timer corner]` (a corner plate) and `([timer])`
+  (presenter-only), case-insensitive and forgiving about spacing like every timer
+  token. It goes wherever a timer token goes (alone on its line, inline in a heading,
+  list item, quote or stat), follows the same placement rules, and is the screen's one
+  timer (a second token on the screen is check 37).
+- **The group.** The parent is the screen with the countdown; its **span** runs from
+  the screen after it through its last continuation, untimed screens in between
+  included. A new `[Timer: ...]` starts a new group. A screen in the span without a
+  token draws no clock. A shelf section links only inside itself.
+- **Run rules.** A continuation paints the parent's clock: pause, reset and the
+  minute keys on any screen of the group act on the whole group, and the presenter
+  header shows it on every continuation. Arriving at a continuation before the parent
+  started (a jump, a `#N` link) starts the group's clock there. A revealed parent
+  (`reveal=timer`) that has started is **never reset by coming back**: Back, a jump or
+  `j` lands on it with the countdown showing and running. Stepping back past its own
+  press, on the parent itself, still hides and stops it (the undo). A timer with no
+  continuation keeps the reset-on-return rule above.
+- **`j`** (deck or presenter window): back to the group's parent screen, from a
+  continuation or from any screen inside the span; elsewhere it does nothing. The
+  presenter header adds `j back to its start` on a continuation.
+- **Never revealed.** `reveal=timer` on a continuation is ignored (check 52): its
+  clock is the parent's, started there. A bare `reveal` does not count it.
+- **`cues.json`.** A continuation cue carries `timer` (the parent's seconds),
+  `timer_in`, `timer_corner` as for any timer, and `timer_continues` (the parent's
+  cue id). The present view's parent plate carries `data-timer-span` (the last
+  continuation's slide index) and each continuation's plate `data-timer-from` (the
+  parent's slide index).
+- **Timing.** The span lasts the countdown, or the talk inside it if that runs longer.
+  Screens in the span keep their own estimates (a continuation adds nothing for the
+  timer), and the parent takes the rest: a plain parent `max(own estimate, timer -
+  span)`, a revealed one `own estimate + max(timer - span, 0)`. So a 25-minute phase
+  with five minutes of side talk still counts 25 minutes, not 30. timing.yaml
+  overrides on the span's screens apply to those screens; the parent's share is worked
+  out from their estimates. `tools/timing-report.py` lists the group under TIMERS with
+  the span's screen count, and warns when the talk inside it outlasts the timer.
+- **Document view and handout.** Nothing printed, like any timer.
+- **No timer above.** A continuation with no timer above it in the file warns (check
+  52) and is left as literal text.
+
 **Checks.** 37 (a token that is not a timer, or a second one), 38 (over 3 hours),
 39 (a token in a spoken paragraph), 44 (`reveal=timer` with no valid timer), 45 (a
-bare `reveal` on a screen with nothing to reveal).
+bare `reveal` on a screen with nothing to reveal), 52 (a `[timer]` with no timer
+above it, or `reveal=timer` on a continuation).
 
 ### SOUL.md
 ```text
@@ -1278,7 +1336,7 @@ that is not a list (check 48) · a malformed waypoint directive or `waypoints:` 
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[notes]` block that repeats a list the notes already carry (check 42) · two files in `_media/` matching one slug, or a library entry whose `file:` is not there (check 50) · a file from `_media/` with no credit (check 51).
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[timer]` continuation with no timer above it, or `reveal=timer` on one (check 52) · a `[notes]` block that repeats a list the notes already carry (check 42) · two files in `_media/` matching one slug, or a library entry whose `file:` is not there (check 50) · a file from `_media/` with no credit (check 51).
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 

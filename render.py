@@ -48,11 +48,11 @@ from talkparse import (
     Talk,
     TIMER_TOKEN_RE,
     inline_md,
-    parse_timer_token,
     plain_md,
     slugify,
     spoken_list_items,
     strip_timer_tokens,
+    timer_match,
 )
 from mediaresolve import VIDEO_EXTS, MediaResolver, MediaRef
 
@@ -325,17 +325,35 @@ def cue_estimate(screen: Screen, resolver: MediaResolver,
 
     The one implementation both `cues.json` (est_seconds) and check 19 use, so
     the artifact and the check can never disagree about the clock.
+
+    A continued countdown (`[timer]` below it) is shared: the screens in its
+    span are timed on their own words, and the parent screen takes what is left
+    of the countdown (timing.estimate_span_parent).  A continuation screen adds
+    no time of its own for the timer.
     """
     words = timing.word_count(screen_script(screen))
     video_seconds = cue_video_seconds(screen, resolver)
     tm = screen.timer
+    own_timer = tm is not None and screen.timer_parent is None
+    kw = dict(video_seconds=video_seconds, wpm=wpm,
+              credits_read=is_credits_screen(screen),
+              beat=has_beat_note(screen))
+    if own_timer and screen.timer_span:
+        base = timing.estimate_seconds(words, screen_kind(screen), **kw)
+        return timing.estimate_span_parent(
+            base, tm[0], timer_span_seconds(screen, resolver, wpm),
+            armed=timer_armed(screen))
     return timing.estimate_seconds(
-        words, screen_kind(screen),
-        video_seconds=video_seconds, wpm=wpm,
-        credits_read=is_credits_screen(screen),
-        beat=has_beat_note(screen),
-        timer_seconds=tm[0] if tm else None,
+        words, screen_kind(screen), **kw,
+        timer_seconds=tm[0] if own_timer else None,
         timer_armed=timer_armed(screen))
+
+
+def timer_span_seconds(screen: Screen, resolver: MediaResolver,
+                       wpm: float = timing.DEFAULT_WPM) -> float:
+    """The estimated seconds of the screens inside a continued countdown's span
+    (the time spent on them while the parent's countdown runs); 0 without one."""
+    return sum(cue_estimate(x, resolver, wpm) for x in screen.timer_span)
 
 
 def cited_sources(talk: Talk) -> list[dict]:
@@ -722,7 +740,7 @@ def revealables_on(screen: "Screen") -> list:
         out.append("list")
     if has_revealable_quotes(screen):
         out.append("quote")
-    if screen.timer is not None:
+    if screen.timer is not None and screen.timer_parent is None:
         out.append("timer")
     return out
 
@@ -1428,8 +1446,13 @@ PAGER_JS = """
   // owns it); `addOnChange` is the fan-out for everyone else.
   // A jump lands fully revealed, by the rule prev() uses when it backs into a
   // slide: every item shown, a revealed timer waiting for its own press.
+  // A revealed timer whose countdown is continued below it (`[timer]`) and is
+  // already running lands with everything shown: coming back to it never stops
+  // the room's clock (spec: Timer screens, "Continued timers").
   function landStep(i) {
     var t = revealOf(i);
+    if (t && t.timer && window.animatic && window.animatic.timer
+        && window.animatic.timer.running(i)) return t.total;
     return t ? (t.timer ? (t.timerFirst ? t.start : t.total - 1) : t.total) : undefined;
   }
   // The first jump from the talk saves where it left; later jumps keep that, so
@@ -1467,6 +1490,8 @@ PAGER_JS = """
   window.animatic = {
     go: go, next: next, prev: prev, warm: warm, reloadMedia: reloadMedia,
     jump: jump, returnFromJump: returnFromJump,
+    // go to slide i the way Back lands on it (no saved place, unlike jump)
+    land: function (i) { go(i, true, landStep(i)); },
     // the talk's own screen count; total() adds the shelf
     count: function () { return mainCount; },
     total: function () { return slides.length; },
@@ -1657,6 +1682,23 @@ TIMER_JS = r"""
   function plateOf(i) {
     return slides[i] ? slides[i].querySelector(".timer-plate") : null;
   }
+  // A continuation (`[timer]`, data-timer-from) shows the countdown of the slide
+  // it continues: state lives under that slide's index, the group's key.
+  function key(i) {
+    var p = plateOf(i), f = p ? p.getAttribute("data-timer-from") : null;
+    return f === null ? i : (parseInt(f, 10) || 0);
+  }
+  // the slide whose continued countdown covers slide i (its span, through the
+  // last continuation, is data-timer-span on the parent's plate), or -1
+  function groupOf(i) {
+    for (var k = i; k >= 0; k--) {
+      if (!plateOf(k)) continue;
+      var g = key(k), gp = plateOf(g);
+      var end = gp ? gp.getAttribute("data-timer-span") : null;
+      return end !== null && parseInt(end, 10) >= i ? g : -1;
+    }
+    return -1;
+  }
   function dur(i) {
     var p = plateOf(i);
     return p ? (parseInt(p.getAttribute("data-timer"), 10) || 0) * 1000 : 0;
@@ -1703,7 +1745,7 @@ TIMER_JS = r"""
     p.addEventListener("animationend", function () { p.classList.remove("pulse"); }, { once: true });
   }
   function paint(i, now) {
-    var t = st[i], p = plateOf(i);
+    var t = st[key(i)], p = plateOf(i);
     if (!t || !p) return;
     var rem = leftOf(t, now);
     paintPlate(p, textOf(rem), t.mode, rem <= 0);
@@ -1728,9 +1770,22 @@ TIMER_JS = r"""
     var p = plateOf(i);
     return !!(p && p.hasAttribute("data-timer-reveal"));
   }
-  function arrive(i) {
+  function arrive(i, fresh) {
     var p = plateOf(i);
     if (!p) return;
+    var k = key(i);
+    if (k !== i) {
+      // a continuation: the group's clock, started here if nothing started it
+      if (!st[k]) begin(k);
+      paint(i, Date.now());
+      return;
+    }
+    if (fresh && armed(i) && st[i] && p.hasAttribute("data-timer-span") && i === A.current()) {
+      // a running group's revealed parent, reached by a move that did not land
+      // on the revealed step (a hash, a plain go): show it, never stop it
+      var r0 = A.steps(), need0 = p.getAttribute("data-timer-reveal") === "first" ? 1 : r0;
+      if (A.step() < need0 && A.land) { A.land(i); return; }
+    }
     if (armed(i)) {
       var p0 = plateOf(i);
       var need = p0.getAttribute("data-timer-reveal") === "first" ? 1 : A.steps();
@@ -1750,13 +1805,13 @@ TIMER_JS = r"""
   // the repaint loop only reads the clock: the time is never counted here
   function tick() {
     var now = Date.now(), cur = A.current();
-    for (var key in st) {
-      var t = st[key], rem = leftOf(t, now);
+    for (var sk in st) {
+      var t = st[sk], rem = leftOf(t, now);
       if (rem > 0) { t.zeroed = false; }
       else if (!t.zeroed) {
         t.zeroed = true;
         // the soft pulse is for a zero the room can see
-        if (t.mode === "running" && Number(key) === cur && plateOf(cur)) {
+        if (t.mode === "running" && Number(sk) === key(cur) && plateOf(cur)) {
           paint(cur, now); pulse(plateOf(cur));
         }
       }
@@ -1765,7 +1820,15 @@ TIMER_JS = r"""
   }
 
   function command(cmd) {
-    var i = A.current(), t = st[i];
+    var i = A.current();
+    if (cmd === "home") {
+      // `j`: back to the slide that started the countdown this slide is part of
+      var g = groupOf(i);
+      if (g < 0 || g === i || !A.land) return false;
+      A.land(g);
+      return true;
+    }
+    var t = st[key(i)];
     if (!t) return false;
     var now = Date.now();
     if (cmd === "pause") {
@@ -1797,9 +1860,11 @@ TIMER_JS = r"""
   }
 
   function state() {
-    var i = A.current(), t = st[i];
+    var i = A.current(), t = plateOf(i) ? st[key(i)] : null;
     if (!t) return null;
-    return { mode: t.mode, endAt: t.endAt, left: t.left, duration: t.dur };
+    // `home`: this slide continues a countdown started elsewhere (`j` goes back)
+    return { mode: t.mode, endAt: t.endAt, left: t.left, duration: t.dur,
+             home: groupOf(i) >= 0 && groupOf(i) !== i };
   }
 
   // A preview (the presenter's clone of a slide) never runs: put its plate
@@ -1815,9 +1880,15 @@ TIMER_JS = r"""
 
   A.timer = {
     state: state, command: command, freshen: freshen, resetAll: resetAll,
+    // a started countdown that is continued below (`[timer]`): the pager lands
+    // on it revealed; a lone timer keeps the old reset-on-return rule
+    running: function (i) {
+      var p = plateOf(i);
+      return !!(st[i] && p && p.hasAttribute("data-timer-span"));
+    },
     addOnChange: function (fn) { if (typeof fn === "function") listeners.push(fn); }
   };
-  A.addOnChange(arrive);
+  A.addOnChange(function (i) { arrive(i, true); });
   if (A.addOnStep) A.addOnStep(function (i) { arrive(i); });
   document.addEventListener("keydown", function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1827,6 +1898,7 @@ TIMER_JS = r"""
       case "0": cmd = "reset"; break;
       case "+": case "=": cmd = "add"; break;
       case "-": case "_": cmd = "sub"; break;
+      case "j": case "J": cmd = "home"; break;
     }
     if (cmd && command(cmd)) e.preventDefault();
   });
@@ -2698,6 +2770,8 @@ PRESENTER_UI_JS = r"""
     var lab = document.getElementById("presenter-timer-state");
     if (digits) digits.textContent = timerText(rem);
     if (lab) lab.textContent = t.mode === "paused" ? "paused" : rem <= 0 ? "over time" : "";
+    var home = document.getElementById("presenter-timer-home");
+    if (home) home.hidden = !t.home;
     box.classList.toggle("is-paused", t.mode === "paused");
     box.classList.toggle("is-zero", rem <= 0);
   }
@@ -3014,6 +3088,7 @@ PRESENTER_UI_JS = r"""
       case "0": post({ type: "animatic-timer", cmd: "reset" }); break;
       case "+": case "=": post({ type: "animatic-timer", cmd: "add" }); break;
       case "-": case "_": post({ type: "animatic-timer", cmd: "sub" }); break;
+      case "j": case "J": post({ type: "animatic-timer", cmd: "home" }); break;
     }
   });
 
@@ -3972,7 +4047,7 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path,
 <p class="presenter-timer" id="presenter-timer" hidden><span class="presenter-timer-label">timer</span>
 <span class="presenter-timer-digits" id="presenter-timer-digits">0:00</span>
 <span class="presenter-timer-state" id="presenter-timer-state"></span>
-<span class="presenter-timer-keys">p pause &middot; 0 reset &middot; + / - one minute</span></p>
+<span class="presenter-timer-keys">p pause &middot; 0 reset &middot; + / - one minute<span id="presenter-timer-home" hidden> &middot; j back to its start</span></span></p>
 <p class="presenter-clock"><span id="presenter-wall">--:--:--</span>
 <span class="presenter-elapsed">elapsed <span id="presenter-elapsed">0:00</span>
 <button type="button" id="presenter-restart" class="presenter-restart" title="Restart elapsed time and all timers (t)">restart (t)</button></span></p>
@@ -4061,16 +4136,19 @@ def timer_digits_html(text: str) -> str:
     return "".join(f'<span class="{cls.get(ch, "d")}">{ch}</span>' for ch in text)
 
 
-def timer_plate_html(timer: tuple, shape: str) -> str:
+def timer_plate_html(timer: tuple, shape: str, parent: Optional[Screen] = None) -> str:
     """The present view's countdown for a screen's timer (seconds, phrase,
     corner).  `shape`: `inline` (in a line of text), `block` (a token alone on
     its line) or `corner` (a plate in the lower-right of the frame).  The pager's
     timer module (TIMER_JS) animates it; built as it is on arrival, it reads the
-    full duration."""
+    full duration.  A continuation (`parent`, the screen whose countdown it
+    shows) carries `data-timer-from`, that screen's slide index, so the pager
+    paints the parent's running clock instead of starting one of its own."""
     seconds, phrase, _corner = timer
     tag = "span" if shape == "inline" else "div"
+    src = f' data-timer-from="{parent.idx - 1}"' if parent is not None else ""
     return (
-        f'<{tag} class="timer-plate timer-{shape}" role="timer" data-timer="{seconds}" '
+        f'<{tag} class="timer-plate timer-{shape}" role="timer" data-timer="{seconds}"{src} '
         f'aria-label="{html.escape(phrase)} timer">'
         f'<span class="timer-digits" aria-hidden="true">{timer_digits_html(timer_clock(seconds))}</span>'
         f'<span class="timer-state"></span></{tag}>'
@@ -4094,8 +4172,10 @@ def timer_reveal_wanted(screen: Screen) -> bool:
 def timer_armed(screen: Screen) -> bool:
     """A screen whose countdown stays hidden and stopped until a next-press
     shows it and starts it: `reveal=timer` on a screen that has a valid timer.
-    Without a timer the flag is ignored (check 44)."""
-    return screen.timer is not None and timer_reveal_wanted(screen)
+    Without a timer the flag is ignored (check 44), and a continuation (`[timer]`)
+    is never revealed: its clock is already the parent's."""
+    return (screen.timer is not None and screen.timer_parent is None
+            and timer_reveal_wanted(screen))
 
 
 def timer_reminder_html(screen: Screen) -> str:
@@ -4134,13 +4214,13 @@ def timer_sub(text_html: str, b, mode: str = "present") -> str:
     if b.timer is None:
         return text_html
     for m in TIMER_TOKEN_RE.finditer(text_html):
-        got = parse_timer_token(m.group(1))
+        got = timer_match(m)
         if got is None:
             continue
-        if got[2]:
+        if b.timer[2]:
             rep_ = ""
         elif mode == "present":
-            rep_ = timer_plate_html(b.timer, "inline")
+            rep_ = timer_plate_html(b.timer, "inline", b.timer_parent)
         else:
             rep_ = ""       # the reading copy never prints a timer
         return text_html[:m.start()] + rep_ + text_html[m.end():]
@@ -4383,10 +4463,10 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 elif b.timer_quiet:
                     # `([Timer: 5m])`: runs for the presenter window only; the
                     # audience's slide draws nothing
-                    body.append(timer_plate_html(b.timer, "block").replace(
+                    body.append(timer_plate_html(b.timer, "block", b.timer_parent).replace(
                         'class="timer-plate ', 'class="timer-plate timer-private ', 1))
                 elif not b.timer[2]:
-                    body.append(timer_plate_html(b.timer, "block"))
+                    body.append(timer_plate_html(b.timer, "block", b.timer_parent))
             # lower / credits overlays are positioned (below); credits entries
             # on a credits screen were rendered above.
             i += 1
@@ -4401,7 +4481,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 inner.append(f'<div class="credits-line">{html.escape(b.text)}</div>')
 
     if tm is not None and tm[2]:
-        inner.append(timer_plate_html(tm, "corner"))
+        inner.append(timer_plate_html(tm, "corner", screen.timer_parent))
 
     # speaker notes: VO + stage directions (never on the slide body). The
     # stage-note class is deliberately NOT "stage": `.stage` is the present
@@ -4468,8 +4548,17 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
     if bare_reveal_empty(screen):
         print(f"warn      : {cue_id} ({screen_where(screen)}): reveal has nothing to reveal on this screen "
               f"(no list of 2 or more items, no timer); ignored")
+    if screen.timer_span and screen.timer_parent is None:
+        # a countdown continued below: the pager keys the group off this slide,
+        # and `j` finds it from anywhere up to its last continuation
+        slide_inner = slide_inner.replace(
+            'class="timer-plate ',
+            f'data-timer-span="{screen.timer_span[-1].idx - 1}" class="timer-plate ', 1)
     if timer_reveal_wanted(screen):
-        if screen.timer is None:
+        if screen.timer_parent is not None:
+            print(f"warn      : {cue_id} ({screen_where(screen)}): reveal=timer on a [timer] continuation is ignored: "
+                  f"it shows the countdown above it, which is already running")
+        elif screen.timer is None:
             if any("timer" in reveal_named(sh.flags) for sh in screen.shots):
                 print(f"warn      : {cue_id} ({screen_where(screen)}): reveal=timer needs a [Timer: ...] on the screen; ignored")
         else:
@@ -4990,7 +5079,9 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             **({"timer": screen.timer[0], "timer_in": timer_at,
                 **({"timer_corner": True} if screen.timer[2] else {}),
                 **({"timer_reveal": True} if timer_armed(screen) else {}),
-                **({"timer_reveal_first": True} if timer_first(screen) else {})}
+                **({"timer_reveal_first": True} if timer_first(screen) else {}),
+                **({"timer_continues": f"{deck_slug(talk)}-{screen.timer_parent.idx:03d}"}
+                   if screen.timer_parent is not None else {})}
                if screen.timer is not None else {}),
         })
 

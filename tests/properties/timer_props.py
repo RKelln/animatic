@@ -26,6 +26,15 @@ independent of the goldens:
   says `first`, otherwise `last`; only a cue with a timer can have either; the
   document view never carries the attribute.  What a press does is proved in a
   real browser by tests/browser_reveal_timer.py.
+- continued countdowns (`[timer]`, spec: Timer screens, Continued timers): a cue
+  with `timer_continues` names an earlier timer cue with no `timer_continues` of
+  its own, carries that cue's seconds, its `timer_in` holds the `[timer]` token
+  and `timer_corner` follows that token; its plate carries `data-timer-from`
+  (the parent's slide index) and is never revealed; the parent's plate carries
+  `data-timer-span` (its last continuation's slide index).  The clock: a
+  continuation adds nothing for the timer, and the span (parent through its last
+  continuation) lasts at least the countdown, plus the parent's own words when
+  it is revealed.
 """
 
 from __future__ import annotations
@@ -39,6 +48,19 @@ import timing
 from .common import err
 
 LOOSE_RE = re.compile(r"\[\s*timer\s*:[^\]]*\]", re.IGNORECASE)
+CONT_RE = re.compile(r"\[\s*timer(\s+corner)?\s*\]", re.IGNORECASE)
+
+
+def _first_cont(entries: list):
+    """(index, corner) for the first `[timer]` continuation token, or None."""
+    for i, t in enumerate(entries):
+        if t.get("kind") == "code":
+            continue
+        for text in list(t.get("items") or []) + ([t["text"]] if "text" in t else []):
+            m = CONT_RE.search(text)
+            if m:
+                return i, m.group(1) is not None
+    return None
 
 
 def _section(text: str, cue_id: str) -> str:
@@ -66,6 +88,7 @@ def check(fx, errors: list) -> None:
     if not LOOSE_RE.search(fx.source_text):
         return
     cues = fx.cues()["cues"]
+    by_id = {c["id"]: c for c in cues}
     present = (fx.out / "present" / "index.html").read_text(encoding="utf-8")
     doc = (fx.out / "document" / "index.html").read_text(encoding="utf-8")
 
@@ -77,6 +100,20 @@ def check(fx, errors: list) -> None:
         m_armed = re.search(r'data-timer-reveal="(first|last)" class="timer-plate pending ', sec)
         armed_attr = m_armed is not None
         want = _first_valid(entries)
+        parent = by_id.get(c.get("timer_continues")) if "timer_continues" in c else None
+        if "timer_continues" in c:
+            got = _first_cont(entries)
+            if parent is None or "timer_continues" in parent or parent["ordinal"] >= c["ordinal"]:
+                err(errors, f"{cid}: timer_continues {c['timer_continues']!r} is not an earlier timer cue")
+            elif c.get("timer") != parent.get("timer"):
+                err(errors, f"{cid}: continuation timer {c.get('timer')!r} != parent's {parent.get('timer')!r}")
+            if got is None or c.get("timer_in") != got[0] or bool(c.get("timer_corner")) != got[1]:
+                err(errors, f"{cid}: continuation timer_in/timer_corner do not follow its [timer] token {got!r}")
+            if c.get("timer_reveal"):
+                err(errors, f"{cid}: a continuation is never revealed")
+            if parent is not None and f'data-timer-from="{parent["ordinal"] - 1}"' not in sec:
+                err(errors, f"{cid}: plate lacks data-timer-from for its parent")
+            want = (got[0], c.get("timer"), "", got[1]) if got else None
         if "timer" in c:
             if not isinstance(c["timer"], int) or isinstance(c["timer"], bool):
                 err(errors, f"{cid}: timer {c['timer']!r} is not an integer")
@@ -149,6 +186,22 @@ def check(fx, errors: list) -> None:
 
         # the clock
         words = timing.word_count(c.get("script") or "")
+        span = [x for x in cues if x.get("timer_continues") == cid]
+        if span:
+            last = max(x["ordinal"] for x in span)
+            if f'data-timer-span="{last - 1}"' not in sec:
+                err(errors, f"{cid}: parent plate lacks data-timer-span={last - 1}")
+            if c.get("media") is None:
+                total = sum(x["est_seconds"] for x in cues if c["ordinal"] <= x["ordinal"] <= last)
+                need_s = c["timer"] + (words / timing.DEFAULT_WPM * 60 if c.get("timer_reveal") else 0.0)
+                if total < need_s - 5e-3:
+                    err(errors, f"{cid}: span est {total} under-counts the timer (want at least {need_s})")
+            continue
+        if "timer_continues" in c:
+            if c.get("media") is None and abs(
+                    c["est_seconds"] - timing.estimate_seconds(words, c["kind"])) > 5e-4:
+                err(errors, f"{cid}: a continuation's est_seconds {c['est_seconds']} counts the timer")
+            continue
         if "timer" in c and words == 0 and c.get("media") is None:
             if abs(c["est_seconds"] - c["timer"]) > 5e-4:
                 err(errors, f"{cid}: est_seconds {c['est_seconds']} != timer {c['timer']} (no voice-over)")

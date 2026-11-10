@@ -242,9 +242,9 @@
           "text": "Ordinary brackets"
         }
       ],
-      "script": "[Not a timer: just a note] and [Timer] alone are plain text.",
+      "script": "[Not a timer: just a note] and [Timers] are plain text.",
       "stage": null,
-      "est_seconds": 4.8
+      "est_seconds": 4.4
     },
     {
       "id": "timer-tokens-warned-009",

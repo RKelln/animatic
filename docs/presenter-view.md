@@ -16,7 +16,7 @@ second.
 | --- | --- |
 | deck | arrows / space / PageUp / PageDown / Home / End to move, `w` re-sends the latest waypoint (a publishing build only), `s` presenter window, `n` in-page notes, `d` demo hookup panel, `Escape` closes a panel (then, after a quick-select jump, returns) |
 | presenter window | arrows / space to move the deck, `w` re-sends the latest waypoint (a deck built with `ANIMATIC_WAYPOINT_TOKEN` only: see below), `/` quick select (see below), `Escape` returns from a quick-select jump, `f` (or the ⇅ button) puts the notes above the slide image instead of below, remembered per browser, `[` / `]` (or the A− / A+ buttons) shrink / grow the current screen's notes text, also remembered, `s` closes the window, `t` (or the restart button) restarts elapsed time and every `[Timer]` |
-| timer screens (either window) | `p` pause / resume, `0` reset and run, `+` / `=` add a minute, `-` take a minute off (spec: Timer screens) |
+| timer screens (either window) | `p` pause / resume, `0` reset and run, `+` / `=` add a minute, `-` take a minute off, `j` back to the screen that started a continued countdown (spec: Timer screens, Continued timers) |
 
 ## Timer reminder
 

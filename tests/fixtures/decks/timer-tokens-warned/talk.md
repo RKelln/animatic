@@ -42,7 +42,7 @@ Take five minutes [Timer: 5:00] and write.
 
 <!-- shot -->
 ### Ordinary brackets
-[Not a timer: just a note] and [Timer] alone are plain text.
+[Not a timer: just a note] and [Timers] are plain text.
 
 <!-- shot: timer=5m -->
 ### The old flag is not a flag

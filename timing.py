@@ -207,6 +207,21 @@ def estimate_seconds(words: int, kind: str, *,
     return round(max(computed, floor), 3)
 
 
+def estimate_span_parent(base: float, timer_seconds: int, inner: float, *,
+                         armed: bool = False) -> float:
+    """The `estimated` tier for a screen whose countdown is continued below it
+    (`[timer]`, spec: Timer screens, "Continued timers").
+
+    `base` is the screen's own estimate without the timer (words, floors, video)
+    and `inner` the estimated seconds of the screens in its span, which are spent
+    while the countdown runs.  The span as a whole lasts the countdown, or the
+    talk inside it if that runs longer.  A plain timer runs while this screen's
+    own words are spoken, so the screen takes max(base, timer - inner); a
+    revealed one starts after them: base + max(timer - inner, 0)."""
+    left = float(timer_seconds) - inner
+    return round(base + max(left, 0.0) if armed else max(base, left), 3)
+
+
 def probe_video_seconds(path) -> Optional[float]:
     """A media file's real duration via ffprobe, or None.
 

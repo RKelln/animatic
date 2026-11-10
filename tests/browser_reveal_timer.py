@@ -14,6 +14,13 @@ A third case (the `reveal-order` fixture) proves document order: a timer written
 above the list is press 1 (shown and started with no item showing), the items
 follow, and Back resets it; a timer written below stays last.
 
+A fourth case (the `timer-continue` fixture) proves continued countdowns: a
+`[timer]` screen shows the parent's running clock instead of starting its own,
+coming back to a running revealed parent lands with it showing (it never resets),
+`j` goes back to the parent from a continuation or an untimed screen inside the
+span (and does nothing after it), pause acts on the whole group, and arriving at
+a continuation first starts the group's clock.
+
 A second case (the `reveal-bare` fixture) proves a bare `reveal` the same way:
 list items then the timer on a slide with both, a list-only slide that behaves
 like reveal=list, a timer-only slide that behaves like reveal=timer, and that
@@ -403,8 +410,102 @@ def run_order() -> int:
     return 0
 
 
+CONT_FIXTURE = REPO / "tests" / "fixtures" / "constructs" / "timer-continue.talk.md"
+CONT_DRIVER = DRIVER.split("(async function () {")[0] + r"""(async function () {
+    try {
+      function snapc(label) {
+        var i = A.current(), p = plate(i), st = T.state();
+        log.push({label: label, cur: i, step: A.step(), steps: A.steps(),
+                  visibility: p ? getComputedStyle(p).visibility : null,
+                  digits: p ? p.querySelector(".timer-digits").getAttribute("data-text") : null,
+                  running: st ? st.mode : null, duration: st ? st.duration : null,
+                  home: st ? st.home : null});
+      }
+      await wait(50);
+      A.go(1); await wait(50); snapc("K0 parent, arrival");
+      key("ArrowRight"); snapc("K1 parent, press");
+      await wait(1200);
+      key("ArrowRight"); snapc("K2 corner continuation");
+      key("ArrowRight"); snapc("K3 untimed screen in the span");
+      key("ArrowRight"); snapc("K4 inline continuation, reveal ignored");
+      key("j"); await wait(50); snapc("K5 j: back at the parent");
+      key("ArrowLeft"); snapc("K6 back past the press: stopped");
+      A.go(2); await wait(50); snapc("K7 continuation first: starts the group");
+      A.go(1); await wait(50); snapc("K8 plain go to the running parent");
+      A.go(4); await wait(50); key("p"); snapc("K9 pause on a continuation");
+      A.go(1); await wait(50); snapc("L1 parent shows the same pause");
+      A.go(6); await wait(50); key("j"); snapc("L2 j after the span does nothing");
+      A.go(3); await wait(50); key("j"); await wait(50); snapc("L3 j from an untimed screen in the span");
+      A.go(7); await wait(1200); A.go(8); await wait(50); snapc("L4 plain timer's block continuation");
+    } catch (e) { log.push({error: String(e)}); }
+    var pre = document.createElement("pre");
+    pre.id = "driver-log";
+    pre.textContent = JSON.stringify(log);
+    document.body.appendChild(pre);
+  })();
+})();
+</script>
+"""
+
+
+def run_continue() -> int:
+    log = drive(CONT_FIXTURE, CONT_DRIVER)
+    if log is None:
+        return 77
+    if not log:
+        return 1
+    by = {e.get("label", "?")[:2]: e for e in log}
+    for e in log:
+        print(json.dumps(e))
+    fails = []
+
+    def need(cond, msg):
+        if not cond:
+            fails.append(msg)
+
+    if any("error" in e for e in log):
+        fails.append(f"driver error: {[e for e in log if 'error' in e]}")
+    g = by.get
+    need(g("K0") and g("K0")["visibility"] == "hidden" and g("K0")["running"] is None,
+         "K0: a revealed parent is hidden and stopped on arrival")
+    need(g("K1") and g("K1")["running"] == "running" and g("K1")["duration"] == 1500000,
+         "K1: the press starts the parent's 25 minutes")
+    need(g("K2") and g("K2")["cur"] == 2 and g("K2")["running"] == "running"
+         and g("K2")["digits"] not in (None, "25:00") and g("K2")["home"] is True,
+         "K2: a continuation shows the parent's running clock, not a fresh one, and offers j")
+    need(g("K3") and g("K3")["running"] is None,
+         "K3: an untimed screen inside the span draws no clock")
+    need(g("K4") and g("K4")["running"] == "running" and g("K4")["visibility"] == "visible",
+         "K4: reveal=timer on a continuation is ignored: the clock shows")
+    need(g("K5") and g("K5")["cur"] == 1 and g("K5")["step"] == g("K5")["steps"]
+         and g("K5")["visibility"] == "visible" and g("K5")["running"] == "running"
+         and g("K5")["digits"] != "25:00",
+         "K5: j lands on the parent with the clock showing and still running")
+    need(g("K6") and g("K6")["running"] is None and g("K6")["visibility"] == "hidden",
+         "K6: stepping back past the parent's press stops it (the undo)")
+    need(g("K7") and g("K7")["cur"] == 2 and g("K7")["running"] == "running",
+         "K7: arriving at a continuation first starts the group")
+    need(g("K8") and g("K8")["cur"] == 1 and g("K8")["visibility"] == "visible"
+         and g("K8")["running"] == "running",
+         "K8: a plain go to a running parent lands revealed, never resets it")
+    need(g("K9") and g("K9")["running"] == "paused", "K9: p on a continuation pauses")
+    need(g("L1") and g("L1")["running"] == "paused", "L1: the parent shows the same paused clock")
+    need(g("L2") and g("L2")["cur"] == 6, "L2: j after the span does nothing")
+    need(g("L3") and g("L3")["cur"] == 1, "L3: j from an untimed screen inside the span goes to the parent")
+    need(g("L4") and g("L4")["cur"] == 8 and g("L4")["duration"] == 120000
+         and g("L4")["digits"] not in (None, "2:00"),
+         "L4: a plain timer's continuation shows its clock already counting")
+    if fails:
+        print("\nFAIL (continued timers)")
+        for f in fails:
+            print(" -", f)
+        return 1
+    print("\nPASS: continued timers share one clock")
+    return 0
+
+
 def run() -> int:
-    codes = [run_timer(), run_bare(), run_order()]
+    codes = [run_timer(), run_bare(), run_order(), run_continue()]
     if any(c == 1 for c in codes):
         return 1
     return 77 if all(c == 77 for c in codes) else 0

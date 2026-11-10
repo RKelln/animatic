@@ -10,7 +10,9 @@ check 19. Every screen's seconds split into buckets that add up to its total:
 
     spoken    script words at the deck's wpm
     timer     countdown time beyond the words (a plain timer runs while the
-              words are spoken; a revealed timer follows them)
+              words are spoken; a revealed timer follows them).  A countdown
+              continued by `[timer]` screens is shared: the screens in its span
+              count their own words, and the timer bucket is what is left
     video     a video's real length beyond the words and timer
     minimum   the floor for a black beat, a beat screen or a credits read
     override  a timing.yaml value, which replaces the whole screen
@@ -86,12 +88,15 @@ def build_report(path, *, wpm=None, dur=None) -> dict:
         words = timing.word_count(render.screen_script(s))
         words_s = words / rate * 60 if rate else 0.0
         tm = s.timer
-        timer_s = float(tm[0]) if tm else 0.0
+        cont = s.timer_parent is not None
+        timer_s = float(tm[0]) if tm and not cont else 0.0
+        span_s = render.timer_span_seconds(s, resolver, rate) if not cont else 0.0
         armed = render.timer_armed(s)
         video_s = render.cue_video_seconds(s, resolver) or 0.0
         buckets = (dict.fromkeys(BUCKETS, 0.0) | {"override": seconds}
                    if tier != "estimated"
-                   else split(seconds, words_s, timer_s, armed, video_s))
+                   else split(seconds, words_s, max(timer_s - span_s, 0.0), armed,
+                              video_s))
         screens.append({
             "id": cid, "ordinal": s.idx, "movement": s.movement,
             "title": render.screen_title(s)
@@ -100,6 +105,11 @@ def build_report(path, *, wpm=None, dur=None) -> dict:
             "kind": render.screen_kind(s), "words": words,
             "seconds": seconds, "tier": tier, "starts_at": elapsed,
             "timer": timer_s or None, "timer_reveal": armed,
+            # a continued countdown: how many screens after this one share it,
+            # and their estimated seconds; a continuation names its parent
+            "span_screens": len(s.timer_span), "span_seconds": span_s,
+            "continues": (f"{slug}-{s.timer_parent.idx:03d}" if cont else None),
+            "words_seconds": words_s,
             "buckets": buckets,
         })
         elapsed += seconds
@@ -170,14 +180,22 @@ def render_text(r: dict, *, top: int, all_screens: bool) -> str:
     timed = [x for x in r["screens"] if x["timer"]]
     if timed:
         out += ["", "TIMERS", f"{'starts':>7} {'timer':>7} {'kind':<8} "
-                f"{'words':>5} {'counted':>7}  screen"]
+                f"{'words':>5} {'span':>4} {'counted':>7}  screen"]
         for x in timed:
-            late = (not x["timer_reveal"] and x["tier"] == "estimated"
-                    and x["buckets"]["spoken"] > x["timer"])
+            span = x["span_screens"]
+            # time spoken while the countdown runs: the span's screens, plus
+            # this screen's own words when the timer starts on arrival
+            during = x["span_seconds"] + (0.0 if x["timer_reveal"] else x["words_seconds"])
+            late = x["tier"] == "estimated" and (during > x["timer"] if span else (
+                not x["timer_reveal"] and x["buckets"]["spoken"] > x["timer"]))
+            # a continued countdown counts the parent plus its span
+            counted = x["seconds"] + x["span_seconds"]
             out.append(f"{clock(x['starts_at']):>7} {clock(x['timer']):>7} "
                        f"{'revealed' if x['timer_reveal'] else 'plain':<8} "
-                       f"{x['words']:>5} {clock(x['seconds']):>7}  {x['title']}"
-                       + ("  !! words outlast the timer" if late else ""))
+                       f"{x['words']:>5} {(f'+{span}' if span else ''):>4} "
+                       f"{clock(counted):>7}  {x['title']}"
+                       + (("  !! the talk inside it outlasts the timer" if span
+                           else "  !! words outlast the timer") if late else ""))
 
     overrides = [x for x in r["screens"] if x["tier"] != "estimated"]
     if overrides:
