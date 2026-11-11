@@ -455,7 +455,7 @@ class MediaResolver:
             seen_bg.add(str(c["slug"]))
             kind = "pool" if c.get("pool") else "card"
             self.pool_issues.append((str(c["slug"]),
-                f"{kind} '{c['slug']}': bg: {c['bg']!r}; expected #rrggbb, #rgb or auto (ignored)"))
+                f"{kind} '{c['slug']}': bg: {c['bg']!r}; expected #rrggbb, #rgb, a colour name or auto (ignored)"))
         for c in self.cards:
             if not (isinstance(c, dict) and c.get("slug") and c.get("pool")):
                 continue

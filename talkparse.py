@@ -98,12 +98,16 @@ KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "sile
                "under", "blur", "anchor", "still", "reveal", "live", "waypoint", "bg")
 # `bg=#rrggbb` / `#rgb` / `auto`: the ground behind slide media (the letterbox).
 # `auto` takes the media's own top-left pixel at build time.
-BG_RE = re.compile(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})|auto")
+# A CSS named colour (`bg=black`, `bg=navy`) is also accepted, case-insensitively.
+CSS_COLOUR_NAMES = frozenset("aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen".split())
+BG_RE = re.compile(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})|auto|[A-Za-z]+")
 
 
 def valid_bg(value) -> bool:
-    """A `bg` value (shot flag or card key): a hex colour or `auto`."""
-    return isinstance(value, str) and BG_RE.fullmatch(value) is not None
+    """A `bg` value (shot flag or card key): a hex colour, a CSS colour name or `auto`."""
+    if not isinstance(value, str) or BG_RE.fullmatch(value) is None:
+        return False
+    return value[0] == "#" or value == "auto" or value.lower() in CSS_COLOUR_NAMES
 # `reveal=list` shows a list's items one per next-press (and steps a stepped-
 # image card's frames in lockstep); `reveal=off` turns a card's image stepping
 # off for that screen (spec: The shot directive, `reveal`).
@@ -1365,7 +1369,7 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
     if name == "bg" and not valid_bg(value):
         shot.warnings.append(
             f"check 25: {token!r}: bg is the ground behind the media, "
-            f"bg=#rrggbb (or #rgb) or bg=auto — token ignored"
+            f"bg=#rrggbb (or #rgb), a colour name like bg=black, or bg=auto — token ignored"
         )
         return
     if name == "blur":

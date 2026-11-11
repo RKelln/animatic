@@ -1240,7 +1240,7 @@ check 41 warning. A deck card shadows a library entry of the same slug, text inc
 
 ### Card background default
 
-Any card, or shared-library entry, may carry `bg: "#rrggbb"` (or `#rgb`) or
+Any card, or shared-library entry, may carry `bg: "#rrggbb"` (or `#rgb`, or a CSS colour name such as `black`) or
 `bg: auto`. It is the default `bg=` flag for every shot that uses the slug (see the
 flag table for what it does, including the automatic text colour under `auto`); a shot's own `bg=` wins. Any other value is ignored
 with a check 41 warning. Quote a hex in YAML: an unquoted `#` starts a comment.
