@@ -42,7 +42,8 @@
         "flow-demo-007",
         "flow-demo-008",
         "flow-demo-009",
-        "flow-demo-010"
+        "flow-demo-010",
+        "flow-demo-011"
       ]
     }
   ],
@@ -308,6 +309,39 @@
       "id": "flow-demo-009",
       "ordinal": 9,
       "movement": 2,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "duo-one",
+          "role": null,
+          "flags": {
+            "layout": "split"
+          }
+        }
+      ],
+      "media": {
+        "slug": "duo-one",
+        "type": "image",
+        "status": "file",
+        "found": true,
+        "file": "_media/duo-one.svg",
+        "source": "deckdir",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "fixture art for the duo layout screen",
+        "reason": ""
+      },
+      "screen_text": null,
+      "script": "The split layout gives the media the whole right half.",
+      "stage": null,
+      "est_seconds": 4.0
+    },
+    {
+      "id": "flow-demo-010",
+      "ordinal": 10,
+      "movement": 2,
       "kind": "credits",
       "title": "The end roll",
       "shots": [
@@ -346,8 +380,8 @@
       "est_seconds": 8.0
     },
     {
-      "id": "flow-demo-010",
-      "ordinal": 10,
+      "id": "flow-demo-011",
+      "ordinal": 11,
       "movement": 2,
       "kind": "black",
       "title": null,

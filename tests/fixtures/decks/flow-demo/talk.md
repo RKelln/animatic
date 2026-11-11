@@ -56,6 +56,10 @@ Hero text scales with the slide; the card carries no media.
 
 The duo layout frames the object beside the words.
 
+<!-- shot: duo-one layout=split -->
+
+The split layout gives the media the whole right half.
+
 <!-- shot: credits -->
 
 # The end roll

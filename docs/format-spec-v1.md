@@ -322,8 +322,18 @@ layouts:
   piece: {description: "media floats as a framed object"}
   duo: {description: "object + text layout; implies piece"}
   titled: {description: "heading centred at the top, framed media centred below; implies piece"}
+  split: {description: "half text, half media; the media fills the right half, full height"}
   cols: {description: "the screen's first list runs in two balanced columns under the title"}
 ```
+
+`layout=split` gives the slide two halves: the text on the left, and the media
+on the right filling its half edge to edge, full height, with no frame, border
+or shadow. It covers the half by default, so a picture of another shape is
+cropped; `fit=contain` shows the whole picture, letterboxed on the slide ground
+(`bg=auto` matches that ground to the picture's own corner colour). `dim` and
+`kb` are ignored, as for the framed layouts, and `under` is dropped (check 8 and
+check 32 say so). Unlike `duo`, whose object is a 32vw framed piece, `split` is
+for screenshots and demos that need to be read from the back of the room.
 
 `layout=cols` sets the screen's first list (bulleted or numbered) as a
 two-column grid, filled down the left column and then the right: the top-level

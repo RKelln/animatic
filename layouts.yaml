@@ -3,4 +3,5 @@ layouts:
   piece: {description: "media floats as framed object (border + shadow on image)"}
   duo: {description: "object + text layout; implies piece"}
   titled: {description: "heading centred at the top, framed media centred below; implies piece"}
+  split: {description: "half text, half media: the media fills the right half edge to edge, full height (cover by default, fit=contain to letterbox); the text column is the left half"}
   cols: {description: "the screen's first list runs in two balanced columns under the title (a 4 to 8 item list that is short per item); a media shot is unaffected"}

@@ -485,7 +485,7 @@ def check_8_flag_combos(talk, resolver, report: Report) -> None:
             continue
         flags = mshot.flags
         layout_name = flags.get("layout")
-        framed = layout_name in ("piece", "duo", "titled")
+        framed = layout_name in ("piece", "duo", "titled", "split")
         if not framed:
             continue
         framed_desc = f"layout={layout_name}"
@@ -1111,7 +1111,7 @@ def check_30_dim_without_text(talk, resolver, report: Report) -> None:
         mshot = s.media_shot
         if mshot is None or not mshot.flags.get("dim"):
             continue
-        if mshot.flags.get("layout") in ("piece", "duo", "titled"):
+        if mshot.flags.get("layout") in ("piece", "duo", "titled", "split"):
             continue
         if mshot.flags.get("under"):
             continue          # dim darkens the backdrop under the shot's own media, which carries the text
@@ -1156,7 +1156,7 @@ def check_32_under_backdrop(talk, resolver, report: Report) -> None:
     """`under=<slug>` lays a still backdrop beneath the shot's own media and
     `blur=` softens it. Say so when that cannot happen: the backdrop slug is not
     a resolvable still image, `blur=` has nothing to blur, or the layout is a
-    framed object (piece, duo, titled) with no full-bleed ground to put it on."""
+    framed object (piece, duo, titled, split) with no full-bleed ground to put it on."""
     for s in talk.screens:
         mshot = s.media_shot
         if mshot is None:
@@ -1175,7 +1175,7 @@ def check_32_under_backdrop(talk, resolver, report: Report) -> None:
                        line=mshot.line, screen=s.idx)
         if not under:
             continue
-        if flags.get("layout") in ("piece", "duo", "titled"):
+        if flags.get("layout") in ("piece", "duo", "titled", "split"):
             report.add(32, WARNING,
                        f"under={under} on '{mshot.slug}' with layout={flags['layout']}: "
                        f"a framed object has no full-bleed ground, so the backdrop is dropped",

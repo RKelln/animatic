@@ -316,6 +316,29 @@ def check(fx, errors: list) -> None:
                     err(errors, "duo live pane rule measures against the zone's "
                                 "container height, which is 0 in a duo column")
 
+    # -- layout=split: half text, half media ----------------------------------
+    # The slide carries `split`, and the stylesheet gives the pane the right
+    # half edge to edge (inset: 0 0 0 auto; width: 50%) and the text the left
+    # half. Assert the rules' shape, not the selector alone.
+    split_cues = [c for c in cues["cues"]
+                  if (((c.get("shots") or [{}])[0].get("flags") or {}).get("layout")
+                      == "split")]
+    for c in split_cues:
+        cls = next((cl for cid, cl, _ in sections if cid == c["id"]), "")
+        if "split" not in cls.split():
+            err(errors, f"cue {c['id']}: declares layout=split but its slide "
+                        f"carries no split class ({cls!r})")
+    if split_cues:
+        pane = re.search(r"\.media-zone\.split\s*\{([^}]*)\}", pres_text, re.S)
+        body = " ".join(pane.group(1).split()) if pane else ""
+        if "inset: 0 0 0 auto" not in body or "width: 50%" not in body:
+            err(errors, f"split deck: no rule puts the media in the right half, "
+                        f"edge to edge: {body[:160]!r}")
+        text = re.search(r"\.animatic-slide\.split \.screen-body\s*\{([^}]*)\}",
+                         pres_text, re.S)
+        if not text or "width: 50%" not in text.group(1):
+            err(errors, "split deck: no rule gives the text the left half")
+
     # -- the deck's side of the presenter window ----------------------------
     # Two bindings moved when the presenter became a second window, and one
     # control appeared with it: the deck must be able to say when the browser

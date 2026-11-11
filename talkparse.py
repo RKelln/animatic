@@ -92,7 +92,7 @@ CONTINUE_WORDS = ("continue", "cont")
 # Config-driven vocabulary loaded from roles.yaml + per-deck override.
 # Fallback when no yaml present: the built-in roles above.
 # Layout vocabulary (Tier B, config-driven via layouts.yaml).
-LAYOUTS = ("piece", "duo", "titled")
+LAYOUTS = ("piece", "duo", "titled", "split")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
                "under", "blur", "anchor", "still", "reveal", "live", "waypoint", "bg")

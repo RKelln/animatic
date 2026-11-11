@@ -696,6 +696,20 @@
     box-shadow: var(--piece-shadow, 0 24px 70px rgba(0, 0, 0, 0.45));
   }
 
+  /* split slides (`layout=split`): half text, half media. The media fills the
+     right half edge to edge, full height, with no frame; the text column is the
+     left half. Cover by default (fit=contain letterboxes it on the slide ground). */
+  .animatic-slide.split .screen-body {
+    align-items: flex-start; text-align: left;
+    width: 50%;
+    padding: 0 3vw 0 6vw;
+  }
+  .media-zone.split {
+    inset: 0 0 0 auto;
+    width: 50%;
+  }
+  .media-zone.split .live-host { position: relative; inset: auto; width: 100%; height: 100%; }
+
   /* titled slides (`layout=titled`): the heading and the framed media are one
      centred group, whatever the picture's shape: the slide becomes a centred
      column, heading first, then the media at its natural size. */

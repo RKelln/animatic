@@ -770,7 +770,7 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None,
                     under: MediaRef | None = None,
                     frames: list | None = None) -> str:
     """Full-bleed media zone: media element + kb class + fit/dim + role/layout handling."""
-    if under is not None and flags.get("layout") in ("piece", "duo", "titled"):
+    if under is not None and flags.get("layout") in ("piece", "duo", "titled", "split"):
         under = None          # a framed object has no full-bleed ground to put a backdrop on (check 32)
     if under is not None:
         # the shot's own media (a video with a transparent ground) lies over the
@@ -823,8 +823,9 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None,
                        if k not in ("dim", "kb", "layout")}
         kbcls = ""
     else:
-        media_flags = {k: v for k, v in flags.items() if k != "dim" and k not in ("layout",)} if piece else flags
-        kbcls = f" kb-{flags['kb']}" if flags.get("kb") in KB_VALUES else ""
+        framed = bool(piece) or layout_name == "split"      # a framed or split object takes no dim or kb (check 8)
+        media_flags = {k: v for k, v in flags.items() if k != "dim" and k not in ("layout",)} if framed else flags
+        kbcls = f" kb-{flags['kb']}" if flags.get("kb") in KB_VALUES and layout_name != "split" else ""
     if frames:
         # stepped images: one stack of frames; camera drift would have to run
         # on every frame in step, so a stepped screen takes no kb
@@ -846,8 +847,14 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None,
         media = f'<div class="kb-lens">{media}</div>'
     # a piece is always contained by its own CSS, so it takes no fit class
     fit = " fit" if media_fit(flags) == "contain" and not piece else ""
+    split_cls = ""
+    if layout_name == "split":
+        # the right-hand pane: edge to edge, so it fills (cover) unless the shot
+        # says fit=contain; the default contain of other layouts would letterbox it
+        split_cls = " split"
+        fit = " fit" if flags.get("fit") == "contain" else ""
     titled_cls = " titled" if layout_name == "titled" else ""
-    return f'<div class="media-zone{fit}{piece}{duo_cls}{titled_cls}">{media}</div>'
+    return f'<div class="media-zone{fit}{piece}{duo_cls}{titled_cls}{split_cls}">{media}</div>'
 
 
 # ---------------------------------------------------------------------------
@@ -4658,6 +4665,8 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
             cls += " duo-live"
     if layout_name == "titled" and screen.media_shot is not None:
         cls += " titled"
+    if layout_name == "split" and screen.media_shot is not None:
+        cls += " split"
     if layout_name == "cols":
         cls += " cols"
     # per-slide text mode (shot flag `text=light|dark`): the author picks the
