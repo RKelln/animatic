@@ -1010,7 +1010,29 @@ PAGER_JS = """
     }
   }
 
+  // the slide you just left stays up, at the opacity it had, under the one fading
+  // in (so the colour never dips to the ground), then is dropped. Quick paging
+  // is safe: each held slide has its own timer, and a slide you return to is
+  // released at once and fades up from where it was.
+  var HOLD_MS = 700;
+  function dropHold(el) {
+    if (el._holdT) { clearTimeout(el._holdT); el._holdT = null; }
+    el.classList.remove("leaving");
+    el.style.opacity = "";
+  }
+  function hold(el) {
+    if (el.classList.contains("leaving")) return;
+    var o = getComputedStyle(el).opacity;
+    el.style.opacity = o;
+    el.classList.add("leaving");
+    el._holdT = setTimeout(function () { dropHold(el); }, HOLD_MS);
+  }
+
   function render() {
+    if (cur !== lastCur && slides[lastCur]) {
+      hold(slides[lastCur]);
+    }
+    dropHold(slides[cur]);
     for (var i = 0; i < slides.length; i++) {
       if (i === cur) { slides[i].classList.add("active"); }
       else { slides[i].classList.remove("active"); }

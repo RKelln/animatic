@@ -36,12 +36,17 @@
     position: absolute; inset: 0;
     opacity: 0; visibility: hidden;
     overflow: hidden;
-    transition: opacity 0.7s ease, visibility 0s linear 0.7s;
+    background: var(--stage-bg);   /* every slide owns an opaque ground (an inline bg: overrides) */
+    /* an inactive slide is gone at once; the pager keeps the slide you just left
+       up under the new one (.leaving, below) so the fade never dips to the ground */
   }
   .animatic-slide.active {
     opacity: 1; visibility: visible; z-index: 2;
     transition: opacity 0.7s ease, visibility 0s linear 0s;
   }
+  /* the slide just left: held at the opacity it had (inline, set by the pager)
+     beneath the incoming one, which fades in over it, then dropped */
+  .animatic-slide.leaving { visibility: visible; z-index: 1; transition: none; }
   @media (prefers-reduced-motion: reduce) {
     .animatic-slide, .animatic-slide.active { transition: none; }
   }
