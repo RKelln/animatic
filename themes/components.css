@@ -255,6 +255,19 @@
     border-radius: 0.5em;
   }
   .animatic-slide blockquote.type-in code { font: inherit; }
+  /* over media the field must stay legible: mostly opaque, like a real input box */
+  .animatic-slide.over-media blockquote.type-in {
+    background: rgba(250, 250, 248, 0.82);
+    border-color: rgba(0, 0, 0, 0.35);
+    color: #111;
+    text-shadow: none;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .animatic-slide.over-media blockquote.type-in code { color: #111; text-shadow: none; }
+  /* the input box is its own plate: no frosted halo around it */
+  .animatic-slide.over-media .quote-block:has(> blockquote.type-in) { padding: 0; margin-block: 1em; }
+  .animatic-slide.over-media .quote-block:has(> blockquote.type-in) > .quote-plate { display: none; }
   .animatic-slide blockquote p { margin: 0; text-wrap: pretty; }
   .animatic-slide blockquote p + p { margin-top: 0.7em; }
   /* quote attribution (grammar: a "Source: ..." line under a quote) */
