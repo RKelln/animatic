@@ -847,13 +847,20 @@ def media_zone_html(ref: MediaRef, flags: dict, chain: str | None = None,
         media = f'<div class="kb-lens">{media}</div>'
     # a piece is always contained by its own CSS, so it takes no fit class
     fit = " fit" if media_fit(flags) == "contain" and not piece else ""
+    titled_cls = " titled" if layout_name == "titled" else ""
     split_cls = ""
     if layout_name == "split":
         # the right-hand pane: edge to edge, so it fills (cover) unless the shot
         # says fit=contain; the default contain of other layouts would letterbox it
         split_cls = " split"
         fit = " fit" if flags.get("fit") == "contain" else ""
-    titled_cls = " titled" if layout_name == "titled" else ""
+        if fit and not ref.live and ref.found:
+            # a contained picture meets its pane without a seam: the pane takes
+            # the picture's own corner colour (the slide's text half is untouched)
+            pane_bg = corner_colour(ref.origin or ref.file)
+            if pane_bg:
+                return (f'<div class="media-zone{fit}{piece}{duo_cls}{titled_cls}{split_cls}" '
+                        f'style="background:{pane_bg}">{media}</div>')
     return f'<div class="media-zone{fit}{piece}{duo_cls}{titled_cls}{split_cls}">{media}</div>'
 
 
