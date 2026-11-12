@@ -55,8 +55,8 @@ pre.paste-box { margin: 0; padding: 0.8em 1em; font-family: var(--font-mono, mon
 .copy-wrap > pre, .copy-wrap > blockquote { margin: 0; }
 /* The button sits inside the box, at its right edge; the text keeps clear of it. */
 .js .copy-wrap > pre, .js .copy-wrap > blockquote { padding-right: 6.2em; }
-.copy-btn { display: none; position: absolute; top: 0.45em; right: 0.45em; min-height: 2.5rem;
-  padding: 0.3em 1em; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--doc-bg);
+.copy-btn { display: none; position: absolute; top: 0.4em; right: 0.4em; min-height: 0;
+  padding: 0.15em 0.8em; font: inherit; font-size: 0.85rem; line-height: 1.4; font-weight: 600; color: var(--doc-bg);
   background: var(--doc-accent); border: 0; border-radius: 0.4em; cursor: pointer; }
 .copy-wrap > blockquote + .copy-btn { top: 50%; transform: translateY(-50%); }
 .js .copy-btn { display: inline-block; }
