@@ -140,6 +140,9 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str):
     if not agent:
         warnings.append("frontmatter has no `agent:` block (start, continue, guide); "
                         "'Get the files' will be empty")
+    author = str(agent.get("author") or meta.get("author") or "").strip()
+    if not author:
+        warnings.append("no `agent.author`: the export cannot say whose voice the steps are in")
     goal = str(agent.get("goal") or "").strip()
     if not goal:
         for f in GOAL_FIELDS:
@@ -152,7 +155,8 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str):
     out = [f"# {title}: run this workshop with your agent", "",
            f"*A guide for a coding agent. A person pasted a message that sent you here. "
            f"Read this whole file, then take them through it. The workshop page is {page_url}. "
-           f"The full reading copy is {reading_url}.*", "",
+           f"The full reading copy is {reading_url}."
+           + (f" The workshop was made and led by {author}; the steps are in their voice.*" if author else "*"), "",
            _strip_leading_comment(core_path.read_text(encoding="utf-8")), "",
            "## This workshop", "", f"**{title}**", ""]
     if goal:

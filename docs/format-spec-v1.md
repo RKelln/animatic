@@ -247,12 +247,15 @@ agent:
   start: "https://example.org/files.zip: unzip it into a new folder."
   continue: "What a take-home folder from the room contains, so the agent can tell it."
   guide: "https://example.org/build-guide.md"                 # optional: a hand-written guide for the build part
+  author: "Ryan Kelln"                                          # whose voice the steps are in (falls back to `author:`)
 ```
 
 `goal` falls back to the first of `logline`, `summary`, `description` that
 exists (`logline` is the one the format already defines). `start` says where a
 fresh start gets its files: a URL plus one line of how. `continue` says what a
-take-home folder holds. `guide` is the URL of a guide for the build part. A talk
+take-home folder holds. `guide` is the URL of a guide for the build part. `author`
+names the person whose voice the spoken text is in, so the agent relays their
+stories as theirs instead of speaking as them (a warning when missing). A talk
 with no `agent:` block still exports, with a warning.
 
 ### Recommended, unenforced
