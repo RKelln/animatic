@@ -60,6 +60,13 @@ pre.paste-box { margin: 0; padding: 0.8em 1em; font-family: var(--font-mono, mon
   background: var(--doc-accent); border: 0; border-radius: 0.4em; cursor: pointer; }
 .copy-wrap > blockquote + .copy-btn { top: 50%; transform: translateY(-50%); }
 .js .copy-btn { display: inline-block; }
+/* The next box to copy: a gentle pulse, moved along each time a box is copied. */
+@keyframes copy-next { 0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 4px var(--doc-accent); } }
+.copy-wrap.next-up > pre, .copy-wrap.next-up > blockquote { animation: copy-next 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .copy-wrap.next-up > pre, .copy-wrap.next-up > blockquote { animation: none;
+    box-shadow: 0 0 0 3px var(--doc-accent); } }
 .copy-btn:focus-visible { outline: 3px solid var(--doc-ink); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (max-width: 30rem) { .ex-card { padding: 0.1em 0.8em 0.9em; } }
@@ -86,9 +93,16 @@ HOME_JS = """<div id="copy-status" class="sr-only" role="status" aria-live="poli
     clearTimeout(btn._t);
     btn._t = setTimeout(function () { btn.textContent = "Copy"; live.textContent = ""; }, 2000);
   }
+  var wraps = Array.prototype.slice.call(document.querySelectorAll(".copy-wrap"));
+  function nextUp(i) {
+    wraps.forEach(function (w) { w.classList.remove("next-up"); });
+    if (i >= 0 && i < wraps.length) wraps[i].classList.add("next-up");
+  }
+  nextUp(0);
   document.addEventListener("click", function (e) {
     var btn = e.target.closest ? e.target.closest(".copy-btn") : null;
     if (!btn) return;
+    nextUp(wraps.indexOf(btn.parentNode) + 1);
     var src = btn.parentNode.firstElementChild;
     var text = src.textContent.replace(/\\s+$/, "");
     if (navigator.clipboard && navigator.clipboard.writeText) {

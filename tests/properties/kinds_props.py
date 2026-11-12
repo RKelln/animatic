@@ -288,7 +288,8 @@ def _home(errors: list, tmp: Path, talk_md: Path, core: Path, agent_txt: str) ->
     if not re.search(r'<div class="copy-wrap"><blockquote class="type-in"><p><code>Hello there\.</code>', page):
         err(errors, "kinds: the do screen's typed prompt has no Copy button")
     for needle in ("navigator.clipboard.writeText", 'execCommand("copy")', 'aria-live="polite"',
-                   'role="status"', "2000"):
+                   'role="status"', "2000", "@keyframes copy-next", "prefers-reduced-motion",
+                   'classList.add("next-up")'):
         if needle not in page:
             err(errors, f"kinds: copy script lacks {needle!r}")
     if 'print("a &lt; b")' not in page and "print(&quot;a &lt; b&quot;)" not in page:
