@@ -161,6 +161,11 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str):
            "## This workshop", "", f"**{title}**", ""]
     if goal:
         out += [re.sub(r"\s+", " ", goal), ""]
+    for key, label in (("practice", "Practice person"), ("own", "Their own")):
+        if str(agent.get(key) or "").strip():
+            out.append(f"- **{label}:** " + re.sub(r"\s+", " ", str(agent[key]).strip()))
+    if agent.get("practice") or agent.get("own"):
+        out.append("")
     out += ["## Get the files", ""]
     for key, label in (("start", "Fresh start"), ("continue", "Continuing from the room"),
                        ("guide", "Guide for the build part")):

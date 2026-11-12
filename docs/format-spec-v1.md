@@ -248,6 +248,8 @@ agent:
   continue: "What a take-home folder from the room contains, so the agent can tell it."
   guide: "https://example.org/build-guide.md"                 # optional: a hand-written guide for the build part
   author: "Ryan Kelln"                                          # whose voice the steps are in (falls back to `author:`)
+  practice: "Dana, a made-up student with a part-time job; she is described in for-people/dana-guide.html."  # optional
+  own: "goals.md (goals and free hours), weeks/ (one file per week), worklog.md (dated notes of what got done)."  # optional
 ```
 
 `goal` falls back to the first of `logline`, `summary`, `description` that
@@ -255,7 +257,10 @@ exists (`logline` is the one the format already defines). `start` says where a
 fresh start gets its files: a URL plus one line of how. `continue` says what a
 take-home folder holds. `guide` is the URL of a guide for the build part. `author`
 names the person whose voice the spoken text is in, so the agent relays their
-stories as theirs instead of speaking as them (a warning when missing). A talk
+stories as theirs instead of speaking as them (a warning when missing). `practice`
+names the made-up person the exercises use and where they are described; `own` is
+the folder layout the agent builds, by interview, for someone who chooses their own
+life instead. Both print under "This workshop". A talk
 with no `agent:` block still exports, with a warning.
 
 ### Recommended, unenforced
