@@ -9,6 +9,7 @@ logline: "A throwaway talk with content, exercise and room screens."
 agent:
   start: "https://example.org/files.zip: unzip it into a new folder."
   continue: "A folder holding a notes.txt file."
+  author: "A. Presenter"
 status: "construct fixture - `live` and `do` on one screen warns (check 53)."
 test-expect: warned
 ---

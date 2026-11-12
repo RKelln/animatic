@@ -9,6 +9,7 @@ logline: "A throwaway talk with content, exercise and room screens."
 agent:
   start: "https://example.org/files.zip: unzip it into a new folder."
   continue: "A folder holding a notes.txt file."
+  author: "A. Presenter"
 status: "construct fixture - `do` marks an exercise screen (present view and agent export, not the reading copy); `live` a room screen (present view only); `(Do: ...)` is an agent-only instruction."
 ---
 <!-- shot -->

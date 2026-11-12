@@ -117,7 +117,8 @@ def check(errors: list) -> None:
         if not txt.startswith("# Screen kinds: run this workshop with your agent\n\n*A guide for a "
                               "coding agent. A person pasted a message that sent you here. Read "
                               f"this whole file, then take them through it. The workshop page is "
-                              f"{URL_PAGE}. The full reading copy is {URL_READ}.*\n"):
+                              f"{URL_PAGE}. The full reading copy is {URL_READ}. The workshop was made and led by "
+                              "A. Presenter; the steps are in their voice.*\n"):
             err(errors, "kinds: agent export header is wrong")
         if "shared core" in txt or "## Your job\n\nCore line one.\n" not in txt:
             err(errors, "kinds: core not verbatim minus its leading comment")
