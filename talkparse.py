@@ -808,6 +808,7 @@ def split_parens(text: str) -> tuple[str, list]:
     A nested `(` is a warning (register check 23, spec: Text), never a silent
     corruption; authors rewrite the parenthetical flat.
     """
+    text, unmask = _mask_link_targets(text)   # a link's `(url)` is not a stage note
     spoken_parts: list[str] = []
     stage: list[str] = []
     for m in PAREN_SPLIT_RE.finditer(text):
@@ -817,7 +818,24 @@ def split_parens(text: str) -> tuple[str, list]:
             spoken_parts.append(m.group(2))
     spoken = re.sub(r"\s+", " ", " ".join(spoken_parts)).strip()
     spoken = re.sub(r"\s+([.,;:!?])", r"\1", spoken)   # 'Residence (..).' -> 'Residence.'
-    return spoken, [s for s in stage if s]
+    return unmask(spoken), [unmask(s) for s in stage if s]
+
+
+_LINK_TARGET_RE = re.compile(r"\]\(((?:https?://|mailto:)[^)\s]+)\)")
+
+
+def _mask_link_targets(text: str):
+    """Hide each `[text](url)` target from the paren rules; return the masked
+    text and a function that puts the targets back."""
+    found: list[str] = []
+
+    def keep(m):
+        found.append(m.group(0))
+        return f"\ue000{len(found) - 1}\ue001"
+    masked = _LINK_TARGET_RE.sub(keep, text)
+    if not found:
+        return text, lambda t: t
+    return masked, lambda t: re.sub(r"\ue000(\d+)\ue001", lambda m: found[int(m.group(1))], t)
 
 
 def nested_paren_at(text: str) -> Optional[int]:
@@ -826,6 +844,7 @@ def nested_paren_at(text: str) -> Optional[int]:
     split_parens recognizes one level, so nesting silently corrupts the
     spoken text unless it warns.
     """
+    text = _mask_link_targets(text)[0]   # indexes shift; only used to warn
     depth = 0
     for i, ch in enumerate(text):
         if ch == "(":
@@ -844,6 +863,7 @@ def unclosed_paren_at(text: str) -> Optional[int]:
     paragraph, often a whole stage note, read as spoken text and print in the
     handout.
     """
+    text = _mask_link_targets(text)[0]   # indexes shift; only used to warn
     opener = None
     for i, ch in enumerate(text):
         if ch == "(" and opener is None:
@@ -879,7 +899,12 @@ def strip_footnote_refs(text: str, collected: list, marks: Optional[list] = None
     return "".join(out)
 
 
-_INLINE_TOK = re.compile(r"(\*\*.+?\*\*|`[^`]+`|\*[^*\s][^*]*\*)")
+# `[text](url)`: a link.  Only http(s) and mailto: targets, so `[^id]`,
+# `[timer:..]`, `[notes]` and `[n]` never match.  The slide shows the text as
+# plain words; the document view, handout and web export make it a link.
+_LINK = r"\[[^\]\n^][^\]\n]*\]\((?:https?://|mailto:)[^)\s]+\)"
+_INLINE_TOK = re.compile(r"(" + _LINK + r"|\*\*.+?\*\*|`[^`]+`|\*[^*\s][^*]*\*)")
+_LINK_RE = re.compile(r"\[([^\]\n^][^\]\n]*)\]\(((?:https?://|mailto:)[^)\s]+)\)")
 
 
 def html_escape(text: str) -> str:
@@ -892,14 +917,28 @@ def html_escape(text: str) -> str:
 
 
 def inline_md(text: str) -> str:
-    """Escape + minimal inline markdown (bold / code / italic) -> HTML."""
-    esc = html_escape(text)
+    """Escape + minimal inline markdown (bold / code / italic / link) -> HTML.
+    A link is `<a class="md-link">`: the present view styles it as plain text."""
+    return _inline_html(html_escape(text))
+
+
+def link_md(text: str) -> str:
+    """Escape, and make `[text](url)` links only: for caption-like lines that
+    take no other markup (a lower third, a credits line, a figure caption)."""
+    return _LINK_RE.sub(lambda m: '<a class="md-link" href="%s">%s</a>' % (m.group(2), m.group(1)),
+                        html_escape(text))
+
+
+def _inline_html(esc: str) -> str:
     parts = []
     pos = 0
     for m in _INLINE_TOK.finditer(esc):
         parts.append(esc[pos:m.start()])
         tok = m.group(0)
-        if tok.startswith("**") and tok.endswith("**"):
+        lm = _LINK_RE.fullmatch(tok) if tok.startswith("[") else None
+        if lm:
+            parts.append('<a class="md-link" href="%s">%s</a>' % (lm.group(2), _inline_html(lm.group(1))))
+        elif tok.startswith("**") and tok.endswith("**"):
             parts.append("<strong>%s</strong>" % tok[2:-2])
         elif tok.startswith("`") and tok.endswith("`"):
             parts.append("<code>%s</code>" % tok[1:-1])
@@ -914,7 +953,8 @@ def inline_md(text: str) -> str:
 
 def plain_md(text: str) -> str:
     """Strip inline markdown markers -> plain text (cues script / TTS)."""
-    s = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    s = _LINK_RE.sub(r"\1", text)
+    s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)
     s = re.sub(r"`([^`]+)`", r"\1", s)
     s = re.sub(r"(?<!\w)\*([^*\s][^*]*)\*(?!\w)", r"\1", s)
     return re.sub(r"\s+", " ", s).strip()

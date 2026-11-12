@@ -48,6 +48,7 @@ from talkparse import (
     Talk,
     TIMER_TOKEN_RE,
     inline_md,
+    link_md,
     plain_md,
     slugify,
     spoken_list_items,
@@ -4273,6 +4274,20 @@ def quote_kind_attr(text: str) -> str:
     return ' class="type-in"' if TYPE_IN_RE.match(text.strip()) else ""
 
 
+# a type-in line that is only a web address (`> `example.org/page``): the
+# document view links it, so a reader can click where the room typed
+TYPE_IN_URL_RE = re.compile(r"^`((?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[A-Za-z0-9_./#?=&%~-]*)?)`$")
+
+
+def type_in_link(text: str, inner_html: str) -> str:
+    m = TYPE_IN_URL_RE.match(text.strip())
+    if not m:
+        return inner_html
+    url = m.group(1) if m.group(1).startswith("http") else "https://" + m.group(1)
+    return re.sub(r"(<code>.*?</code>)", lambda c: f'<a class="md-link" href="{html.escape(url)}">{c.group(1)}</a>',
+                  inner_html, count=1, flags=re.S)
+
+
 def quote_size_class(text: str) -> str:
     n = len(re.sub(r"[*`]", "", text).replace("\n\n", " "))
     if n <= QUOTE_SHORT_MAX:
@@ -4636,9 +4651,9 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
 
         for b in overlay_blocks(screen):
             if b.kind == "lower" and b.text.strip():
-                inner.append(f'<div class="lower-third">{html.escape(b.text)}</div>')
+                inner.append(f'<div class="lower-third">{link_md(b.text)}</div>')
             elif b.kind == "credits" and b.text.strip():
-                inner.append(f'<div class="credits-line">{html.escape(b.text)}</div>')
+                inner.append(f'<div class="credits-line">{link_md(b.text)}</div>')
 
     if tm is not None and tm[2]:
         inner.append(timer_plate_html(tm, "corner", screen.timer_parent))
@@ -5119,7 +5134,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
                      if k in ("playback", "sound")}
         inner = media_html(ref, doc_flags, css_class="figure-media")
         cap = "".join(
-            f'<figcaption>{html.escape(b.text)}</figcaption>'
+            f'<figcaption>{link_md(b.text)}</figcaption>'
             for b in screen.blocks if b.kind in ("lower", "credits") and b.text.strip()
         )
         out.append(f'<figure class="shot" data-slug="{html.escape(ref.slug)}">{inner}{cap}</figure>')
@@ -5143,7 +5158,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             headings.append((lvl, plain_md(strip_timer_tokens(b.text)), anchor))
             out.append(f"<h{lvl} class='screen-heading'>{timer_sub(_cite_links(inline_md(_with_cites(b, cite_no))), b, 'doc')}</h{lvl}>")
         elif b.kind == "quote":
-            out.append(f"<blockquote{quote_kind_attr(b.text)}>{timer_sub(_cite_links(quote_paras_html(_with_cites(b, cite_no))), b, 'doc')}</blockquote>")
+            out.append(f"<blockquote{quote_kind_attr(b.text)}>{type_in_link(b.text, timer_sub(_cite_links(quote_paras_html(_with_cites(b, cite_no))), b, 'doc'))}</blockquote>")
         elif b.kind == "quote-source":
             out.append(f'<p class="doc-quote-source">{inline_md(b.text)}</p>')
         elif b.kind == "list":
@@ -5173,7 +5188,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
                 )
         elif b.kind in ("lower", "credits") and not is_credits:
             if b.text.strip():
-                out.append(f'<p class="screen-caption">{html.escape(b.text)}</p>')
+                out.append(f'<p class="screen-caption">{link_md(b.text)}</p>')
         # stage notes never reach the handout
     if is_credits and credits_entries_:
         items = "".join(

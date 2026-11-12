@@ -516,6 +516,16 @@ A plain paragraph is spoken. It belongs to the screen open before it. A screen
 with no paragraphs has no voice-over (a "beat screen") — that is the default
 and needs no marker.
 
+### Links
+
+`[text](url)`, with an `http(s)://` or `mailto:` target, is a link. On a slide
+and in the presenter notes the text looks like the words around it and ignores
+clicks (a click advances the deck); the script, captions and timing read the
+text alone. The document view, handout and web export make it a visible,
+clickable link. The target is never a stage note, though it sits in
+parentheses. A type-in quote that is only a web address (`> `example.org/page``)
+links the same way in print, and its Copy button still copies the text.
+
 ### Spoken lists
 
 A list is screen text: it shows on the slide and it is never spoken. **A list

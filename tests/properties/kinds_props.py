@@ -138,6 +138,29 @@ def check(errors: list) -> None:
         if r.returncode == 0:
             err(errors, "kinds: --back-url accepted a relative path")
 
+        # `[text](url)`: plain words on the slide and in speech, a link in print;
+        # a type-in line that is a web address links in print too
+        if (talkparse.inline_md("see [the site](https://example.org/a?b=1&c=2) now")
+                != 'see <a class="md-link" href="https://example.org/a?b=1&amp;c=2">the site</a> now'
+                or talkparse.plain_md("see [**the** site](https://example.org/) now") != "see the site now"
+                or "md-link" in talkparse.inline_md("[^src] [timer:5m] [notes] [x](ftp://a.b) [y](relative/)")):
+            err(errors, "kinds: markdown links render wrongly")
+        lk = tmp / "lk"
+        lk.mkdir()
+        (lk / "talk.md").write_text(
+            '---\ntitle: "Links"\n---\n<!-- shot -->\n\n# Links\n\nHello.\n\n## One\n\n<!-- shot -->\n'
+            '### Where\n- Go to [example.org](https://example.org/)\n\nSay [the name](https://example.org/) aloud.\n\n'
+            '> `example.org/start`\n', encoding="utf-8")
+        lo = tmp / "lk-out"
+        subprocess.run([sys.executable, str(REPO / "build.py"), str(lk / "talk.md"), "--out", str(lo)],
+                       capture_output=True, text=True)
+        ld = (lo / "document" / "index.html").read_text() if (lo / "document" / "index.html").exists() else ""
+        lc = json.loads((lo / "cues.json").read_text()) if (lo / "cues.json").exists() else {"cues": []}
+        said = " ".join(c.get("script") or "" for c in lc["cues"])
+        if ('href="https://example.org/"' not in ld or 'href="https://example.org/start"' not in ld
+                or "Say the name aloud." not in said or "](" in said):
+            err(errors, "kinds: links missing from print, or link markup in the spoken script")
+
         # card `reading-copy: false`: on the slide, never in the reading copy
         deck = tmp / "rc"
         (deck / "media").mkdir(parents=True)

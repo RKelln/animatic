@@ -1408,6 +1408,16 @@
     background: color-mix(in srgb, var(--doc-ink) 6%, transparent);
   }
   body.view-document blockquote.type-in code { font: inherit; }
+  /* `[text](url)`: on a slide the words look like the words around them and
+     ignore clicks (a click advances the deck); in the document view, the
+     handout and the web export they are visibly links */
+  a.md-link { color: inherit; text-decoration: none; cursor: inherit; pointer-events: none; }
+  body.view-document a.md-link {
+    color: var(--doc-accent); text-decoration: underline; text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em; cursor: pointer; pointer-events: auto;
+  }
+  body.view-document a.md-link:hover { text-decoration-thickness: 2px; }
+  body.view-document a.md-link:focus-visible { outline: 2px solid var(--doc-accent); outline-offset: 2px; }
   body.view-document blockquote {
     margin: 1.4em 0; padding: 0.2em 0 0.2em 1.1em;
     border-left: 3px solid var(--doc-accent);
