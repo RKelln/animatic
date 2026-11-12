@@ -68,6 +68,17 @@ def check(errors: list) -> None:
         if uses != ["content", "content", "content", "exercise", "room", "content"]:
             err(errors, f"kinds: screen uses {uses}")
 
+        # section numbers skip room-only sections (a Break): no gaps in print
+        secs = tmp / "secs.md"
+        secs.write_text(
+            '---\ntitle: "Sections"\n---\n<!-- shot -->\n\n# Sections\n\nHello.\n\n## One\n\n<!-- shot -->\n### A\nSaid.\n\n'
+            '## Break\n\n<!-- shot: live -->\n### Break\nRest.\n\n'
+            '## Try it\n\n<!-- shot: do -->\n### Do\nTry.\n\n'
+            '## Two\n\n<!-- shot -->\n### B\nSaid.\n', encoding="utf-8")
+        labels = [m.display for m in talkparse.build_talk(secs).movements]
+        if labels != ["1. One", "Break", "2. Try it", "3. Two"]:
+            err(errors, f"kinds: section labels {labels}")
+
         # both flags: a room screen, one check-53 warning
         both = tmp / "both.md"
         shutil.copy(FIX / "screen-kinds-warned.talk.md", both)

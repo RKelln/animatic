@@ -318,13 +318,18 @@ def section_title(text: str, index: int) -> str:
     return t or f"Section {index}"
 
 
-def section_label(index: int, text: str) -> str:
-    """Display label for a section: '<ordinal>. <title>'.  The opening
-    (index 0) has no label.  Empty remainder gives 'Section <n>'."""
+def section_label(index: int, text: str, number: Optional[int] = None) -> str:
+    """Display label for a section: '<number>. <title>'.  The opening
+    (index 0) has no label.  `number` is the printed ordinal (default: the
+    index); 0 means the section is unnumbered and shows its title alone.
+    Empty remainder gives 'Section <n>'."""
     if index <= 0:
         return ""
+    n = index if number is None else number
     t = SECTION_PREFIX_RE.sub("", text.strip(), count=1).strip()
-    return f"{index}. {t}" if t else f"Section {index}"
+    if n <= 0:
+        return t or f"Section {index}"
+    return f"{n}. {t}" if t else f"Section {n}"
 
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
@@ -723,11 +728,15 @@ class Movement:
     index: int
     title: str
     label: str                    # original heading text
+    # the printed ordinal: sections made only of room screens (a Break) get 0
+    # and no number, so the numbers run without gaps; None until build_talk
+    # sets it (then the index stands in)
+    number: Optional[int] = None
 
     @property
     def display(self) -> str:
-        """The label shown to readers: '<index>. <title>' (see section_label)."""
-        return section_label(self.index, self.label)
+        """The label shown to readers: '<number>. <title>' (see section_label)."""
+        return section_label(self.index, self.label, self.number)
 
 
 @dataclass
@@ -1900,6 +1909,24 @@ def _append_shelf(talk: Talk, path, qdir: Path, qline: int, role_vocab,
     talk.warnings.sort()
 
 
+def number_sections(talk: Talk) -> None:
+    """Give each section its printed ordinal.  A section whose screens are all
+    room screens (`live`, or the shelf) is unnumbered: it never prints, and in
+    the room a Break needs no number.  The rest count 1, 2, 3 in order, so the
+    contents of a reading copy and the presenter's "Section N" agree and have
+    no gaps.  An exercise (`do`) screen counts: the home page prints it."""
+    n = 0
+    for m in sorted(talk.movements, key=lambda m: m.index):
+        if m.index <= 0:
+            continue
+        mine = [s for s in talk.screens if s.movement == m.index]
+        if mine and all(s.room_only for s in mine):
+            m.number = 0
+        else:
+            n += 1
+            m.number = n
+
+
 def build_talk(path, source: Optional[str] = None,
                quick_sections: Optional[str] = None) -> Talk:
     """Parse a talkfile path into a Talk model.
@@ -2428,6 +2455,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
     for i, s in enumerate(talk.screens, start=1):
         s.idx = i
     link_timer_continuations(talk)
+    number_sections(talk)
     # Line spans (spec: Outputs — nav.json maps cue id -> line range).  Every
     # item carries where it starts; anything built without an explicit end
     # occupies exactly one line, so the default here — never a silent 0 —

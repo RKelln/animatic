@@ -3318,7 +3318,9 @@ PRESENTER_UI_JS = r"""
   function qCueTitle(c) { return c.title || qFirstLine(c) || cueTitle(c); }
   function qCueLabel(c, k) {
     if (c.sec_title) return c.sec_title;
-    return (c.movement ? "Section " + c.movement : "Opening") + " · slide " + (k + 1);
+    var sec = c.movement_number ? "Section " + c.movement_number
+            : c.movement ? (c.movement_label || "Section") : "Opening";
+    return sec + " · slide " + (k + 1);
   }
 
   function qSearch(text) {
@@ -4162,6 +4164,8 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path,
             "ordinal": screen.idx,
             "movement": screen.movement,
             "movement_label": mv.display if mv is not None else "",
+            # the printed ordinal; 0 for an unnumbered (room-only) section
+            "movement_number": (mv.number if mv.number is not None else mv.index) if mv is not None else 0,
             "kind": screen_kind(screen),
             "title": plain_md(screen_title(screen)) if screen_title(screen) else "",
             # a live screen has nothing to preview: the presenter labels it

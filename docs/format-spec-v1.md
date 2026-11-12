@@ -431,8 +431,13 @@ view, reading copy, handout, home page, `nav.json`/`cues.json` `label` and
 any leading prefix dropped: `Movement`, `Part`, `Act`, `Chapter` or `Section`
 plus a number (digits, or uppercase roman numerals) and an optional separator
 (`·` `:` `.` `|` `-` `–`), or a bare leading number plus separator. If nothing
-remains the label is `Section <n>`. The opening (index 0) has no label; the
-presenter shows `Opening` for it, and `Section N · slide k` after. One helper
+remains the label is `Section <n>`. The ordinal counts only sections that
+hold at least one content or exercise screen: a section made only of room
+screens (`live`, or the shelf), such as a Break, is unnumbered and shows its
+title alone, so the numbers run without gaps in print and in the room
+(`talkparse.number_sections`; `cues.json` `movement_number`, 0 when
+unnumbered). The opening (index 0) has no label; the presenter shows `Opening`
+for it, and `Section N · slide k` after. One helper
 (`talkparse.section_label`) does this; `section_title` gives the title alone.
 
 A `###` heading that follows a section heading and precedes a shot is that
