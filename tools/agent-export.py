@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
 """Export a talkfile as one plain-text markdown file a person's own coding agent
-can follow to run the whole workshop at home.
+can follow to run the hands-on parts of a workshop at home, beside the home page
+(`tools/web-export.py --home`), which carries the content.
 
     python3 tools/agent-export.py <talk.md> <out.md> --core <core.md> \\
-        --page-url <url> --reading-url <url>
+        --page-url <url> [--home-url <url>] [--reading-url <url>]
 
 The file is: a header, the shared core (verbatim, minus its leading HTML
-comment), `## This workshop`, `## Get the files` (from the talk's frontmatter
-`agent:` block) and `## Steps`.  Steps walk the screens in talk order:
-
-- a content screen (no flag) joins the current step; consecutive content screens
-  under one movement heading make one step (a long run splits at a screen
-  heading, a skipped screen splits it too);
-- an exercise screen (`do`) is its own step, `Exercise: <heading>`;
-- a room screen (`live`) is skipped;
-- a `(Do: ...)` stage note on any screen is appended to its step as
-  `**Exercise:** ...`.
-
-Every step carries `Reading copy: <reading-url>#cue-<cue id>`, the same element id
-the web export uses.  An exercise step (which the reading copy does not print)
-points at the content screen before it.
+comment), `## This workshop` (goal, practice person, their own), `## Get the
+files` (from the talk's frontmatter `agent:` block), `## How this runs` (with
+`--home-url`) and `## Exercises`.  There is one `### Exercise <N>: <heading>`
+section per exercise card on the home page, in page order, with the same
+heading and the same paste text (exercises.py makes both), then the full
+instruction text: screen text, spoken text, `(Do: ...)` notes.  A `do` screen is
+one card; each `(Do: ...)` note on a content screen is one.  Room screens (`live`)
+and sections whose frontmatter says `agent-export: skip` make none.  The content
+is not repeated: the page carries it.
 
 Refuses, like web-export, to write a file that names a local filesystem path
 (frontmatter `web-allow:` clears a string).  A missing `agent:` block is a
@@ -31,139 +27,19 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import render  # noqa: E402
+import exercises  # noqa: E402
 import talkparse  # noqa: E402
 
 LOCAL_PATH_RE = re.compile(r"/home/\w+[^\"<\s]*|~/(?:Documents|\.)[^\"<\s]*")
 GOAL_FIELDS = ("logline", "summary", "description")
-SPLIT_WORDS = 450          # a step longer than this splits at the next screen heading
 
 
 def _strip_leading_comment(text: str) -> str:
     return re.sub(r"\A\s*<!--.*?-->\s*", "", text, count=1, flags=re.S).strip()
 
 
-def _screen_body(screen) -> str:
-    """The screen's own text for an exercise: list, quote, code, table, stat; the
-    heading and any timer token are left out (the heading is the step title)."""
-    out = []
-    first = screen.first_heading
-    for b in screen.blocks:
-        if b is first or b.kind in ("heading", "handout-heading", "timer") or b.kind == "vo":
-            continue
-        text = talkparse.strip_timer_tokens(b.text) if b.timer is not None else b.text
-        if b.kind == "list":
-            items = [talkparse.strip_timer_tokens(i) if "[" in i else i for i in b.items]
-            out.append("\n".join(f"{'1.' if b.ordered else '-'} {i}" for i in items))
-        elif b.kind == "code":
-            out.append("```\n" + b.text + "\n```")
-        elif b.kind in ("quote",):
-            if text.strip():
-                out.append("\n".join("> " + ln for ln in text.splitlines()))
-        elif b.kind == "table":
-            rows = ["| " + " | ".join(r) + " |" for r in b.rows]
-            if rows:
-                out.append("\n".join(rows))
-        elif b.kind in ("stat", "paraphrase", "lower", "credits", "quote-source", "print"):
-            if b.kind != "print" and text.strip():
-                out.append(text.strip())
-    return "\n\n".join(x for x in out if x.strip())
-
-
-def _plain(text: str) -> str:
-    return re.sub(r"[ \t]*\n[ \t]*", "\n", text.strip())
-
-
-_SKIP_CACHE: dict = {}
-
-
-def _section_skipped(screen, talk_dir) -> bool:
-    """True when the screen comes from an included section whose own frontmatter says
-    `agent-export: skip` (an introduction or credits: fine in the reading copy, noise in a
-    self-run workshop)."""
-    inc = screen.include
-    if not inc:
-        return False
-    path = Path(inc)
-    if not path.is_absolute() and talk_dir is not None:
-        path = (talk_dir / path).resolve()
-    if path not in _SKIP_CACHE:
-        skip = False
-        try:
-            text = path.read_text(encoding="utf-8")
-            if text.startswith("---"):
-                head = text.split("\n---", 1)[0]
-                skip = bool(re.search(r"(?m)^agent-export:\s*skip\s*$", head))
-        except OSError:
-            skip = False
-        _SKIP_CACHE[path] = skip
-    return _SKIP_CACHE[path]
-
-
-def build_steps(talk, reading_url: str, talk_dir=None) -> list:
-    """[{title, anchor, body: [str]}] in talk order."""
-    slug = render.deck_slug(talk)
-    moves = {m.index: m.title for m in talk.movements}
-    base = reading_url.split("#")[0]
-    steps: list = []
-    cur = None            # the open content step
-    last_anchor = None    # the last content screen's anchor
-    words = 0
-    seen: set = set()
-    skipped_moves: set = set()   # movements whose heading came from a skipped section
-
-    def anchor(screen):
-        return f"{base}#cue-{slug}-{screen.idx:03d}"
-
-    for s in talk.screens:
-        if _section_skipped(s, talk_dir):
-            cur = None            # a section that opts out of agent exports
-            skipped_moves.add(s.movement)   # its heading must not name the talk's own screens
-            continue
-        if render.is_black_screen(s) or s.room_only:
-            cur = None            # a skipped screen ends the run
-            continue
-        if s.exercise:
-            cur = None
-            title = render.screen_title(s) or moves.get(s.movement) or "step"
-            body = []
-            if _screen_body(s):
-                body.append(_screen_body(s))
-            say = render.screen_script(s)
-            if say.strip():
-                body.append(_plain(say))
-            if s.timer is not None and s.timer_parent is None:
-                body.append(f"(about {max(1, round(s.timer[0] / 60))} minutes in the room)")
-            body += [f"**Exercise:** {n}" for n in s.do_notes]
-            steps.append({"title": f"Exercise: {title}", "anchor": last_anchor, "body": body,
-                          "kind": "exercise"})
-            continue
-        say = render.screen_script(s)
-        title = render.screen_title(s)
-        if cur is None or cur["movement"] != s.movement or \
-                (words >= SPLIT_WORDS and title):
-            mt = moves.get(s.movement) or talk.meta.get("title") or "Opening"
-            if s.movement in skipped_moves:
-                mt = title or talk.meta.get("title") or "Opening"
-            # the movement's later steps are named by their first screen
-            label = f"{mt}: {title}" if mt in seen and title else mt
-            seen.add(mt)
-            if label in seen and label != mt:
-                label = f"{label} (continued)"
-            seen.add(label)
-            cur = {"title": label, "anchor": anchor(s), "body": [], "kind": "content",
-                   "movement": s.movement}
-            steps.append(cur)
-            words = 0
-        if say.strip():
-            cur["body"].append(_plain(say))
-            words += len(say.split())
-        cur["body"] += [f"**Exercise:** {n}" for n in s.do_notes]
-        last_anchor = anchor(s)
-    return [st for st in steps if st["body"] or st["kind"] == "exercise"]
-
-
-def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str):
+def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str = "",
+           home_url: str = ""):
     """Return (text, warnings, allowed)."""
     talk = talkparse.build_talk(talk_path)
     meta = talk.meta
@@ -175,7 +51,7 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str):
                         "'Get the files' will be empty")
     author = str(agent.get("author") or meta.get("author") or "").strip()
     if not author:
-        warnings.append("no `agent.author`: the export cannot say whose voice the steps are in")
+        warnings.append("no `agent.author`: the export cannot say whose voice the spoken text is in")
     goal = str(agent.get("goal") or "").strip()
     if not goal:
         for f in GOAL_FIELDS:
@@ -187,9 +63,9 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str):
 
     out = [f"# {title}: run this workshop with your agent", "",
            f"*A guide for a coding agent. A person pasted a message that sent you here. "
-           f"Read this whole file, then take them through it. The workshop page is {page_url}. "
-           f"The full reading copy is {reading_url}."
-           + (f" The workshop was made and led by {author}; the steps are in their voice.*" if author else "*"), "",
+           f"Read this whole file, then set up the workshop with them as it says. The workshop page is {page_url}."
+           + (f" The full reading copy is {reading_url}." if reading_url else "")
+           + (f" The workshop was made and led by {author}; the spoken text is in their voice.*" if author else "*"), "",
            _strip_leading_comment(core_path.read_text(encoding="utf-8")), "",
            "## This workshop", "", f"**{title}**", ""]
     if goal:
@@ -206,12 +82,15 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str):
             out.append(f"- **{label}:** " + re.sub(r"\s+", " ", str(agent[key]).strip()))
     if not agent:
         out.append("(this workshop has no file instructions)")
-    out += ["", "## Steps", ""]
-    for n, st in enumerate(build_steps(talk, reading_url, talk_path.parent), 1):
-        out += [f"### Step {n}: {st['title']}", ""]
-        if st["anchor"]:
-            out += [f"Reading copy: {st['anchor']}", ""]
-        for para in st["body"]:
+    out.append("")
+    if home_url:
+        out += ["## How this runs", "",
+                f"The person reads the workshop page at {home_url}. When they paste an exercise, run it. "
+                "Answer questions about anything on that page; fetch it if you need to.", ""]
+    out += ["## Exercises", ""]
+    for card in exercises.collect(talk, talk_path.parent):
+        out += [f"### {card.title}", "", "They paste:", "", "```", card.paste, "```", ""]
+        for para in card.instructions():
             out += [para, ""]
     text = "\n".join(out).rstrip() + "\n"
     allowed = [str(x) for x in (meta.get("web-allow") or [])]
@@ -224,12 +103,13 @@ def main() -> int:
     ap.add_argument("out")
     ap.add_argument("--core", required=True, help="the shared core file")
     ap.add_argument("--page-url", required=True)
-    ap.add_argument("--reading-url", required=True)
+    ap.add_argument("--reading-url", default="", help="optional: the full reading copy")
+    ap.add_argument("--home-url", default="", help="where the home page is published")
     ap.add_argument("--allow", action="append", default=[], metavar="TEXT",
                     help="a local-path string cleared to appear (also frontmatter `web-allow:`)")
     a = ap.parse_args()
     text, warnings, allowed = export(Path(a.talkfile).resolve(), Path(a.core),
-                                     a.page_url, a.reading_url)
+                                     a.page_url, a.reading_url, a.home_url)
     for w in warnings:
         print(f"warn      : {w}", file=sys.stderr)
     bad = [m for m in LOCAL_PATH_RE.findall(text)
@@ -242,8 +122,8 @@ def main() -> int:
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text, encoding="utf-8")
-    steps = len(re.findall(r"^### Step ", text, flags=re.M))
-    print(f"agent     : {out} ({steps} steps)")
+    n = len(re.findall(r"^### Exercise \d+: ", text, flags=re.M))
+    print(f"agent     : {out} ({n} exercises)")
     return 0
 
 

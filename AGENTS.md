@@ -28,7 +28,8 @@ coding agent. Edit here, never there.
     python3 build.py <talkfile> --watch [...]      # rebuild on save, open pages reload (Ctrl-C stops); replaces any watcher already on that --out
     python3 build.py <talkfile> --quick-sections DIR   # trial-build with a quick-select shelf (docs/quick-select.md)
     python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see README: Handout PDF)
-    python3 tools/agent-export.py <talkfile> <out.md> --core <core.md> --page-url URL --reading-url URL   # plain-text file for a coding agent to run the workshop
+    python3 tools/agent-export.py <talkfile> <out.md> --core <core.md> --page-url URL --home-url URL   # plain-text file: the exercises, for a coding agent beside the home page
+    python3 tools/web-export.py --home <talkfile> <out-dir> --agent-url URL --coding-agent-url URL    # home page: exercise cards with paste boxes, Copy buttons
     python3 tools/timing-report.py <talkfile> [--dur 2h] [--wpm N] [--screens] [--json]   # how long it runs, by movement, timer and screen
     python3 build.py --corpus                      # every deck under corpus.yaml roots
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]

@@ -4,6 +4,13 @@ holding index.html and the web-sized images it uses, ready to drop on a static
 site (Hugo `static/`, GitHub Pages, any file server).
 
     python3 tools/web-export.py <talkfile> <out-dir> [--work DIR]
+    python3 tools/web-export.py --home <talkfile> <out-dir> [--agent-url URL] [--coding-agent-url URL]
+
+`--home` writes the home version: the page a person reads while their own coding
+agent does the hands-on parts.  Exercise screens (`do`) and `(Do: ...)` notes
+print as exercise cards with a paste box; every code block and typed line gets a
+Copy button; with an `agent:` block and `--agent-url` a setup card leads the
+page.  Room screens stay out.  Spec: format-spec-v1.md, "Home page".
 
 The folder is `index.html` plus `media/*.jpg`; every link in the page is
 relative, so it works under any URL prefix.  Nothing else from the build ships:
@@ -21,10 +28,94 @@ from html import escape
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import exercises  # noqa: E402
 import talkparse  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 MEDIA_PREFIX = "../_media/doc/"
+
+SETUP_PASTE = ("Read {url} and set up this workshop with me. Ask me before you download, "
+               "install or change anything, one question at a time, in plain words.")
+
+HOME_CSS = """<style>
+.ex-card { margin: 1.8em 0; padding: 0.2em 1.1em 1.1em; border: 2px solid var(--doc-accent);
+  border-radius: 0.6em; background: var(--doc-callout-bg); color: var(--doc-ink); }
+.ex-kicker { margin: 0.9em 0 0; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--doc-accent); }
+.ex-title { margin: 0.2em 0 0.6em; font-size: 1.3rem; }
+.ex-paste { margin-top: 1.2em; padding-top: 0.8em; border-top: 1px solid var(--doc-line); }
+.ex-paste-label { margin: 0 0 0.4em; font-weight: 600; }
+.ex-card .copy-wrap pre, .ex-card .copy-wrap blockquote { background: var(--doc-bg); }
+pre.paste-box { margin: 0; padding: 0.8em 1em; font-family: var(--font-mono, monospace);
+  font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+  color: var(--doc-ink); background: var(--doc-bg); border: 1px solid var(--doc-muted);
+  border-radius: 0.4em; }
+.copy-wrap { margin: 1.2em 0; }
+.ex-card .copy-wrap { margin: 0; }
+.copy-wrap > pre, .copy-wrap > blockquote { margin: 0 0 0.4rem; }
+.copy-btn { display: none; min-height: 2.75rem; padding: 0.4em 1.2em; font: inherit; font-weight: 600;
+  color: var(--doc-bg); background: var(--doc-accent); border: 0; border-radius: 0.4em; cursor: pointer; }
+.js .copy-btn { display: inline-block; }
+.copy-btn:focus-visible { outline: 3px solid var(--doc-ink); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 30rem) { .ex-card { padding: 0.1em 0.8em 0.9em; } }
+</style>
+"""
+
+HOME_JS = """<div id="copy-status" class="sr-only" role="status" aria-live="polite"></div>
+<script>
+(function () {
+  document.documentElement.className += " js";
+  var live = document.getElementById("copy-status");
+  function fallback(el) {
+    var ok = false;
+    try {
+      var r = document.createRange(); r.selectNodeContents(el);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      ok = document.execCommand("copy");
+    } catch (e) {}
+    return ok;
+  }
+  function done(btn, ok) {
+    btn.textContent = ok ? "Copied" : "Press Ctrl+C to copy";
+    live.textContent = ok ? "Copied to clipboard" : "Text selected. Press Control C to copy.";
+    clearTimeout(btn._t);
+    btn._t = setTimeout(function () { btn.textContent = "Copy"; live.textContent = ""; }, 2000);
+  }
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest(".copy-btn") : null;
+    if (!btn) return;
+    var src = btn.parentNode.firstElementChild;
+    var text = src.textContent.replace(/\\s+$/, "");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(btn, true); },
+        function () { done(btn, fallback(src)); });
+    } else {
+      done(btn, fallback(src));
+    }
+  });
+})();
+</script>
+"""
+
+
+def add_copy_buttons(html: str) -> str:
+    """Wrap every <pre> and typed-line quote in a box with a Copy button after it."""
+    btn = '<button type="button" class="copy-btn">Copy</button>'
+    html = re.sub(r"<pre\b[^>]*>.*?</pre>", lambda m: f'<div class="copy-wrap">{m.group(0)}{btn}</div>',
+                  html, flags=re.S)
+    return re.sub(r'<blockquote class="type-in">.*?</blockquote>',
+                  lambda m: f'<div class="copy-wrap">{m.group(0)}{btn}</div>', html, flags=re.S)
+
+
+def setup_card(agent_url: str, coding_agent_url: str) -> str:
+    paste = escape(SETUP_PASTE.format(url=agent_url), quote=False)
+    more = (f'<p>No coding agent yet? <a href="{escape(coding_agent_url, quote=True)}">'
+            f'Set one up first.</a></p>' if coding_agent_url else "")
+    return ('<aside class="ex-card" id="ex-setup" aria-label="Before you start: set up your agent">'
+            '<p class="ex-kicker">Before you start</p><h3 class="ex-title">Set up your agent</h3>'
+            '<div class="ex-paste"><p class="ex-paste-label">Paste this to your agent:</p>'
+            f'<pre class="paste-box">{paste}</pre></div>{more}</aside>')
 
 
 def main() -> int:
@@ -35,12 +126,20 @@ def main() -> int:
     ap.add_argument("--allow", action="append", default=[], metavar="TEXT",
                     help="a local-path string the author has cleared to appear in the page "
                          "(also frontmatter `web-allow:`, a list)")
+    ap.add_argument("--home", action="store_true",
+                    help="the home version: exercise cards, Copy buttons, an optional setup card")
+    ap.add_argument("--agent-url", help="with --home: the agent file; adds the setup card")
+    ap.add_argument("--coding-agent-url", help="with --home: where to get a coding agent")
     a = ap.parse_args()
+    for u in (a.agent_url, a.coding_agent_url):
+        if u and not u.startswith(("http://", "https://")):
+            print(f"refusing to export: not an http(s) URL: {u}", file=sys.stderr)
+            return 1
     talk = Path(a.talkfile).resolve()
     out = Path(a.out).resolve()
     work = Path(a.work) if a.work else Path(tempfile.mkdtemp(prefix="animatic-web-"))
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work),
-                        "--no-handout-placeholders"], stdout=subprocess.DEVNULL,
+                        "--no-handout-placeholders"] + (["--home-cards"] if a.home else []), stdout=subprocess.DEVNULL,
                        env={k: v for k, v in os.environ.items() if k != "ANIMATIC_WAYPOINT_TOKEN"})
     if r.returncode:
         return r.returncode
@@ -59,6 +158,16 @@ def main() -> int:
     if desc:
         head += f'<meta property="og:description" content="{desc}">\n'
     html = re.sub(r"(</title>\n?)", r"\1" + head.replace("\\", "\\\\"), html, count=1)
+
+    if a.home:
+        html = html.replace("</head>", HOME_CSS + "</head>", 1)
+        if meta.get("agent") and a.agent_url:
+            html = re.sub(r'<section class="(?:opening|movement)"',
+                          lambda m: setup_card(a.agent_url, a.coding_agent_url or "") + m.group(0),
+                          html, count=1)
+        elif a.agent_url:
+            print("warn      : no `agent:` block in the frontmatter; no setup card", file=sys.stderr)
+        html = add_copy_buttons(html).replace("</body>", HOME_JS + "</body>", 1)
 
     allowed = list(a.allow) + [str(x) for x in (meta.get("web-allow") or [])]
     problems = []

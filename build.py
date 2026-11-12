@@ -38,6 +38,7 @@ from pathlib import Path
 
 import yaml
 
+import exercises
 import render
 import talkparse
 from mediaresolve import UNCREDITED, MediaResolver, expand_pools, shelf_media_errors, uncredited_shared
@@ -61,6 +62,9 @@ def main(argv=None) -> int:
                     help="leave pool-card pictures (random art from a folder) "
                          "out of the handout; slides keep them "
                          "(frontmatter: handout-pools: off)")
+    ap.add_argument("--home-cards", action="store_true",
+                    help="document view for the home page: exercise screens and (Do: ...) notes "
+                         "print as exercise cards (tools/web-export.py --home)")
     ap.add_argument("--no-handout-placeholders", action="store_true",
                     help="leave the grey box for a card with no picture yet "
                          "out of the handout "
@@ -222,7 +226,11 @@ def build(talk_path: Path, args) -> int:
                                  waypoints_live=bool(wp_token))
     document = render_document(talk, resolver, out / "document", figures=args.handout_figures,
                                pools=False if args.no_handout_pools else None,
-                               placeholders=False if args.no_handout_placeholders else None)
+                               placeholders=False if args.no_handout_placeholders else None,
+                               cards=(exercises.collect(talk, Path(talk.source).parent)
+                                      if args.home_cards else None),
+                               omit=(exercises.skipped_screens(talk, Path(talk.source).parent)
+                                     if args.home_cards else None))
     cues = render_cues(talk, resolver, out)
     nav = render_nav(talk, out)
     manifest = render_manifest(talk, resolver, out)

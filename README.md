@@ -195,6 +195,9 @@ directories, so the tool builds into `~/animatic-handout-build/<deck>/`
 ### Web page
 
     python3 tools/web-export.py <talkfile> <out-dir>
+    python3 tools/web-export.py --home <talkfile> <out-dir> [--agent-url URL] [--coding-agent-url URL]
+
+`--home` is the version for a person working at home beside their own coding agent: exercise screens and `(Do: ...)` notes become exercise cards with a paste box, code blocks get Copy buttons (spec: "Home page and agent export").
 
 Writes the document view as one self-contained folder: `index.html` plus
 `media/` holding only the web-sized images the page uses. Every link is
