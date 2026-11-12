@@ -72,7 +72,8 @@
       "script": "",
       "stage": null,
       "est_seconds": 3.0,
-      "live_only": true
+      "live_only": true,
+      "use": "room"
     },
     {
       "id": "live-only-003",

@@ -48,7 +48,7 @@ sys.path.insert(0, str(TESTS))
 
 import build as build_mod  # noqa: E402
 from properties import (check_props, code_props, corpus_props, cue_props, html_props,  # noqa: E402
-                        ingest_props, include_props, timer_props, manifest_props, nav_props, playback_props,
+                        ingest_props, include_props, kinds_props, timer_props, manifest_props, nav_props, playback_props,
                         quick_props, shared_media_props, timing_props, waypoint_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
@@ -284,6 +284,18 @@ def main(argv=None) -> int:
     else:
         passed.append("waypoint")
         print("ok    waypoint")
+
+    # screen kinds (content / exercise / room) and the agent export
+    kinds_errors: list = []
+    kinds_props.check(kinds_errors)
+    if kinds_errors:
+        failed.append("kinds")
+        print("FAIL  kinds")
+        for e in kinds_errors[:12]:
+            print(f"      {e}")
+    else:
+        passed.append("kinds")
+        print("ok    kinds")
 
     # ingest name matching: a throwaway deck and inbox, --no-recover only
     ingest_errors: list = []

@@ -71,8 +71,11 @@ import yaml
 SHOT_RE = re.compile(r"^\s*<!--\s*shot(?::\s*(.*?))?\s*-->\s*$")
 # `<!-- include: path [live] -->` on its own line splices another file's
 # screens in (spec: Includes).  Only the `live` modifier exists so far.
+# `(Do: ...)`: a stage note that is never spoken or printed; the agent export
+# takes it as the step's exercise instructions (spec: Directions).
+DO_NOTE_RE = re.compile(r"^\s*do\s*:\s*(.*)$", re.IGNORECASE | re.DOTALL)
 INCLUDE_RE = re.compile(r"^\s*<!--\s*include:\s*(\S+)((?:\s+\S+)*?)\s*-->\s*$")
-INCLUDE_FLAGS = ("live",)
+INCLUDE_FLAGS = ("live", "do")
 # `waypoint=word` in a screen's shot (`<!-- shot: waypoint=word -->`) marks that screen with a
 # word the deck publishes when the talk reaches it (docs/waypoints.md).  Check 49.  The old
 # standalone `<!-- waypoint: word -->` line is gone; WAYPOINT_OPEN_RE only recognises it to
@@ -95,7 +98,7 @@ CONTINUE_WORDS = ("continue", "cont")
 LAYOUTS = ("piece", "duo", "titled", "split")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
-               "under", "blur", "anchor", "still", "reveal", "live", "waypoint", "bg")
+               "under", "blur", "anchor", "still", "reveal", "live", "do", "waypoint", "bg")
 # `bg=#rrggbb` / `#rgb` / `auto`: the ground behind slide media (the letterbox).
 # `auto` takes the media's own top-left pixel at build time.
 # A CSS named colour (`bg=black`, `bg=navy`) is also accepted, case-insensitively.
@@ -594,7 +597,38 @@ class Screen:
         to the live deck only (present + presenter views).  The document view
         / handout leaves it out and cues.json marks it, so a video render
         skips it.  A shelf screen (quick select) is live-only by definition."""
+        return self.shelf or any(f in s.flags for s in self.shots
+                                 for f in ("live", "do"))
+
+    @property
+    def room_only(self) -> bool:
+        """True for a room screen: `live` (or a shelf screen).  Presented,
+        never in the reading copy, never in the agent export."""
         return self.shelf or any("live" in s.flags for s in self.shots)
+
+    @property
+    def exercise(self) -> bool:
+        """True for an exercise screen: the bare `do` flag without `live`.
+        Presented, never in the reading copy, an Exercise step in the agent
+        export (spec: Screen kinds)."""
+        return not self.room_only and any("do" in s.flags for s in self.shots)
+
+    @property
+    def use(self) -> str:
+        """`content` | `exercise` | `room`: who the screen is for."""
+        return "room" if self.room_only else "exercise" if self.exercise else "content"
+
+    @property
+    def do_notes(self) -> list:
+        """The `(Do: ...)` stage notes on this screen, prefix stripped: the
+        hands-on instruction for the agent export, spoken nowhere."""
+        out = []
+        for b in self.blocks:
+            for st in b.stage:
+                m = DO_NOTE_RE.match(st)
+                if m and m.group(1).strip():
+                    out.append(m.group(1).strip())
+        return out
 
     @property
     def timer_block(self) -> Optional["Block"]:
@@ -1559,10 +1593,11 @@ def _resolve_continue(shot: Shot, screens: list, talk) -> None:
         prev.chain = str(prev.line)
     shot.chain = prev.chain
     shot.slug = prev.slug
-    own_live = "live" in shot.flags
+    own = {f for f in ("live", "do") if f in shot.flags}
     shot.flags = {**prev.flags, **shot.flags}
-    if not own_live:
-        shot.flags.pop("live", None)     # live-only belongs to one screen
+    for f in ("live", "do"):
+        if f not in own:
+            shot.flags.pop(f, None)     # live-only / exercise belongs to one screen
 
 
 def _run_start(raw_blocks: list, i: int) -> int:

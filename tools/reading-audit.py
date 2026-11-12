@@ -46,7 +46,7 @@ def main() -> int:
     page = (work / "document" / "index.html").read_text(encoding="utf-8")
     vis = [c for c in cues["cues"] if not c.get("live_only")]
     print(f"# {meta.get('title', talk.parent.name)}: {len(cues['cues'])} screens, "
-          f"{len(cues['cues']) - len(vis)} live-only, {len(vis)} in the reading copy\n")
+          f"{len(cues['cues']) - len(vis)} live-only or exercise, {len(vis)} in the reading copy\n")
 
     chk = subprocess.run([sys.executable, str(ROOT / "check.py"), str(talk)], capture_output=True, text=True).stdout
     finds = [l for l in chk.splitlines() if l.startswith(("fatal", "warning"))]
@@ -92,7 +92,7 @@ def main() -> int:
     for c in vis:
         blob = json.dumps(c.get("screen_text") or [])
         if re.search(r"timer", blob, re.I):
-            print(f"- {c['ordinal']:>3} {c.get('title') or ''!r}: has a timer: a room beat? consider `live` (timers never print)")
+            print(f"- {c['ordinal']:>3} {c.get('title') or ''!r}: has a timer: a room beat? consider `live` or `do` (timers never print)")
     print()
 
     print("## Page leaks")

@@ -237,6 +237,24 @@ verified:
 - `generated:` and `verified:` record who wrote and who confirmed the content;
   the builder never reads them.
 
+### The `agent:` block
+
+Optional frontmatter read only by `tools/agent-export.py`:
+
+```yaml
+agent:
+  goal: "One paragraph: what the person can do by the end."   # else logline, summary, description
+  start: "https://example.org/files.zip: unzip it into a new folder."
+  continue: "What a take-home folder from the room contains, so the agent can tell it."
+  guide: "https://example.org/build-guide.md"                 # optional: a hand-written guide for the build part
+```
+
+`goal` falls back to the first of `logline`, `summary`, `description` that
+exists (`logline` is the one the format already defines). `start` says where a
+fresh start gets its files: a URL plus one line of how. `continue` says what a
+take-home folder holds. `guide` is the URL of a guide for the build part. A talk
+with no `agent:` block still exports, with a warning.
+
 ### Recommended, unenforced
 
 `date`, `venue`, `dur`, `status`, `description`, `tags`, `timestamp`,
@@ -296,6 +314,8 @@ Flags are the per-shot knobs. The top-level namespace is fixed:
 | `kb` | `in` / `out` / `zoom-top` | slow drift of the media layer inside a static lens; `zoom-top` is one slow push-in (about 30 s) anchored at the top edge that then holds, for a picture with lettering near its top |
 | `dim` | `0`–`1` | a dark scrim at that opacity, to keep on-screen text readable; on a screen with no on-screen text it is check 30's warning (fix a too-bright image in the file instead) |
 | `text` | `light` / `dark` | per-screen text treatment, overriding the theme default |
+| `live` | bare | a room screen: presented, never in the reading copy or the agent export (see "Screen kinds") |
+| `do` | bare | an exercise screen: presented, never in the reading copy, an Exercise step in the agent export (see "Screen kinds"); with `live` the screen is a room screen and check 53 warns |
 | `bg` | `#rrggbb` / `#rgb` / `auto` | the slide's ground colour, which is what shows in the letterbox of `fit=contain` media (and behind any transparent media). `auto` takes the media's own top-left colour (the mean of a 3x3 block; a video's first frame) at build time, so a picture on a flat ground meets its frame without a seam. `auto` on media with a transparent or unreadable corner, or on live capture, leaves the theme ground. Anything else is check 25's warning. With `auto`, and no `text=` on the shot or its card, the text colour follows the ground too (dark text on a bright ground, light on a dark one); a hex `bg` leaves `text=` alone, so pick it yourself |
 | `advance` | (none) | when the screen's video ends, move to the next screen; the video plays once instead of looping. On media that is not a video it is check 31's warning |
 | `playback` | `once` / `loop` / `advance` | this screen's playback, over the card's `playback:`; `playback=advance` is the same flag as `advance`. `pingpong` is card-only (a baked file) and is check 25's warning. On media that is not a video it is check 31's warning |
@@ -411,6 +431,35 @@ written. The rest of this section says "movement"; read it as "section".
 - **What they are not.** A movement is not a slide, and text never attaches to
   it. Text attaches to screens; a movement only closes the current screen and
   renames the section.
+
+### Screen kinds
+
+Every screen is one of three kinds, set by its shot flags. The present view and
+the presenter notes show all three.
+
+| Kind | Marker | Present view | Reading copy (document view, handout, web export) | Agent export |
+|---|---|---|---|---|
+| content | no flag | yes | yes | yes |
+| exercise | `do` (`<!-- shot: do -->`, `<!-- shot: ryan-art do -->`) | yes | no | yes, as an Exercise step |
+| room | `live` | yes | no | no |
+
+A shelf screen (quick select) is a room screen. A screen with both `live` and
+`do` is a room screen and check 53 warns. Like `live`, `do` belongs to one screen:
+a `continue` shot does not inherit it, and the include directive accepts it
+(`<!-- include: path do -->`) as it accepts `live`.
+
+Everything that leaves a screen out of the reading copy keys off one test,
+`Screen.live_only`, true for exercise and room screens: the document view, the
+handout, the web export, `nav.json` (`document.present: false`, reason
+`"exercise"` or `"live-only"`; `"shelf"` for the shelf) and `cues.json`
+(`live_only: true`, so a video render skips both). `cues.json` also carries
+`use`: `"exercise"` or `"room"`; absent means content. Timing is unchanged:
+exercise and room screens count in the estimate like any other.
+
+The stage note `(Do: ...)` is parallel to `(Demo: ...)`: never spoken, never
+printed in the reading copy, shown in the presenter notes like other stage
+notes. The agent export takes it as that step's exercise instructions, so a
+content screen can carry a hands-on instruction for the agent only.
 
 ### Tolerance rules
 
@@ -1058,6 +1107,7 @@ A prefix is an authorial convention, never behaviour:
 | `(Visual: …)` | brief for media generation |
 | `(Beat.)` | timing / pause |
 | `(Demo: …)` | live demo plan, speaker notes only |
+| `(Do: …)` | an exercise for the agent export (see "Agent export"); speaker notes only otherwise |
 | `(Flesh out: …)` | unwritten beat, speaker notes only |
 | `(Note: …)` | note-to-self about the argument |
 
@@ -1297,6 +1347,29 @@ talkfile. `present/presenter.html` is a 1.x additive (2026-09-15): the frozen
 | **media-manifest.json** | the per-slug resolution audit | honesty about what resolved and what is still a placeholder |
 | **nav.json** | cue id → line range, movement, kind | addressability — an agent told "insert after cue 17" seeks instead of counting |
 
+### Agent export
+
+`python3 tools/agent-export.py <talk.md> <out.md> --core <core.md> --page-url <url> --reading-url <url>`
+writes one plain-text markdown file a person's own coding agent follows to run the
+workshop at home. Order: `# <title>: run this workshop with your agent`; an italic
+line naming the page and the reading copy; the core file verbatim (its leading
+HTML comment stripped); `## This workshop` (title and goal); `## Get the files`
+(`agent.start`, `agent.continue`, `agent.guide`); `## Steps`.
+
+Steps walk the screens in talk order. Consecutive content screens under one
+movement heading make one numbered step; a room screen ends the run and is
+skipped; a run of more than about 450 spoken words splits at the next screen
+heading (the later steps are titled `<movement>: <screen heading>`). A `do`
+screen is its own step, `Exercise: <heading>`, with its screen text, spoken
+text and, for a timer, `(about N minutes in the room)`. Each step gives
+`Reading copy: <reading-url>#cue-<cue id>`, the element id the web export's
+screens carry, for the step's first screen; an exercise step, which the reading
+copy does not print, points at the content screen before it. A step's text is
+the spoken text only: no media, shot comments, timers or stage notes, except
+`(Do: ...)`, appended as `**Exercise:** ...` to whichever step holds that screen.
+The export refuses, as the web export does, to write a local filesystem path;
+frontmatter `web-allow:` clears one.
+
 ### Determinism
 
 Builds are deterministic — no timestamps, no set-iteration ordering —
@@ -1359,7 +1432,7 @@ that is not a list (check 48) · a malformed waypoint directive or `waypoints:` 
 **Warning** — unknown flag · a token matching no construct · flag value out of
 range · unknown theme · possible receipt in parens · a nested `(` inside a
 parenthetical · an attribution-shaped paragraph with no preceding quote ·
-media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[timer]` continuation with no timer above it, or `reveal=timer` on one (check 52) · a `[notes]` block that repeats a list the notes already carry (check 42) · two files in `_media/` matching one slug, or a library entry whose `file:` is not there (check 50) · a file from `_media/` with no credit (check 51).
+media unresolved · a card `playback:` or `sound:` that cannot apply as written · a card `steps:` or `handout:` that cannot apply · a stepped card and a `reveal=list` list of different lengths · a fenced block that never closes (check 35) · an empty fenced block (check 36) · a `[Timer: ...]` that is not a timer or a second one (check 37) · a timer over 3 hours (check 38) · a timer token in a spoken paragraph (check 39) · a `[timer]` continuation with no timer above it, or `reveal=timer` on one (check 52) · a `[notes]` block that repeats a list the notes already carry (check 42) · two files in `_media/` matching one slug, or a library entry whose `file:` is not there (check 50) · a file from `_media/` with no credit (check 51) · `live` and `do` on one screen (check 53).
 
 **Info** — `kb` on video · deck slug shadowing a library entry.
 

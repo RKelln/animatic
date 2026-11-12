@@ -166,7 +166,8 @@ def check(fx, errors: list) -> None:
         else:
             live = bool(cue.get("live_only"))
             want_present = cue["kind"] != "black" and not live
-            want_reason = "live-only" if live and cue["kind"] != "black" else "black-beat"
+            want_reason = ("exercise" if cue.get("use") == "exercise"
+                           else "live-only") if live and cue["kind"] != "black" else "black-beat"
             if doc.get("present") is not want_present:
                 err(errors, f"nav.json {cue['id']}: document.present "
                             f"{doc.get('present')!r} but kind is "

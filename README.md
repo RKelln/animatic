@@ -171,7 +171,10 @@ What the handout does (all from the one talkfile):
 - A screen whose shot carries the bare flag `live` (`<!-- shot: tpl-privacy-01 live -->`)
   is for the room only: the present and presenter views show it, the handout
   leaves it out (nav.json says `reason: "live-only"`), and cues.json marks the
-  cue `"live_only": true` so a video render must skip it.
+  cue `"live_only": true` so a video render must skip it. The bare flag `do`
+  marks an exercise screen: presented, left out of the handout and reading copy
+  like `live`, but kept in the agent export (`tools/agent-export.py`; spec:
+  Screen kinds, Agent export). `(Do: ...)` is an agent-only instruction.
 - `[^id]` refs print as numbered links to the Sources list. If the frontmatter
   has a `cites:` map (id to public citation), the list prints those. The
   `sources:` entries are working receipts and may hold repo paths and "verify

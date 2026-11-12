@@ -172,6 +172,7 @@ REGISTER = [
     (50, "shared media: two files in `_media/` match one slug (`_media/<slug>.<ext>` and `_media/<slug>/<slug>.<ext>`, or two extensions), the flat file, then the first extension in the resolver's order, is used; or a library entry's `file:` is not there", WARNING, "implemented: check.py + mediaresolve.py"),
     (51, "shared media with no credit: a file from `_media/` has no library entry or one with no `credit:`, so the handout credits nobody", WARNING, "implemented: check.py"),
     (52, "a `[timer]` continuation that cannot continue: no timer above it in the file (left as literal text), or `reveal=timer` on a continuation (ignored: its countdown is already the parent's)", WARNING, "enforced: talkparse.py (no parent) + check.py (reveal)"),
+    (53, "a screen with both `live` (room only) and `do` (exercise) flags: it is a room screen and the agent export leaves it out; pick one", WARNING, "implemented: check.py"),
 ]
 
 DEFERRED = {
@@ -1017,6 +1018,21 @@ def check_52_reveal_on_continuation(talk, resolver, report: Report) -> None:
                        line=sh.line, screen=s.idx)
 
 
+def check_53_live_and_do(talk, resolver, report: Report) -> None:
+    """`live` and `do` on one screen: `live` wins (room only), so the exercise
+    never reaches the agent export.  The author meant one of the two."""
+    for s in talk.screens:
+        sh = next((sh for sh in s.shots if "live" in sh.flags and "do" in sh.flags), None)
+        if sh is None and any("live" in x.flags for x in s.shots) \
+                and any("do" in x.flags for x in s.shots):
+            sh = s.shots[0]
+        if sh is not None:
+            report.add(53, WARNING,
+                       "`live` and `do` on one screen: it is a room screen, so the agent "
+                       "export leaves it out; write one of the two (spec: Screen kinds)",
+                       line=sh.line, screen=s.idx)
+
+
 def check_47_private_timer(talk, resolver, report: Report) -> None:
     """A presenter-only `([Timer: ...])` is the screen's one timer: the presenter
     window shows one per screen, and a revealed timer is a visible one."""
@@ -1296,6 +1312,7 @@ def run_checks(talk, resolver, source_text: str,
     check_45_bare_reveal_empty(talk, resolver, report)
     check_47_private_timer(talk, resolver, report)
     check_52_reveal_on_continuation(talk, resolver, report)
+    check_53_live_and_do(talk, resolver, report)
     surface_parse_errors(talk, resolver, report)
     check_5_deck_slug_collisions(list(extra_files), report)
     if cues_path is not None:

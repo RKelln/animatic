@@ -5243,6 +5243,9 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
             # live-only: shown in the live deck, never in a recorded video or
             # the handout.  A video renderer must skip cues where this is true.
             **({"live_only": True} if screen.live_only else {}),
+            # who the screen is for: `exercise` (a `do` screen) or `room`
+            # (`live`); absent means content (spec: Screen kinds)
+            **({"use": screen.use} if screen.use != "content" else {}),
             # quick select: on the shelf, after the talk (docs/quick-select.md)
             **({"quick": True} if screen.shelf else {}),
             # waypoints: the word published on reaching this screen
@@ -5465,7 +5468,8 @@ def render_nav(talk: Talk, out_dir: Path) -> Path:
         document: dict = {"present": not omitted}
         if omitted:
             document["reason"] = ("black-beat" if is_black_screen(screen)
-                                  else "shelf" if screen.shelf else "live-only")
+                                  else "shelf" if screen.shelf
+                                  else "exercise" if screen.exercise else "live-only")
         screens[cue_id] = {
             "ordinal": screen.idx,
             "movement": screen.movement,

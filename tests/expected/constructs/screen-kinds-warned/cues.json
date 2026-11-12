@@ -1,0 +1,206 @@
+{
+  "schema": "animatic.cues.v1",
+  "deck": {
+    "slug": "screen-kinds-warned",
+    "title": "Screen kinds, warned",
+    "date": "",
+    "venue": "",
+    "format": "",
+    "dur": "",
+    "theme": "workshop",
+    "media_dir": "media",
+    "bank": "",
+    "sources": []
+  },
+  "movements": [
+    {
+      "index": 1,
+      "label": "Movement 1 · Warm up",
+      "title": "Warm up",
+      "cue_ids": [
+        "screen-kinds-warned-002",
+        "screen-kinds-warned-003",
+        "screen-kinds-warned-004",
+        "screen-kinds-warned-005",
+        "screen-kinds-warned-006"
+      ]
+    }
+  ],
+  "cues": [
+    {
+      "id": "screen-kinds-warned-001",
+      "ordinal": 1,
+      "movement": 0,
+      "kind": "card",
+      "title": "Opening",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 1,
+          "text": "Opening"
+        }
+      ],
+      "script": "Welcome to the throwaway workshop.",
+      "stage": null,
+      "est_seconds": 2.0
+    },
+    {
+      "id": "screen-kinds-warned-002",
+      "ordinal": 2,
+      "movement": 1,
+      "kind": "card",
+      "title": "First idea",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "First idea"
+        }
+      ],
+      "script": "Say the first idea plainly.",
+      "stage": [
+        "Do: Ask the person which folder they are in."
+      ],
+      "est_seconds": 2.0
+    },
+    {
+      "id": "screen-kinds-warned-003",
+      "ordinal": 3,
+      "movement": 1,
+      "kind": "card",
+      "title": "Second idea",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Second idea"
+        }
+      ],
+      "script": "Say the second idea.",
+      "stage": null,
+      "est_seconds": 1.6
+    },
+    {
+      "id": "screen-kinds-warned-004",
+      "ordinal": 4,
+      "movement": 1,
+      "kind": "card",
+      "title": "Try it",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "do": "",
+            "live": ""
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Try it"
+        },
+        {
+          "kind": "timer",
+          "text": "[Timer: 5:00]"
+        },
+        {
+          "kind": "list",
+          "items": [
+            "open the folder",
+            "write one line"
+          ]
+        }
+      ],
+      "script": "Spend five minutes on this.",
+      "stage": null,
+      "est_seconds": 300.0,
+      "live_only": true,
+      "use": "room",
+      "timer": 300,
+      "timer_in": 1
+    },
+    {
+      "id": "screen-kinds-warned-005",
+      "ordinal": 5,
+      "movement": 1,
+      "kind": "card",
+      "title": "Room only",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {
+            "live": ""
+          }
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Room only"
+        }
+      ],
+      "script": "Ask the room how it went.",
+      "stage": null,
+      "est_seconds": 2.4,
+      "live_only": true,
+      "use": "room"
+    },
+    {
+      "id": "screen-kinds-warned-006",
+      "ordinal": 6,
+      "movement": 1,
+      "kind": "card",
+      "title": "Third idea",
+      "shots": [
+        {
+          "slug": null,
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": null,
+      "screen_text": [
+        {
+          "kind": "heading",
+          "level": 3,
+          "text": "Third idea"
+        }
+      ],
+      "script": "Say the third idea.",
+      "stage": null,
+      "est_seconds": 1.6
+    }
+  ],
+  "warnings": []
+}
