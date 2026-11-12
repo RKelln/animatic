@@ -7,8 +7,8 @@ site (Hugo `static/`, GitHub Pages, any file server).
     python3 tools/web-export.py --home <talkfile> <out-dir> [--agent-url URL] [--coding-agent-url URL]
 
 `--home` writes the home version: the page a person reads while their own coding
-agent does the hands-on parts.  Exercise screens (`do`) and `(Do: ...)` notes
-print as exercise cards with a paste box; every code block and typed line gets a
+agent does the hands-on parts.  Exercise screens (`do`) print in place like content
+screens, `(Do: ...)` notes never print; every code block and typed line gets a
 Copy button; with an `agent:` block and `--agent-url` a setup card leads the
 page.  Room screens stay out.  Spec: format-spec-v1.md, "Home page".
 
@@ -28,12 +28,13 @@ from html import escape
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import exercises  # noqa: E402
 import talkparse  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 MEDIA_PREFIX = "../_media/doc/"
 
+SETUP_LINE = ("Copy this into your coding agent to start. Further down, every grey box with a "
+              "Copy button is something to paste into your agent when you reach it.")
 SETUP_PASTE = ("Read {url} and set up this workshop with me. Ask me before you download, "
                "install or change anything, one question at a time, in plain words.")
 
@@ -43,18 +44,21 @@ HOME_CSS = """<style>
 .ex-kicker { margin: 0.9em 0 0; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--doc-accent); }
 .ex-title { margin: 0.2em 0 0.6em; font-size: 1.3rem; }
-.ex-paste { margin-top: 1.2em; padding-top: 0.8em; border-top: 1px solid var(--doc-line); }
-.ex-paste-label { margin: 0 0 0.4em; font-weight: 600; }
+.ex-paste { margin-top: 0.8em; }
 .ex-card .copy-wrap pre, .ex-card .copy-wrap blockquote { background: var(--doc-bg); }
 pre.paste-box { margin: 0; padding: 0.8em 1em; font-family: var(--font-mono, monospace);
   font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
   color: var(--doc-ink); background: var(--doc-bg); border: 1px solid var(--doc-muted);
   border-radius: 0.4em; }
-.copy-wrap { margin: 1.2em 0; }
+.copy-wrap { position: relative; margin: 1.2em 0; }
 .ex-card .copy-wrap { margin: 0; }
-.copy-wrap > pre, .copy-wrap > blockquote { margin: 0 0 0.4rem; }
-.copy-btn { display: none; min-height: 2.75rem; padding: 0.4em 1.2em; font: inherit; font-weight: 600;
-  color: var(--doc-bg); background: var(--doc-accent); border: 0; border-radius: 0.4em; cursor: pointer; }
+.copy-wrap > pre, .copy-wrap > blockquote { margin: 0; }
+/* The button sits inside the box, at its right edge; the text keeps clear of it. */
+.js .copy-wrap > pre, .js .copy-wrap > blockquote { padding-right: 6.2em; }
+.copy-btn { display: none; position: absolute; top: 0.45em; right: 0.45em; min-height: 2.5rem;
+  padding: 0.3em 1em; font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--doc-bg);
+  background: var(--doc-accent); border: 0; border-radius: 0.4em; cursor: pointer; }
+.copy-wrap > blockquote + .copy-btn { top: 50%; transform: translateY(-50%); }
 .js .copy-btn { display: inline-block; }
 .copy-btn:focus-visible { outline: 3px solid var(--doc-ink); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -100,7 +104,7 @@ HOME_JS = """<div id="copy-status" class="sr-only" role="status" aria-live="poli
 
 
 def add_copy_buttons(html: str) -> str:
-    """Wrap every <pre> and typed-line quote in a box with a Copy button after it."""
+    """Wrap every <pre> and typed-line quote with a Copy button that sits inside the box, at its right edge."""
     btn = '<button type="button" class="copy-btn">Copy</button>'
     html = re.sub(r"<pre\b[^>]*>.*?</pre>", lambda m: f'<div class="copy-wrap">{m.group(0)}{btn}</div>',
                   html, flags=re.S)
@@ -114,7 +118,8 @@ def setup_card(agent_url: str, coding_agent_url: str) -> str:
             f'Set one up first.</a></p>' if coding_agent_url else "")
     return ('<aside class="ex-card" id="ex-setup" aria-label="Before you start: set up your agent">'
             '<p class="ex-kicker">Before you start</p><h3 class="ex-title">Set up your agent</h3>'
-            '<div class="ex-paste"><p class="ex-paste-label">Paste this to your agent:</p>'
+            f'<p>{SETUP_LINE}</p>'
+            '<div class="ex-paste">'
             f'<pre class="paste-box">{paste}</pre></div>{more}</aside>')
 
 
@@ -139,7 +144,7 @@ def main() -> int:
     out = Path(a.out).resolve()
     work = Path(a.work) if a.work else Path(tempfile.mkdtemp(prefix="animatic-web-"))
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work),
-                        "--no-handout-placeholders"] + (["--home-cards"] if a.home else []), stdout=subprocess.DEVNULL,
+                        "--no-handout-placeholders"] + (["--home-page"] if a.home else []), stdout=subprocess.DEVNULL,
                        env={k: v for k, v in os.environ.items() if k != "ANIMATIC_WAYPOINT_TOKEN"})
     if r.returncode:
         return r.returncode

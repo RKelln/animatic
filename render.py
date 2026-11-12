@@ -4879,17 +4879,13 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
                     figures: str | None = None,
                     pools: bool | None = None,
                     placeholders: bool | None = None,
-                    cards: list | None = None,
+                    home: bool = False,
                     omit: set | None = None) -> Path:
-    """`cards` (the home page, tools/web-export.py --home): the exercise cards
-    from exercises.collect.  A `do` screen prints as its card, in place; a
-    `(Do: ...)` card follows its screen.  `omit`: screen ordinals the home page
-    leaves out (`agent-export: skip` sections).  None: the reading copy, unchanged."""
+    """`home` (the home page, tools/web-export.py --home): exercise (`do`) screens
+    print in place like content screens; `omit` is the set of screen ordinals it
+    leaves out (`agent-export: skip` sections).  Default: the reading copy, unchanged."""
     out_dir.mkdir(parents=True, exist_ok=True)
     theme = resolve_theme(talk)
-    by_screen: dict = {}
-    for c in cards or []:
-        by_screen.setdefault(c.idx, []).append(c)
     meta = talk.meta
     deck_title = str(meta.get("title", deck_slug(talk)))
     meta_bits = [str(v) for v in
@@ -4933,12 +4929,9 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
     last_fig = None   # slug of the figure just before: a repeat is left out
     toc: list = []    # (level, label, anchor) for the contents list
     for screen in talk.screens:
-        if cards is not None and screen.idx in (omit or ()):
+        if home and screen.idx in (omit or ()):
             continue
-        if cards is not None and screen.exercise and screen.idx not in by_screen:
-            continue  # an exercise screen the cards left out (an opted-out section)
-        if is_black_screen(screen) or (screen.live_only and not (
-                cards is not None and screen.exercise)):
+        if is_black_screen(screen) or (screen.live_only and not (home and screen.exercise)):
             continue  # black beats have no prose; live-only screens stay off paper
         cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"   # same key nav.json uses
         if screen.movement != current["idx"]:
@@ -4952,10 +4945,6 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
                 # first screen under it (the movement heading has no id of its
                 # own, so this is where a jump should land)
                 toc.append((2, m.label, f"cue-{cue_id}"))
-        if cards is not None and screen.exercise:
-            current["items"].append("".join(
-                _exercise_card_html(talk, screen, c, resolver, cite_no) for c in by_screen[screen.idx]))
-            continue
         slug = screen.media_shot.slug if screen.media_shot else None
         # A `continue` shot, or any shot naming the slug of the figure just
         # before it, is the same picture again: the handout shows it once,
@@ -4974,9 +4963,7 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
                                  and not resolver.resolve(slug).found)),
                 toc=toc, anchor=f"cue-{cue_id}")
             + _screen_sources_html(screen, cite_no)
-            + "</div>"
-            + "".join(_exercise_card_html(talk, screen, c, resolver, cite_no)
-                      for c in by_screen.get(screen.idx, [])))
+            + "</div>")
 
     def render_flow(blocks) -> str:
         return "".join(blocks)
@@ -5083,24 +5070,6 @@ def _cite_links(rendered: str) -> str:
         CITE_OPEN + r"(\d+)" + CITE_CLOSE,
         lambda m: f'<sup class="cite"><a href="#src-{m.group(1)}">{m.group(1)}</a></sup>',
         rendered)
-
-
-def _exercise_card_html(talk: Talk, screen: Screen, card, resolver: MediaResolver,
-                        cite_no: dict) -> str:
-    """One exercise card for the home page: "Try it", the heading, the screen's
-    text and spoken text (a `do` screen) or the note (a `(Do: ...)` card), then
-    the paste box.  The copy buttons are added by tools/web-export.py."""
-    if card.kind == "do":
-        body = _doc_screen_blocks(talk, screen, resolver, skip_deck_h1="", cite_no=cite_no,
-                                  skip_figure=True, toc=[])
-        body = re.sub(r"<h[2-4] class='screen-heading'>.*?</h[2-4]>", "", body, count=1, flags=re.S)
-    else:
-        body = "".join(f"<p>{html.escape(n)}</p>" for n in card.notes)
-    heading = html.escape(card.heading)
-    return (f'<aside class="ex-card" id="{card.dom_id}" aria-label="Try it, Exercise {card.number}: {heading}">'
-            f'<p class="ex-kicker">Try it · Exercise {card.number}</p><h3 class="ex-title">{heading}</h3>{body}'
-            f'<div class="ex-paste"><p class="ex-paste-label">Paste this to your agent:</p>'
-            f'<pre class="paste-box">{html.escape(card.paste, quote=False)}</pre></div></aside>')
 
 
 def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,

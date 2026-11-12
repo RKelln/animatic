@@ -450,7 +450,7 @@ the presenter notes show all three.
 | Kind | Marker | Present view | Reading copy (document view, handout, web export) | Agent export |
 |---|---|---|---|---|
 | content | no flag | yes | yes | yes |
-| exercise | `do` (`<!-- shot: do -->`, `<!-- shot: ryan-art do -->`) | yes | no (an exercise card in the home page) | yes, as an Exercise section |
+| exercise | `do` (`<!-- shot: do -->`, `<!-- shot: ryan-art do -->`) | yes | no (printed in place on the home page) | yes, as a hands-on part |
 | room | `live` | yes | no | no |
 
 A shelf screen (quick select) is a room screen. A screen with both `live` and
@@ -468,8 +468,9 @@ exercise and room screens count in the estimate like any other.
 
 The stage note `(Do: ...)` is parallel to `(Demo: ...)`: never spoken, never
 printed in the reading copy, shown in the presenter notes like other stage
-notes. The home page and the agent export take it as an exercise card, so a
-content screen can carry a hands-on instruction for the person's agent only.
+notes. The agent export takes it as a hands-on part, so a
+content screen can carry a hands-on instruction for the person's agent only; the
+home page never prints it.
 
 ### Tolerance rules
 
@@ -1117,7 +1118,7 @@ A prefix is an authorial convention, never behaviour:
 | `(Visual: …)` | brief for media generation |
 | `(Beat.)` | timing / pause |
 | `(Demo: …)` | live demo plan, speaker notes only |
-| `(Do: …)` | an exercise card on the home page and in the agent export (see "Home page and agent export"); speaker notes only otherwise |
+| `(Do: …)` | a hands-on part in the agent export, never on the home page (see "Home page and agent export"); speaker notes only otherwise |
 | `(Flesh out: …)` | unwritten beat, speaker notes only |
 | `(Note: …)` | note-to-self about the argument |
 
@@ -1359,43 +1360,41 @@ talkfile. `present/presenter.html` is a 1.x additive (2026-09-15): the frozen
 
 ### Home page and agent export
 
-A workshop run at home has two files that share one list of **exercise cards**
-(`exercises.py`): the page leads, the agent does the hands-on parts.
-
-A card comes from a `do` screen (one card, in its place) or from each
-`(Do: ...)` note on a content screen (one card per note, right after that
-screen's text). Room screens (`live`), black screens and sections whose
-frontmatter says `agent-export: skip` make none; those sections are left out of the home page and the agent export entirely, and still print in the plain reading copy. A card's heading is the
-screen's heading (else its movement's). Its **paste text** is one line:
-`Exercise <N>: <heading>. <text>`, where N counts the cards in page order (the setup card is not counted), so headings may repeat but numbers do not, where text is the screen's `(Do: ...)` note(s),
-or for a `do` screen with none, its spoken text (else its screen text); no second
-full stop is added when the heading already ends in `.`, `!`, `?` or `:`.
+A workshop run at home has two files: **the page leads, the agent does the
+hands-on parts.** The person reads the home page in a browser and pastes its
+typed prompts and the setup line into their own coding agent; the agent file
+tells the agent what each one is for.
 
 #### Home page
 
 `python3 tools/web-export.py --home <talk.md> <out-dir> [--agent-url <url>] [--coding-agent-url <url>]`
 writes the same folder as the web export (`index.html` plus `media/`), and
 refuses the same things (a local path, a link outside the folder, a non-http(s)
-`--agent-url`). The plain export (no `--home`) is unchanged. Differences:
+`--agent-url` or `--coding-agent-url`). The plain export (no `--home`) is
+unchanged. Differences:
 
-- Each card prints in place as an `<aside class="ex-card">`: the kicker "Try it · Exercise <N>",
-  the heading, the screen's text and spoken text (a `do` screen) or the note text
-  (a note card), then "Paste this to your agent:" and a monospace paste box.
-  The card uses the theme's `--doc-*` tokens, so it follows the theme's light or
-  dark values; it stays readable at 390 px.
-- Every `<pre>` (fenced code, paste boxes) and typed-line quote (a quote that is one code span, e.g. Hi.,
-  the `type-in` class) is wrapped with a **Copy** button: a real `<button>` after
-  the text, inline script only (no files, no libraries), `navigator.clipboard.writeText`
-  with a fallback (select the text, `document.execCommand("copy")` in a try),
-  "Copied" for two seconds and the same message in a `role="status"`
-  `aria-live="polite"` region. Without JS the buttons are hidden and the text
-  stays selectable.
+- `do` screens print in place, rendered like content screens (heading, text,
+  spoken text), so their typed prompts show on the page. `(Do: ...)` notes never
+  print. Room screens (`live`) stay out. Screens from a section whose frontmatter
+  says `agent-export: skip` are left out of the home page and the agent export
+  and still print in the plain reading copy.
+- Every `<pre>` (fenced code) and typed-line quote (a quote that is one code
+  span, the `type-in` class) is wrapped with a **Copy** button: a real
+  `<button>` after the text, inline script only (no files, no libraries),
+  `navigator.clipboard.writeText` with a fallback (select the text,
+  `document.execCommand("copy")` in a try), "Copied" for two seconds and the same
+  message in a `role="status"` `aria-live="polite"` region. Without JS the
+  buttons are hidden and the text stays selectable.
 - With an `agent:` block and `--agent-url`, a setup card ("Before you start: set
-  up your agent") leads the page, before the first screen: a paste box holding
-  `Read <agent-url> and set up this workshop with me. Ask me before you download,
-  install or change anything, one question at a time, in plain words.`, and, with
-  `--coding-agent-url`, the line "No coding agent yet? Set one up first." linking
-  it. Without an `agent:` block the setup card is skipped with a warning.
+  up your agent") leads the page, before the first screen. It says "Copy this
+  into your coding agent to start. Further down, every grey box with a Copy
+  button is something to paste into your agent when you reach it.", then a paste
+  box holding `Read <agent-url> and set up this workshop with me. Ask me before
+  you download, install or change anything, one question at a time, in plain
+  words.`, and, with `--coding-agent-url`, the line "No coding agent yet? Set one
+  up first." linking it. Without an `agent:` block the setup card is skipped with
+  a warning. The card uses the theme's `--doc-*` tokens and stays readable at
+  390 px.
 
 #### Agent export
 
@@ -1406,16 +1405,19 @@ line naming the page (and the reading copy, when given); the core file verbatim
 (its leading HTML comment stripped); `## This workshop` (title, goal, practice
 person, their own); `## Get the files` (`agent.start`, `agent.continue`,
 `agent.guide`); with `--home-url`, `## How this runs` ("The person reads the
-workshop page at <home-url>. When they paste an exercise, run it. Answer
-questions about anything on that page; fetch it if you need to."); `## Exercises`.
+workshop page at <home-url> and pastes the grey boxes into this chat as they
+reach them. Use 'The hands-on parts' below to know what each one is for. Answer
+questions about anything on that page; fetch it if you need to."); `## The
+hands-on parts`.
 
-`## Exercises` has one `### Exercise <N>: <heading>` section per card, in the home
-page's order, each with the same heading and the card's paste text (in a fence,
-after "They paste:") so a pasted line matches a section, then the full
-instruction text: screen text, spoken text, `(about N minutes in the room)` for a
-timer, and each `(Do: ...)` note as `**Exercise:** ...`. The content is not
-repeated: the home page carries it. The export refuses, as the web export does,
-to write a local filesystem path; frontmatter `web-allow:` clears one.
+`## The hands-on parts` has one `### <N>. <heading>` section per `do` screen or
+`(Do: ...)` note, in page order (N counts from 1; a heading is the screen's, else
+its movement's), giving the instruction text: each `(Do: ...)` note as
+`**Exercise:** ...`, the screen text, the spoken text and, for a timer, `(about N
+minutes in the room)`. The content is not repeated: the home page carries it.
+Room screens and `agent-export: skip` sections make no part. The export refuses,
+as the web export does, to write a local filesystem path; frontmatter
+`web-allow:` clears one.
 
 ### Determinism
 

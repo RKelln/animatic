@@ -1,11 +1,8 @@
-"""The exercise cards of a talk: one list, shared by the home page
-(tools/web-export.py --home) and the agent file (tools/agent-export.py), so a
-line pasted from the page matches a section of the file.
+"""The hands-on parts of a talk, for the agent file (tools/agent-export.py), and
+the `agent-export: skip` rule it shares with the home page (tools/web-export.py --home).
 
-A card is made by a `do` screen (one card, in its place) or by a `(Do: ...)`
-stage note on a content screen (one card per note, right after that screen).
-Room screens (`live`), black screens and `agent-export: skip` sections make none.
-Spec: docs/format-spec-v1.md, "Home page" and "Agent export".
+A part is a `do` screen, or one `(Do: ...)` stage note on a content screen.  Room screens (`live`), black screens and `agent-export: skip` sections make none.
+Spec: docs/format-spec-v1.md, "Home page and agent export".
 """
 from __future__ import annotations
 
@@ -79,42 +76,30 @@ def screen_body(screen) -> str:
 
 @dataclass
 class Card:
+    """One hands-on part: a `do` screen, or one `(Do: ...)` note on a content screen."""
     idx: int                 # the screen's ordinal
-    cue_id: str              # `<slug>-<nnn>`, the reading copy's element id suffix
-    number: int              # N in "Exercise N", counted in page order
-    ordinal: int             # 0 for a do screen, n for the nth note on a content screen
+    number: int              # N in the agent file's "### N. <heading>", in page order
     kind: str                # "do" | "note"
     heading: str
-    paste: str               # the text the person pastes, one line
     notes: list = field(default_factory=list)   # the Do note text(s)
     spoken: str = ""
-    screen_text: str = ""    # markdown, for the agent file
+    screen_text: str = ""    # markdown
     minutes: int | None = None
 
     @property
     def title(self) -> str:
-        return f"Exercise {self.number}: {self.heading}"
-
-    @property
-    def dom_id(self) -> str:
-        return f"ex-{self.cue_id}" + (f"-{self.ordinal}" if self.ordinal else "")
+        return f"{self.number}. {self.heading}"
 
     def instructions(self) -> list:
-        """The full instruction text for the agent file."""
-        body = []
+        """What the agent needs to know: the Do note(s), screen text, spoken text, timer."""
+        body = [f"**Exercise:** {n}" for n in self.notes]
         if self.screen_text:
             body.append(self.screen_text)
         if self.spoken.strip():
             body.append(plain(self.spoken))
         if self.minutes:
             body.append(f"(about {self.minutes} minutes in the room)")
-        body += [f"**Exercise:** {n}" for n in self.notes]
         return body
-
-
-def paste_text(number: int, heading: str, text: str) -> str:
-    head = heading if heading[-1:] in ".!?:" else heading + "."
-    return one_line(f"Exercise {number}: {head} {text}")
 
 
 def skipped_screens(talk, talk_dir=None) -> set:
@@ -124,27 +109,20 @@ def skipped_screens(talk, talk_dir=None) -> set:
 
 
 def collect(talk, talk_dir=None) -> list:
-    """Every exercise card, in page order."""
-    slug = render.deck_slug(talk)
+    """Every hands-on part, in page order."""
     moves = {m.index: m.title for m in talk.movements}
     cards = []
     for s in talk.screens:
         if section_skipped(s, talk_dir) or render.is_black_screen(s) or s.room_only:
             continue
         heading = render.screen_title(s) or moves.get(s.movement) or "step"
-        cue = f"{slug}-{s.idx:03d}"
         say = render.screen_script(s)
         if s.exercise:
             minutes = (max(1, round(s.timer[0] / 60))
                        if s.timer is not None and s.timer_parent is None else None)
-            body = screen_body(s)
-            text = " ".join(s.do_notes) or say or body
-            cards.append(Card(s.idx, cue, len(cards) + 1, 0, "do", heading,
-                              paste_text(len(cards) + 1, heading, text),
-                              list(s.do_notes), say, body, minutes))
+            cards.append(Card(s.idx, len(cards) + 1, "do", heading, list(s.do_notes), say,
+                              screen_body(s), minutes))
         else:
-            for n, note in enumerate(s.do_notes, 1):
-                cards.append(Card(s.idx, cue, len(cards) + 1, n, "note", heading,
-                                  paste_text(len(cards) + 1, heading, note),
-                                  [note], say))
+            for note in s.do_notes:
+                cards.append(Card(s.idx, len(cards) + 1, "note", heading, [note], say))
     return cards

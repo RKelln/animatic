@@ -9,11 +9,10 @@ can follow to run the hands-on parts of a workshop at home, beside the home page
 The file is: a header, the shared core (verbatim, minus its leading HTML
 comment), `## This workshop` (goal, practice person, their own), `## Get the
 files` (from the talk's frontmatter `agent:` block), `## How this runs` (with
-`--home-url`) and `## Exercises`.  There is one `### Exercise <N>: <heading>`
-section per exercise card on the home page, in page order, with the same
-heading and the same paste text (exercises.py makes both), then the full
-instruction text: screen text, spoken text, `(Do: ...)` notes.  A `do` screen is
-one card; each `(Do: ...)` note on a content screen is one.  Room screens (`live`)
+`--home-url`) and `## The hands-on parts`.  There is one `### <N>. <heading>`
+section per `do` screen or `(Do: ...)` note, in page order, giving the
+instruction text (Do note, screen text, spoken text) so the agent knows what each
+prompt the person pastes from the page is for.  Room screens (`live`)
 and sections whose frontmatter says `agent-export: skip` make none.  The content
 is not repeated: the page carries it.
 
@@ -85,11 +84,12 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str = "
     out.append("")
     if home_url:
         out += ["## How this runs", "",
-                f"The person reads the workshop page at {home_url}. When they paste an exercise, run it. "
+                f"The person reads the workshop page at {home_url} and pastes the grey boxes into this chat "
+                "as they reach them. Use 'The hands-on parts' below to know what each one is for. "
                 "Answer questions about anything on that page; fetch it if you need to.", ""]
-    out += ["## Exercises", ""]
+    out += ["## The hands-on parts", ""]
     for card in exercises.collect(talk, talk_path.parent):
-        out += [f"### {card.title}", "", "They paste:", "", "```", card.paste, "```", ""]
+        out += [f"### {card.title}", ""]
         for para in card.instructions():
             out += [para, ""]
     text = "\n".join(out).rstrip() + "\n"
@@ -122,8 +122,8 @@ def main() -> int:
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text, encoding="utf-8")
-    n = len(re.findall(r"^### Exercise \d+: ", text, flags=re.M))
-    print(f"agent     : {out} ({n} exercises)")
+    n = len(re.findall(r"^### \d+\. ", text, flags=re.M))
+    print(f"agent     : {out} ({n} hands-on parts)")
     return 0
 
 
