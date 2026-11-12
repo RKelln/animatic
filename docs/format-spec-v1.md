@@ -418,9 +418,22 @@ A talk is divided into **sections** — its parts, acts or chapters — marked b
 `##` heading. A `##` heading is a section break unless it is part of a
 title-card run (a run of headings that starts right after a shot, as in
 `# Title` / `## Date` / `### Website`), where it stays on the slide. The
-section heading is never drawn on a slide. `## Movement N · Title` is the
-numbered spelling of the same thing and keeps its number; an unnumbered
+section heading is never drawn on a slide. **Write a plain `## Title`:
+numbering is automatic**, from the section's position in the file, never from
+words in the heading. `## Movement N · Title` is still accepted as the numbered
+spelling (checks 4 and 22 apply to it) and keeps its number; an unnumbered
 section takes the next ordinal. `---` is inert.
+
+**Section label.** Everywhere a section name is shown or exported (document
+view, reading copy, handout, home page, `nav.json`/`cues.json` `label` and
+`movement_label`, the agent export, the presenter label), it is
+`<ordinal>. <title>`, e.g. `1. What is AI`. The title is the heading text with
+any leading prefix dropped: `Movement`, `Part`, `Act`, `Chapter` or `Section`
+plus a number (digits, or uppercase roman numerals) and an optional separator
+(`·` `:` `.` `|` `-` `–`), or a bare leading number plus separator. If nothing
+remains the label is `Section <n>`. The opening (index 0) has no label; the
+presenter shows `Opening` for it, and `Section N · slide k` after. One helper
+(`talkparse.section_label`) does this; `section_title` gives the title alone.
 
 A `###` heading that follows a section heading and precedes a shot is that
 screen's handout heading, so `## Act 5` then `### Title` then a shot works as

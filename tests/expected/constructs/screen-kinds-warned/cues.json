@@ -15,7 +15,7 @@
   "movements": [
     {
       "index": 1,
-      "label": "Movement 1 · Warm up",
+      "label": "1. Warm up",
       "title": "Warm up",
       "cue_ids": [
         "screen-kinds-warned-002",

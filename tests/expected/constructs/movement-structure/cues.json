@@ -15,7 +15,7 @@
   "movements": [
     {
       "index": 1,
-      "label": "Movement 1 · The setup",
+      "label": "1. The setup",
       "title": "The setup",
       "cue_ids": [
         "movement-structure-002"
@@ -23,7 +23,7 @@
     },
     {
       "index": 2,
-      "label": "Movement 2 · The turn",
+      "label": "2. The turn",
       "title": "The turn",
       "cue_ids": [
         "movement-structure-003"

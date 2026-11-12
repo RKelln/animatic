@@ -20,7 +20,7 @@
   "movements": [
     {
       "index": 1,
-      "label": "Movement 1 - Spoken words",
+      "label": "1. Spoken words",
       "title": "Spoken words",
       "cue_ids": [
         "web-formats-003",
@@ -41,7 +41,7 @@
     },
     {
       "index": 2,
-      "label": "Movement 2 - Closing",
+      "label": "2. Closing",
       "title": "Closing",
       "cue_ids": [
         "web-formats-017",

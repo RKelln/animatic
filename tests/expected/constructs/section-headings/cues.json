@@ -15,26 +15,50 @@
   "movements": [
     {
       "index": 1,
-      "label": "Act 1 · The first act",
-      "title": "Act 1 · The first act",
+      "label": "1. The first act",
+      "title": "The first act",
       "cue_ids": [
         "section-headings-002"
       ]
     },
     {
       "index": 2,
-      "label": "Act 2 · The second act",
-      "title": "Act 2 · The second act",
+      "label": "2. The second act",
+      "title": "The second act",
       "cue_ids": [
         "section-headings-003"
       ]
     },
     {
       "index": 3,
-      "label": "Movement 3 · Numbered spelling",
+      "label": "3. Numbered spelling",
       "title": "Numbered spelling",
       "cue_ids": [
         "section-headings-004"
+      ]
+    },
+    {
+      "index": 4,
+      "label": "4. A plain heading",
+      "title": "A plain heading",
+      "cue_ids": [
+        "section-headings-005"
+      ]
+    },
+    {
+      "index": 5,
+      "label": "5. Roman prefix",
+      "title": "Roman prefix",
+      "cue_ids": [
+        "section-headings-006"
+      ]
+    },
+    {
+      "index": 6,
+      "label": "Section 6",
+      "title": "Section 6",
+      "cue_ids": [
+        "section-headings-007"
       ]
     }
   ],
@@ -168,6 +192,99 @@
       "script": "Spoken in the numbered section.",
       "stage": null,
       "est_seconds": 2.0
+    },
+    {
+      "id": "section-headings-005",
+      "ordinal": 5,
+      "movement": 4,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "Spoken under a heading with no number at all: it takes the next ordinal.",
+      "stage": null,
+      "est_seconds": 5.6
+    },
+    {
+      "id": "section-headings-006",
+      "ordinal": 6,
+      "movement": 5,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "Spoken under a roman-numeral prefix, which the label drops.",
+      "stage": null,
+      "est_seconds": 3.6
+    },
+    {
+      "id": "section-headings-007",
+      "ordinal": 7,
+      "movement": 6,
+      "kind": "media",
+      "title": null,
+      "shots": [
+        {
+          "slug": "sample-art",
+          "role": null,
+          "flags": {}
+        }
+      ],
+      "media": {
+        "slug": "sample-art",
+        "type": "image",
+        "status": "brief",
+        "found": false,
+        "file": null,
+        "source": "none",
+        "alt": "",
+        "credit": "Ryan Kelln (fixture)",
+        "licence": "CC BY-SA",
+        "note": "pool placeholder for construct fixtures",
+        "reason": "card 'sample-art' has no approved output (status: brief); no file under deck media dir; not in shared library"
+      },
+      "screen_text": null,
+      "script": "Spoken under a heading with nothing after the number: the label is \"Section N\".",
+      "stage": null,
+      "est_seconds": 5.6
     }
   ],
   "warnings": []

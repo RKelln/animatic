@@ -20,7 +20,7 @@
   "movements": [
     {
       "index": 1,
-      "label": "Movement 1 · After the fence",
+      "label": "1. After the fence",
       "title": "After the fence",
       "cue_ids": [
         "code-fences-008"

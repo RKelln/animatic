@@ -3318,7 +3318,7 @@ PRESENTER_UI_JS = r"""
   function qCueTitle(c) { return c.title || qFirstLine(c) || cueTitle(c); }
   function qCueLabel(c, k) {
     if (c.sec_title) return c.sec_title;
-    return (c.movement ? "Movement " + c.movement : "Opening") + " · slide " + (k + 1);
+    return (c.movement ? "Section " + c.movement : "Opening") + " · slide " + (k + 1);
   }
 
   function qSearch(text) {
@@ -4161,7 +4161,7 @@ def render_presenter(talk: Talk, resolver: MediaResolver, out_dir: Path,
             "id": f"{deck_slug(talk)}-{screen.idx:03d}",
             "ordinal": screen.idx,
             "movement": screen.movement,
-            "movement_label": mv.label if mv is not None else "",
+            "movement_label": mv.display if mv is not None else "",
             "kind": screen_kind(screen),
             "title": plain_md(screen_title(screen)) if screen_title(screen) else "",
             # a live screen has nothing to preview: the presenter labels it
@@ -4934,17 +4934,20 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
         if is_black_screen(screen) or (screen.live_only and not (home and screen.exercise)):
             continue  # black beats have no prose; live-only screens stay off paper
         cue_id = f"{deck_slug(talk)}-{screen.idx:03d}"   # same key nav.json uses
+        section_title = ""
         if screen.movement != current["idx"]:
             m = next((m for m in talk.movements if m.index == screen.movement), None)
             current = {"idx": screen.movement, "items": []}
+            # the section's first screen does not repeat the section's title
+            section_title = m.title if m is not None else ""
             if m is not None:
                 movement_sections.append(
-                    (m.label, current["items"])
+                    (m.display, current["items"])
                 )
                 # the part title is a chapter in the contents, anchored at the
                 # first screen under it (the movement heading has no id of its
                 # own, so this is where a jump should land)
-                toc.append((2, m.label, f"cue-{cue_id}"))
+                toc.append((2, m.display, f"cue-{cue_id}"))
         slug = screen.media_shot.slug if screen.media_shot else None
         # A `continue` shot, or any shot naming the slug of the figure just
         # before it, is the same picture again: the handout shows it once,
@@ -4961,7 +4964,7 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
                              or (not pools and _is_pool_slug(resolver, slug))
                              or (not placeholders and bool(slug)
                                  and not resolver.resolve(slug).found)),
-                toc=toc, anchor=f"cue-{cue_id}")
+                toc=toc, anchor=f"cue-{cue_id}", skip_section_title=section_title)
             + _screen_sources_html(screen, cite_no)
             + "</div>")
 
@@ -5075,7 +5078,8 @@ def _cite_links(rendered: str) -> str:
 def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
                        skip_deck_h1: str, cite_no: dict | None = None,
                        skip_figure: bool = False,
-                       toc: list | None = None, anchor: str = "") -> str:
+                       toc: list | None = None, anchor: str = "",
+                       skip_section_title: str = "") -> str:
     out = []
     cite_no = cite_no or {}
     headings = toc if toc is not None else []
@@ -5095,6 +5099,8 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             continue
         if b.text.strip() == skip_deck_h1 and screen.movement == 0:
             continue  # deck title already in the header
+        if skip_section_title and b.text.strip() == skip_section_title:
+            continue  # the section heading just above already says it
         lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
         headings.append((lvl, plain_md(strip_timer_tokens(b.text)), anchor))
         out.append(f"<h{lvl} class='screen-heading'>{_cite_links(inline_md(_with_cites(b, cite_no)))}</h{lvl}>")
@@ -5125,6 +5131,8 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         elif b.kind == "heading":
             if b.text.strip() == skip_deck_h1 and screen.movement == 0:
                 continue  # deck title already in the header
+            if skip_section_title and b.text.strip() == skip_section_title:
+                continue  # the section heading just above already says it
             lvl = 2 if (b.level or 2) <= 1 else min(b.level or 3, 4)
             headings.append((lvl, plain_md(strip_timer_tokens(b.text)), anchor))
             out.append(f"<h{lvl} class='screen-heading'>{timer_sub(_cite_links(inline_md(_with_cites(b, cite_no))), b, 'doc')}</h{lvl}>")
@@ -5272,7 +5280,7 @@ def render_cues(talk: Talk, resolver: MediaResolver, out_dir: Path) -> Path:
     for m in talk.movements:
         movements_out.append({
             "index": m.index,
-            "label": m.label,
+            "label": m.display,
             "title": m.title,
             "cue_ids": by_movement.get(m.index, []),
         })

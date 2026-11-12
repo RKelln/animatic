@@ -15,7 +15,7 @@
   "movements": [
     {
       "index": 1,
-      "label": "Movement 1 · The end",
+      "label": "1. The end",
       "title": "The end",
       "cue_ids": [
         "code-fences-warned-006"

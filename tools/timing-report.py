@@ -119,7 +119,7 @@ def build_report(path, *, wpm=None, dur=None) -> dict:
         rows = [x for x in screens if x["movement"] == index]
         movements.append({
             "index": index,
-            "title": titles.get(index) or ("Opening" if index == 0 else f"Movement {index}"),
+            "title": titles.get(index) or ("Opening" if index == 0 else f"Section {index}"),
             "screens": len(rows), "words": sum(x["words"] for x in rows),
             "seconds": sum(x["seconds"] for x in rows),
             "starts_at": rows[0]["starts_at"],

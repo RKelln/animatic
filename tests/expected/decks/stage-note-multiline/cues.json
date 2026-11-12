@@ -15,8 +15,8 @@
   "movements": [
     {
       "index": 1,
-      "label": "Movement 1",
-      "title": "Movement 1",
+      "label": "Section 1",
+      "title": "Section 1",
       "cue_ids": [
         "talk-001",
         "talk-002",

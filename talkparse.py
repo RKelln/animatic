@@ -301,6 +301,32 @@ MOVEMENT_RE = re.compile(
 # Fatal-start probe for check 22: an H2 whose text begins with the *word*
 # "Movement" (case-insensitive) but fails MOVEMENT_RE.
 MOVEMENT_LOOK_RE = re.compile(r"^movement\b", re.IGNORECASE)
+# Section labels: the printed label is `<ordinal>. <title>`, numbered from
+# structure.  A leading word-and-number prefix in the heading text is dropped.
+_ROMAN = r"(?-i:[IVXLC]+)"   # uppercase only: "Part Mix" keeps its title
+SECTION_PREFIX_RE = re.compile(
+    r"^(?:(?:movement|part|act|chapter|section)\s+(?:\d+|" + _ROMAN + r")\b"
+    r"|\d+(?=\s*[|.:\-\u2013\u00b7]))"
+    r"\s*[|.:\-\u2013\u00b7]?\s*", re.IGNORECASE)
+
+
+def section_title(text: str, index: int) -> str:
+    """The heading text without any leading 'Movement|Part|Act|Chapter|Section N'
+    (digits or roman numerals) or bare 'N.' prefix.  Empty remainder gives
+    'Section <index>'."""
+    t = SECTION_PREFIX_RE.sub("", text.strip(), count=1).strip()
+    return t or f"Section {index}"
+
+
+def section_label(index: int, text: str) -> str:
+    """Display label for a section: '<ordinal>. <title>'.  The opening
+    (index 0) has no label.  Empty remainder gives 'Section <n>'."""
+    if index <= 0:
+        return ""
+    t = SECTION_PREFIX_RE.sub("", text.strip(), count=1).strip()
+    return f"{index}. {t}" if t else f"Section {index}"
+
+
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 QUOTE_RE = re.compile(r"^>\s?(.*)$")
 LIST_ITEM_RE = re.compile(r"^[-*+]\s+(.*)$")
@@ -697,6 +723,11 @@ class Movement:
     index: int
     title: str
     label: str                    # original heading text
+
+    @property
+    def display(self) -> str:
+        """The label shown to readers: '<index>. <title>' (see section_label)."""
+        return section_label(self.index, self.label)
 
 
 @dataclass
@@ -2115,10 +2146,9 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                 credits_open = False
                 if mm and not mixed_sections:
                     movement_index = int(mm.group(1))
-                    mtitle = mm.group(2).strip() or rb["text"]
                 else:
                     movement_index += 1       # by position
-                    mtitle = (mm.group(2).strip() or rb["text"]) if mm else rb["text"]
+                mtitle = section_title(rb["text"], movement_index)
                 talk.movements.append(
                     Movement(index=movement_index, title=mtitle, label=rb["text"])
                 )
