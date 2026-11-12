@@ -1389,7 +1389,12 @@ tells the agent what each one is for.
 writes the same folder as the web export (`index.html` plus `media/`), and
 refuses the same things (a local path, a link outside the folder, a non-http(s)
 `--agent-url` or `--coding-agent-url`). The plain export (no `--home`) is
-unchanged. Differences:
+unchanged.
+
+Both forms take `--back-url <url or /site/path>` (with `--back-label`, default
+"Back to the workshop page"): a link back to the event page at the top of the
+page and in its foot. Every web export also gets a fixed **Top** button and a
+"Back to the top" link in the foot; none of these print. Differences:
 
 - `do` screens print in place, rendered like content screens (heading, text,
   spoken text), so their typed prompts show on the page. `(Do: ...)` notes never
@@ -1550,6 +1555,7 @@ playback: loop | once | pingpong   # video only; default loop
 sound: true | false     # video only; default false (muted)
 steps: [slug, slug, ...]  # image only: frames the present view steps through (Media: Stepped images)
 handout: last | first | <slug> | <n>   # with steps: the frame the handout prints (default: the card's own image, else the last frame)
+reading-copy: false    # slides only: the document view, handout and web export leave the picture out; the screen's words still print
 alt / credit / licence / brief / prompts.{image,video}
 
 # FREE — never read, never validated

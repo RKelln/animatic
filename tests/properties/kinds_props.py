@@ -124,6 +124,39 @@ def check(errors: list) -> None:
         page = (web / "index.html").read_text() if r.returncode == 0 else ""
         if r.returncode or "Try it" in page or "Ask the person" in page:
             err(errors, "kinds: web export failed or carries an exercise screen")
+        if 'class="to-top" href="#top"' not in page or "doc-back" in page.split("</style>")[-1]:
+            err(errors, "kinds: web export lacks the Top button, or adds a back link unasked")
+        web2 = tmp / "web2"
+        r = subprocess.run([sys.executable, str(REPO / "tools" / "web-export.py"), str(talk_md), str(web2),
+                            "--back-url", "/event/page/"], capture_output=True, text=True)
+        page2 = (web2 / "index.html").read_text() if r.returncode == 0 else ""
+        if page2.count('href="/event/page/"') != 2:
+            err(errors, f"kinds: --back-url gives {page2.count('href=\"/event/page/\"')} back links, want 2 "
+                        f"(rc {r.returncode}: {r.stderr[:160]})")
+        r = subprocess.run([sys.executable, str(REPO / "tools" / "web-export.py"), str(talk_md), str(tmp / "w3"),
+                            "--back-url", "../elsewhere/"], capture_output=True, text=True)
+        if r.returncode == 0:
+            err(errors, "kinds: --back-url accepted a relative path")
+
+        # card `reading-copy: false`: on the slide, never in the reading copy
+        deck = tmp / "rc"
+        (deck / "media").mkdir(parents=True)
+        shutil.copy(REPO / "tests/fixtures/decks/stepped-images-warned/media/frame-1.png", deck / "media" / "art.png")
+        shutil.copy(REPO / "tests/fixtures/decks/stepped-images-warned/media/frame-2.png", deck / "media" / "fig.png")
+        (deck / "media" / "cards.yaml").write_text(
+            "- slug: art\n  type: image\n  status: file\n  file: art.png\n  reading-copy: false\n"
+            "- slug: fig\n  type: image\n  status: file\n  file: fig.png\n", encoding="utf-8")
+        (deck / "talk.md").write_text(
+            '---\ntitle: "Pictures"\n---\n<!-- shot: art -->\n\n# Pictures\n\nThe words still print.\n\n'
+            '## One\n\n<!-- shot: fig -->\n### A figure\nAbout the figure.\n', encoding="utf-8")
+        out = tmp / "rc-out"
+        subprocess.run([sys.executable, str(REPO / "build.py"), str(deck / "talk.md"), "--out", str(out)],
+                       capture_output=True, text=True)
+        doc = (out / "document" / "index.html").read_text() if (out / "document" / "index.html").exists() else ""
+        present = (out / "present" / "index.html").read_text() if (out / "present" / "index.html").exists() else ""
+        if ('data-slug="art"' in doc or 'data-slug="fig"' not in doc
+                or "The words still print." not in doc or "art" not in present):
+            err(errors, "kinds: `reading-copy: false` should drop the picture from print only")
 
         # agent export
         core = tmp / "core.md"

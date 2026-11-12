@@ -5110,6 +5110,8 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         out.append(f"<h{lvl} class='screen-heading'>{_cite_links(inline_md(_with_cites(b, cite_no)))}</h{lvl}>")
     # figure first (media shot leads the screen), then flow blocks
     consumed = set()
+    if ref is not None and not ref.reading_copy:
+        ref = None      # card `reading-copy: false`: a slide picture only; the words still print
     if ref is not None and not skip_figure:
         # the shot's playback / sound overrides hold in the handout as the
         # card's do; slide-only flags (advance, kb, fit) stay out

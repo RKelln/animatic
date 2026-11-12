@@ -5,6 +5,8 @@ site (Hugo `static/`, GitHub Pages, any file server).
 
     python3 tools/web-export.py <talkfile> <out-dir> [--work DIR]
     python3 tools/web-export.py --home <talkfile> <out-dir> [--agent-url URL] [--coding-agent-url URL]
+    either form takes [--back-url URL] [--back-label TEXT]: a link back to the event page,
+    at the top and the foot of the page.  Every page gets a "Top" button.
 
 `--home` writes the home version: the page a person reads while their own coding
 agent does the hands-on parts.  Exercise screens (`do`) print in place like content
@@ -37,6 +39,35 @@ SETUP_LINE = ("Copy this into your coding agent to start. Further down, every gr
               "Copy button is something to paste into your agent when you reach it.")
 SETUP_PASTE = ("Read {url} and set up this workshop with me. Ask me before you download, "
                "install or change anything, one question at a time, in plain words.")
+
+NAV_CSS = """<style>
+.doc-back { margin: 0 0 0.8em; font-size: 0.95rem; }
+.doc-back a, .doc-foot a { color: var(--doc-accent); }
+.doc-foot { margin: 3em 0 1em; padding-top: 1em; border-top: 1px solid var(--doc-line, var(--doc-muted));
+  display: flex; gap: 1.5em; flex-wrap: wrap; font-size: 0.95rem; }
+.to-top { position: fixed; right: 1rem; bottom: 1rem; z-index: 10; padding: 0.45em 0.9em;
+  font-size: 0.9rem; font-weight: 600; text-decoration: none; color: var(--doc-bg);
+  background: var(--doc-accent); border-radius: 0.4em; opacity: 0.85; }
+.to-top:hover, .to-top:focus-visible { opacity: 1; }
+.to-top:focus-visible { outline: 3px solid var(--doc-ink); outline-offset: 2px; }
+@media print { .doc-back, .doc-foot, .to-top { display: none; } }
+</style>
+"""
+
+
+def add_nav(html: str, back_url: str, back_label: str) -> str:
+    """A link back to the event page (top and foot) and a fixed Top button."""
+    back = (f'<a href="{escape(back_url, quote=True)}">&larr; {escape(back_label, quote=False)}</a>'
+            if back_url else "")
+    html = html.replace("</head>", NAV_CSS + "</head>", 1)
+    if back:
+        html = html.replace('<header class="doc-head">',
+                            f'<header class="doc-head"><p class="doc-back">{back}</p>', 1)
+    foot = (f'<p class="doc-foot"><a href="#top">&uarr; Back to the top</a>{back}</p>')
+    html = html.replace("</article>", foot + "</article>", 1)
+    return html.replace("</body>", '<a class="to-top" href="#top" aria-label="Back to the top">'
+                        '&uarr; Top</a>\n</body>', 1)
+
 
 HOME_CSS = """<style>
 .ex-card { margin: 1.8em 0; padding: 0.2em 1.1em 1.1em; border: 2px solid var(--doc-accent);
@@ -149,7 +180,12 @@ def main() -> int:
                     help="the home version: exercise cards, Copy buttons, an optional setup card")
     ap.add_argument("--agent-url", help="with --home: the agent file; adds the setup card")
     ap.add_argument("--coding-agent-url", help="with --home: where to get a coding agent")
+    ap.add_argument("--back-url", help="the event page: a link back to it, top and foot")
+    ap.add_argument("--back-label", default="Back to the workshop page")
     a = ap.parse_args()
+    if a.back_url and not a.back_url.startswith(("http://", "https://", "/")):
+        print(f"refusing to export: --back-url is not an http(s) URL or a site path: {a.back_url}", file=sys.stderr)
+        return 1
     for u in (a.agent_url, a.coding_agent_url):
         if u and not u.startswith(("http://", "https://")):
             print(f"refusing to export: not an http(s) URL: {u}", file=sys.stderr)
@@ -188,11 +224,17 @@ def main() -> int:
             print("warn      : no `agent:` block in the frontmatter; no setup card", file=sys.stderr)
         html = add_copy_buttons(html).replace("</body>", HOME_JS + "</body>", 1)
 
+    if "</article>" not in html or '<header class="doc-head">' not in html:
+        print("warn      : page layout changed; no back links added", file=sys.stderr)
+    html = add_nav(html, a.back_url or "", a.back_label)
+
     allowed = list(a.allow) + [str(x) for x in (meta.get("web-allow") or [])]
     problems = []
     for ref in re.findall(r'(?:src|href)="([^"#][^"]*)"', html):
         if ref.startswith(("http://", "https://", "mailto:", "data:", "media/")):
             continue
+        if a.back_url and ref == escape(a.back_url, quote=True):
+            continue    # the author's own link back to the event page
         problems.append(f"link leaves the folder: {ref}")
     for leak in re.findall(r"/home/\w+[^\"<\s]*|~/(?:Documents|\.)[^\"<\s]*", html):
         if not any(x in leak for x in allowed):
