@@ -11,7 +11,14 @@ A throwaway deck under /tmp, because includes are about files next to files.
 - nested includes work; a cycle, a missing file, an absolute path, an unknown
   flag, nesting past the limit and a Movement heading are fatal, with a line;
 - an included file's frontmatter `cites:` / `sources:` join the talk's, the
-  talk winning.
+  talk winning;
+- an included file's `cites:` entry prints in the Sources list and counts in
+  `deck.sources` even with no `[^id]` in the prose, and one a shelf section
+  declares never does;
+- check 30 (dim without text): an explicit `dim=0` on a `continue` screen,
+  which resets an inherited dim, does not warn, a non-zero dim on a screen with
+  no text still does, and a quick-select section the talk does not include is
+  not checked.
 """
 from __future__ import annotations
 
@@ -22,6 +29,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+import check as check_mod  # noqa: E402
+import render  # noqa: E402
 import talkparse  # noqa: E402
 
 HEAD = """---
@@ -141,5 +150,88 @@ def check(errors: list) -> None:
                "Movement", errors, "movement")
         _fatal(deck, "<!-- include: sections/d1.section.md -->\n",
                "deeper", errors, "depth")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+DIM_SECTION = """---
+cites:
+  inj: "Public citation from the section"
+---
+<!-- shot: pic dim=0.8 -->
+> Quoted line over the picture.
+
+<!-- shot: continue dim=0 -->
+Spoken text, picture back to full brightness.
+
+<!-- shot: continue dim=0 -->
+"""
+SHELF_SECTION = """---
+quick:
+  title: "Shelf"
+  keywords: [shelf]
+cites:
+  shelf-only: "Never public"
+---
+<!-- shot: pic dim=0.8 -->
+
+<!-- shot: continue dim=0.5 -->
+"""
+
+
+def _check30(talk_path: Path) -> list:
+    rep = check_mod.check_file(talk_path)
+    return [f.message for f in rep.findings if f.check == 30]
+
+
+def check_cites_and_dim(errors: list) -> None:
+    tmp = Path(tempfile.mkdtemp(prefix="animatic-cites-"))
+    try:
+        deck = tmp / "deck"
+        (deck / "sections").mkdir(parents=True)
+        (deck / "sections" / "d.section.md").write_text(DIM_SECTION, encoding="utf-8")
+        (deck / "sections" / "shelf.section.md").write_text(SHELF_SECTION, encoding="utf-8")
+        (tmp / "_media").mkdir()      # a shelf screen's media resolves from the shared library
+        shutil.copy(ROOT / "tests" / "fixtures" / "quick" / "_media" / "clip-shelf.svg",
+                    tmp / "_media" / "pic.svg")
+        head = HEAD.replace('cites:\n  a: "Talk\'s own citation"\n', "")
+
+        # section cites print with no [^id], and the shelf's never do
+        (deck / "talk.md").write_text(
+            head.replace("---\n", "---\nquick_sections: sections\n", 1)
+            + "<!-- include: sections/d.section.md -->\n", encoding="utf-8")
+        t = talkparse.build_talk(deck / "talk.md")
+        got = [c["source"] for c in render.cited_sources(t)]
+        if got != ["Public citation from the section"]:
+            errors.append(f"section cites: cited_sources gave {got!r}")
+        if any("Never public" in c["source"] for c in render.cited_sources(t)):
+            errors.append("section cites: a shelf section's cite reached the talk")
+        # check 30: dim=0 resets, so no warning; the shelf section is not checked
+        w = _check30(deck / "talk.md")
+        if w:
+            errors.append(f"check 30: dim=0 reset / shelf section warned: {w!r}")
+
+        # a talk that does not include the section does not cite it
+        (deck / "talk.md").write_text(head + "<!-- shot -->\n# Open\n\nHi.\n",
+                                      encoding="utf-8")
+        t2 = talkparse.build_talk(deck / "talk.md")
+        if render.cited_sources(t2):
+            errors.append("section cites: a section the talk lacks was cited")
+
+        # a non-zero dim on a screen with no text still warns
+        (deck / "talk.md").write_text(
+            head + "<!-- shot: pic dim=0.8 -->\n\n<!-- shot: continue dim=0.4 -->\n",
+            encoding="utf-8")
+        if not _check30(deck / "talk.md"):
+            errors.append("check 30: a non-zero dim on a textless screen did not warn")
+
+        # inheritance: a continue with no dim keeps the head's
+        (deck / "talk.md").write_text(
+            head + "<!-- shot: pic dim=0.8 -->\n\n<!-- shot: continue -->\n\n"
+                   "<!-- shot: continue dim=0 -->\n", encoding="utf-8")
+        t3 = talkparse.build_talk(deck / "talk.md")
+        dims = [s.media_shot.flags.get("dim") for s in t3.screens]
+        if dims != ["0.8", "0.8", "0"]:
+            errors.append(f"dim inheritance: got {dims!r}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

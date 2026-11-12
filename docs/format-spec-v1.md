@@ -282,6 +282,10 @@ directions and along a chain of continue screens; its playback (`loop`,
 dropped: write it on the chain's first shot. A continue shot with no media
 screen before it warns and opens without media.
 
+`dim` (like every flag but the chain's playback) is inherited: `<!-- shot: continue
+dim=0.8 -->` sets it and each later `continue` keeps it, until one writes
+`dim=0`, which un-dims. An explicit `dim=0` never trips check 30.
+
 ### Flags and layout
 
 Flags are the per-shot knobs. The top-level namespace is fixed:

@@ -1108,9 +1108,17 @@ def check_30_dim_without_text(talk, resolver, report: Report) -> None:
     bright should be fixed in the file, not dimmed (Ryan, 2026-09-28).
     Framed layouts ignore dim already (check 8 says so)."""
     for s in talk.screens:
+        if s.shelf:
+            continue          # a quick-select section the talk does not include
         mshot = s.media_shot
         if mshot is None or not mshot.flags.get("dim"):
             continue
+        dim = mshot.flags["dim"]
+        try:
+            if float(dim) == 0:
+                continue      # dim=0 on a `continue` screen un-dims an inherited dim
+        except ValueError:
+            pass
         if mshot.flags.get("layout") in ("piece", "duo", "titled", "split"):
             continue
         if mshot.flags.get("under"):

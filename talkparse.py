@@ -690,6 +690,10 @@ class Talk:
     shelf_files: list = field(default_factory=list)
     shelf_footnote_ids: list = field(default_factory=list)
     shelf_registry: dict = field(default_factory=dict)
+    # Ids an included file declares in its own `cites:`, in include order.
+    # They print in the Sources list even when no `[^id]` reference points at
+    # them: the section carries its citation, the prose need not.
+    section_cite_ids: list = field(default_factory=list)
 
     @property
     def main_screens(self) -> list:
@@ -1863,7 +1867,10 @@ def build_talk(path, source: Optional[str] = None,
                                   (Path(path).resolve(),), includes, frag_meta,
                                   quick_on=qdir is not None)
     # an included file's `cites:` / `sources:` join the talk's; the talk wins
+    section_cite_ids: list = []
     for fm in frag_meta:
+        if isinstance(fm.get("cites"), dict):
+            section_cite_ids.extend(k for k in fm["cites"] if k not in section_cite_ids)
         for key in ("cites", "sources"):
             if isinstance(fm.get(key), dict):
                 merged = dict(fm[key])
@@ -1873,6 +1880,7 @@ def build_talk(path, source: Optional[str] = None,
     talk = assemble(meta, raw_blocks, source, role_vocab=role_vocab,
                     layout_vocab=layout_vocab, role_bundles=role_bundles)
     talk.includes = includes
+    talk.section_cite_ids = section_cite_ids
     _check_waypoints(talk, source)
     if qdir is not None:
         _append_shelf(talk, path, qdir, qline, role_vocab, layout_vocab,

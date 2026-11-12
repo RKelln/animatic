@@ -236,6 +236,7 @@ def main(argv=None) -> int:
     # includes: a throwaway deck of talk + section files
     include_errors: list = []
     include_props.check(include_errors)
+    include_props.check_cites_and_dim(include_errors)
     if include_errors:
         failed.append("include")
         print("FAIL  include")

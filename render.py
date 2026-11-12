@@ -371,14 +371,24 @@ def cited_sources(talk: Talk) -> list[dict]:
     there is no registry value to cite, and the deck already warns.
     """
     registry = talk.meta.get("sources")
-    if not isinstance(registry, dict):
-        return []
     cited = []
-    for rid in talk.footnote_ids:
-        value = registry.get(rid)
-        if value is None or not str(value).strip():
-            continue
-        cited.append({"id": rid, "source": str(value)})
+    if isinstance(registry, dict):
+        for rid in talk.footnote_ids:
+            value = registry.get(rid)
+            if value is None or not str(value).strip():
+                continue
+            cited.append({"id": rid, "source": str(value)})
+    # An included file's own `cites:` entries count as cited by the talk, after
+    # the footnoted ones, whether or not any prose carries a `[^id]` for them.
+    cites = talk.meta.get("cites")
+    if isinstance(cites, dict):
+        seen = {c["id"] for c in cited}
+        for rid in getattr(talk, "section_cite_ids", ()):
+            value = cites.get(rid)
+            if rid in seen or value is None or not str(value).strip():
+                continue
+            seen.add(rid)
+            cited.append({"id": rid, "source": str(value)})
     return cited
 
 
