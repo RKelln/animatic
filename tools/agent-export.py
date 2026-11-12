@@ -74,7 +74,33 @@ def _plain(text: str) -> str:
     return re.sub(r"[ \t]*\n[ \t]*", "\n", text.strip())
 
 
-def build_steps(talk, reading_url: str) -> list:
+_SKIP_CACHE: dict = {}
+
+
+def _section_skipped(screen, talk_dir) -> bool:
+    """True when the screen comes from an included section whose own frontmatter says
+    `agent-export: skip` (an introduction or credits: fine in the reading copy, noise in a
+    self-run workshop)."""
+    inc = screen.include
+    if not inc:
+        return False
+    path = Path(inc)
+    if not path.is_absolute() and talk_dir is not None:
+        path = (talk_dir / path).resolve()
+    if path not in _SKIP_CACHE:
+        skip = False
+        try:
+            text = path.read_text(encoding="utf-8")
+            if text.startswith("---"):
+                head = text.split("\n---", 1)[0]
+                skip = bool(re.search(r"(?m)^agent-export:\s*skip\s*$", head))
+        except OSError:
+            skip = False
+        _SKIP_CACHE[path] = skip
+    return _SKIP_CACHE[path]
+
+
+def build_steps(talk, reading_url: str, talk_dir=None) -> list:
     """[{title, anchor, body: [str]}] in talk order."""
     slug = render.deck_slug(talk)
     moves = {m.index: m.title for m in talk.movements}
@@ -84,11 +110,16 @@ def build_steps(talk, reading_url: str) -> list:
     last_anchor = None    # the last content screen's anchor
     words = 0
     seen: set = set()
+    skipped_moves: set = set()   # movements whose heading came from a skipped section
 
     def anchor(screen):
         return f"{base}#cue-{slug}-{screen.idx:03d}"
 
     for s in talk.screens:
+        if _section_skipped(s, talk_dir):
+            cur = None            # a section that opts out of agent exports
+            skipped_moves.add(s.movement)   # its heading must not name the talk's own screens
+            continue
         if render.is_black_screen(s) or s.room_only:
             cur = None            # a skipped screen ends the run
             continue
@@ -112,6 +143,8 @@ def build_steps(talk, reading_url: str) -> list:
         if cur is None or cur["movement"] != s.movement or \
                 (words >= SPLIT_WORDS and title):
             mt = moves.get(s.movement) or talk.meta.get("title") or "Opening"
+            if s.movement in skipped_moves:
+                mt = title or talk.meta.get("title") or "Opening"
             # the movement's later steps are named by their first screen
             label = f"{mt}: {title}" if mt in seen and title else mt
             seen.add(mt)
@@ -174,7 +207,7 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str):
     if not agent:
         out.append("(this workshop has no file instructions)")
     out += ["", "## Steps", ""]
-    for n, st in enumerate(build_steps(talk, reading_url), 1):
+    for n, st in enumerate(build_steps(talk, reading_url, talk_path.parent), 1):
         out += [f"### Step {n}: {st['title']}", ""]
         if st["anchor"]:
             out += [f"Reading copy: {st['anchor']}", ""]

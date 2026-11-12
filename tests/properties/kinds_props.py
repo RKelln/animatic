@@ -167,5 +167,26 @@ def check(errors: list) -> None:
                                                  "theme: workshop\nweb-allow: [\"/home/someone\"]"))
         if _export(leak, tmp / "leak-out.md", core).returncode != 0:
             err(errors, "kinds: web-allow did not clear the path")
+
+        # a section whose frontmatter says `agent-export: skip` is left out of the
+        # export, and its movement heading does not name the talk's next screen
+        (tmp / "intro.section.md").write_text(
+            "---\nagent-export: skip\n---\n\n## Intro Person\n<!-- shot -->\n### About me\n\n"
+            "Intro spoken line.\n")
+        (tmp / "kept.section.md").write_text("---\n---\n\n<!-- shot -->\n### Kept\n\nKept section line.\n")
+        src = (FIX / "screen-kinds.talk.md").read_text()
+        head, body = src.split("\n---\n", 1)
+        body = body.replace("# Opening\n\nWelcome to the throwaway workshop.\n",
+                            "<!-- include: intro.section.md -->\n\n<!-- shot -->\n### Real opening\n\n"
+                            "Welcome to the throwaway workshop.\n\n<!-- include: kept.section.md -->\n", 1)
+        skip_md = tmp / "skip.md"
+        skip_md.write_text(head + "\n---\n" + body)
+        r = _export(skip_md, tmp / "skip-out.md", core)
+        out = (tmp / "skip-out.md").read_text() if r.returncode == 0 else ""
+        if r.returncode or "Intro spoken line" in out or "Kept section line" not in out:
+            err(errors, "kinds: agent-export: skip section not left out (or a kept section lost)")
+        first = re.search(r"^### Step 1: (.*)$", out, flags=re.M)
+        if not first or "Intro Person" in first.group(1):
+            err(errors, f"kinds: skipped section's heading names step 1: {first.group(1) if first else None}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

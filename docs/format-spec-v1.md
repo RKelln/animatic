@@ -260,7 +260,9 @@ names the person whose voice the spoken text is in, so the agent relays their
 stories as theirs instead of speaking as them (a warning when missing). `practice`
 names the made-up person the exercises use and where they are described; `own` is
 the folder layout the agent builds, by interview, for someone who chooses their own
-life instead. Both print under "This workshop". A talk
+life instead. Both print under "This workshop". A section file whose own
+frontmatter says `agent-export: skip` (an introduction, credits) is left out of
+the export wherever it is included; it still prints in the reading copy. A talk
 with no `agent:` block still exports, with a warning.
 
 ### Recommended, unenforced
