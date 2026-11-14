@@ -1,7 +1,7 @@
 ---
 quick:
   title: "What's an agent?"
-  keywords: [agents, agentic, hermes, claude code, tools]
+  keywords: [agents, agentic, opencode, claude code, tools]
 cites:
   secret: "SHELF-ONLY public citation"
 sources:

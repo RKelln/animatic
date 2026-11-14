@@ -7,7 +7,7 @@ title: "Waypoint fixture"
 theme: workshop
 dur: 3 min
 quick_sections: sections
-waypoints: { url: http://127.0.0.1:8472/tpl_2026/waypoint/W99 }
+waypoints: { url: http://127.0.0.1:8472/event/waypoint/W99 }
 ---
 <!-- shot: waypoint=start -->
 # Opening

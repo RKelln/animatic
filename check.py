@@ -1497,7 +1497,7 @@ def discover_corpus(roots: dict) -> dict:
 
 def _rel_label(root: Path, path: Path) -> str:
     """Root-basename-prefixed relative path for display, e.g.
-    decks/L01-opening-talk/talk.md — roots are named dirs, so the prefix is
+    decks/my-talk/talk.md — roots are named dirs, so the prefix is
     unambiguous when the same relative layout exists under two roots."""
     try:
         rel = path.relative_to(root)

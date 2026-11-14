@@ -6,10 +6,9 @@
 > comes back, and per-engine working conventions. Cards and prompts stay
 > engine-agnostic; the engine appears only as a per-attempt field in gen-log.md.
 >
-> Operated by two Hermes skills: `fal-gen` (cloud/fal leg: finals + all video)
-> and `local-gen` (steamy/ComfyUI leg: bulk local images). This file supersedes
-> `decks/_media/engine-notes.md` (2026-09-05 recon), moved here 2026-09-06 (E5)
-> with corrections from live schema checks.
+> Two legs: a cloud leg (fal.ai: finals and all video) and a local leg (ComfyUI:
+> bulk local images). Written from live schema checks; verify prices and
+> parameters against the provider before relying on them.
 
 ## Engine posture (one pipeline, two legs)
 
@@ -120,11 +119,11 @@ campaign — the rates jump 4x the day after a promo ends and nothing tells you.
   still, or split into 2 clips. Loop-friendly cuts ~6s with a final frame
   identical to the first.
 - Expansion: `balanced` for iteration, `quality` for finals.
-- `FAL_KEY` lives in `~/.hermes/.env` (env-only, never the repo). Export it in
+- `FAL_KEY` is read from the environment only (never the repo). Export it in
   the session when a direct API call is made.
 - Defaults for deck media: 10-15s max, 768p, 16:9, seed recorded every attempt.
 
-## Hermes built-in toolset route (video_gen / image_gen / bfl)
+## Agent-harness built-in toolset route (video_gen / image_gen / bfl)
 
 Enabled 2026-09-05 on the cli platform toolsets (`config.yaml`:
 `platform_toolsets.cli` includes `bfl`, `image_gen`, `video_gen`;
@@ -156,7 +155,7 @@ start — after enabling or changing them, a FRESH session is required.
 
 **Gen-log integration:** built-in runs are fine for smoke tests and quick
 candidates (precedent: rainforest-canopy a1, recorded as `engine: fal.ai
-minimax h3 text-to-video (Hermes video_generate tool)` with `expanded: not
+minimax h3 text-to-video (harness video_generate tool)` with `expanded: not
 saved`). Because the tool hides expanded_prompt and never echoes seed, prefer
 the RAW fal endpoint for attempts where the diagnostic matters: finalists,
 `quality`-expansion runs, anything you may need to reproduce or explain. Decide

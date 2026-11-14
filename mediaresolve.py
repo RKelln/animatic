@@ -53,7 +53,7 @@ When nothing resolves, the slug becomes a PLACEHOLDER (found=False) with the
 card's type/status carried through for the renderer.  The script never knows
 about file formats; the resolver is the only place extensions exist.
 
-Media found outside this repo (the TPL instance) is REFERENCED by absolute
+Media found outside this repo (in a deck's own folder) is REFERENCED by absolute
 path, never copied: reads stay read-only, per the ticket constraint.
 
 Playback (card `playback:`, video only; spec: Media pipeline contract):

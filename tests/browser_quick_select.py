@@ -329,7 +329,7 @@ POPUP_DRIVER = r"""
       ok("a section title match is the first row", rows()[0] === "What's an agent? | shelf", rows().join(" ; "));
       type("claude code");
       ok("a multi-word keyword matches as prefixes of each word", rows()[0] === "What's an agent? | shelf", rows().join(" ; "));
-      type("hermes");
+      type("opencode");
       ok("a keyword finds its section", rows()[0] === "What's an agent? | shelf", rows().join(" ; "));
       type("token");
       ok("screen text is searched (shelf row labelled by its section)", rows().some(function (r) { return /What's an agent\?$/.test(r) && /costs/.test(r); }), rows().join(" ; "));

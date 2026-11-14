@@ -45,13 +45,7 @@ class NoRecord(Exception):
 def load_key() -> str:
     key = os.environ.get("FAL_KEY")
     if not key:
-        env = Path.home() / ".hermes" / ".env"
-        if env.is_file():
-            for line in env.read_text().splitlines():
-                if line.startswith("FAL_KEY="):
-                    key = line.split("=", 1)[1].strip().strip('"').strip("'")
-    if not key:
-        raise NoRecord("FAL_KEY not set and not found in ~/.hermes/.env")
+        raise NoRecord("FAL_KEY is not set (export it in your shell; it is read from the environment only)")
     return key
 
 

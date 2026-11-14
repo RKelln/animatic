@@ -1,6 +1,6 @@
 # Generation log — the archaeology of attempts
 
-> Deck copies: retitle this line to `<slug> generation log` (e.g. "L01
+> Deck copies: retitle this line to `<slug> generation log` (e.g. "my-talk
 > generation log") — the log belongs to one deck's media pipeline.
 >
 > Append-only. One entry per attempt, newest at the bottom. This file holds the
@@ -38,7 +38,7 @@
 >            seed test, not a prompt test. Outputs download into
 >            media/<slug>/attempts/.
 >
-> Agents append entries when iterating; Ryan steers in chat. "keep" and
+> Agents append entries when iterating; you steer in chat. "keep" and
 > "surprise" lines are how good accidents get mined for other cards later.
 
 <!-- append below this line -->

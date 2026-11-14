@@ -1,25 +1,32 @@
 # AGENTS.md — animatic
 
-Ryan's talk/lecture system: one markdown **talkfile** per talk, rendered to a
-present view (cinematic slides), a document view (the spoken words as prose), and
-a recorded video-essay. Format and toolchain contract, first deployed for the TPL
-Applied AI residency. The code is expected to keep being rewritten; the format
-contract is what has to stay stable so authored talks survive.
+Animatic turns one markdown **talkfile** per talk into a present view (cinematic
+slides), a document view (the spoken words as prose: handout and web page) and a
+recorded video essay. Read `README.md` first for what it is and how to install it.
+The code is expected to keep being rewritten; the **talkfile format is the stable
+contract** (`docs/format-spec-v1.md`), because authored talks must survive.
 
-`CLAUDE.md` in this repo is a symlink to this file — one source of truth for every
-coding agent. Edit here, never there.
+`CLAUDE.md` in this repo is a symlink to this file: one source of truth for every
+coding agent. Edit `AGENTS.md`, never the symlink.
+
+## Setup
+
+    uv sync                                  # or: python3 -m venv .venv && .venv/bin/pip install -e .
+    uv run python tests/run.py               # expect "failed: 0"
+
+Python 3.10+. Runtime dependencies are `pyyaml` and `pillow`. Chromium (handout PDF,
+browser tests) and ffmpeg/ffprobe (video features) are optional; tests that need a
+missing browser exit 77 (skipped), they do not fail.
 
 ## Where things live
 
-- **Deck sources live OUTSIDE this repo**: `~/talks/decks/<deck>/talk.md`.
-  Their media, `cards.yaml`, `gen-log.md` and `style.md` sit beside each talkfile.
-- `corpus.yaml` declares the machine-local content roots the corpus harness scans
-  (decks, concepts, banks). A shipped copy rewrites its paths.
-- `templates/` — `cards.yaml`, `gen-log.md`, `style.md` as decks inherit them.
-- `examples/` — small specimens (`roles-demo`, `timing-demo`, `media-resolution`); not real talks.
-- `docs/` — the decision records, including `engine-decision.md` (why this build shape).
-- Spec: this repo's `README.md`, plus `docs/*.md`. A longer authoring spec lives in
-  the Hermes skill at `~/.hermes/skills/creative/talkfile-decks/`.
+- A deck is a folder holding `talk.md`, plus `media/` (pictures, `cards.yaml`,
+  `gen-log.md`, `style.md`) beside it. Decks usually live **outside** this repo; the
+  specimens here are in `examples/`.
+- `corpus.yaml` lists the content roots the corpus harness scans. Edit it for your machine.
+- `templates/`: `cards.yaml`, `gen-log.md`, `style.md` as new decks inherit them.
+- `docs/`: the format spec and feature docs (`format-spec-v1.md` is normative).
+- `themes/`: CSS tokens and the two themes. `tests/README.md` explains the test layers.
 
 ## Commands (verify, don't assume)
 
@@ -35,7 +42,7 @@ coding agent. Edit here, never there.
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
     python3 check.py --register                    # the canonical check register (1-53)
     python3 check.py --corpus [ROOT] --strict      # warnings become deck failures
-    python3 tests/run.py                           # golden suite (profiles: 65, passed: 73)
+    python3 tests/run.py                           # golden suite: expect "profiles: 65  passed: 73  failed: 0"
     python3 tests/browser_waypoint.py              # real-browser test for waypoints (exit 77: no chromium)
     python3 tests/browser_quick_select.py          # real-browser test for quick select (exit 77: no chromium)
 
@@ -43,21 +50,21 @@ coding agent. Edit here, never there.
 2 on usage errors. Corpus mode is read-only: it parses and checks, never writes into
 a content root. Builds are deterministic — re-running rebuilds identical bytes.
 
-As of 2026-11-05: `--corpus` reports 14/14 decks passed, banks 1, exit 0 (under
-`--strict` 12/14: warnings count as failures there).
-
 ## Rules
 
 - **The handout is public.** It prints `cites:` (public citations), never the
-  `sources:` working receipts. Check a handout for repo paths, "verify" notes and
-  internal comments before anyone is pointed at it. Rebuild it with
-  `tools/handout-pdf.py`; PDFs are build products and are not committed.
-
+  `sources:` working receipts. Before pointing anyone at a handout or web page, check it
+  for local paths, "verify" notes and internal comments (`tools/reading-audit.py`).
+  Rebuild it with `tools/handout-pdf.py`; PDFs are build products and are not committed.
 - **Zero install base.** There are no shipped users and no compatibility burden. Delete
   defects outright rather than grandfathering them behind deprecation shims.
 - `+<role>` is the only overlay syntax. Attribution is canonicalized to `~`.
 - Deck frontmatter carries the theme and declared `dur`; check 19 reports when effective
   timing drifts more than 30% from the declaration.
-- Nothing that parses today may change meaning. The way to prove that is running the
-  corpus check over the whole corpus, not arguing from a happy path.
-- Ryan reviews and commits talk content himself; leave talkfiles uncommitted unless asked.
+- Nothing that parses today may change meaning. Prove it by running the corpus check over
+  every deck you have, not by arguing from a happy path.
+- Builds are deterministic: re-running rebuilds identical bytes. Keep it that way.
+- Golden files in `tests/expected/` change only through `python3 tests/run.py
+  --update-goldens`, and only after you have read the diff and meant it.
+- Secrets (such as `FAL_KEY` for image generation) come from the environment, never a file in the repo.
+- Leave an author's talkfiles uncommitted unless asked; they review and commit their own content.

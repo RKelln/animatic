@@ -1,0 +1,15 @@
+# Animatic
+
+> Write a talk as a script (one markdown "talkfile"); render slides, a handout PDF, a web page and a narrated video from the same file. Python, MIT licence.
+
+Start with the README, then the format spec. The talkfile format is the stable contract; the code behind it changes.
+
+- [README](README.md): what it is, install, quick start, commands
+- [AGENTS.md](AGENTS.md): setup, commands, and rules for coding agents working in this repo
+- [Talkfile format v1](docs/format-spec-v1.md): the normative grammar
+- [Example talk](examples/roles-demo/talk.md): every screen role in one small deck
+- [Media pipeline](docs/media-pipeline.md): media cards, generation log, style cascade
+- [Presenter view](docs/presenter-view.md), [Live capture](docs/live-capture.md), [Quick select](docs/quick-select.md), [Waypoints](docs/waypoints.md): feature docs
+- [Tests](tests/README.md): golden and property suites
+
+Verify a change with `python3 tests/run.py` (expect "failed: 0") and a talkfile with `python3 check.py <talk.md> --strict`.

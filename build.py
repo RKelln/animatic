@@ -16,7 +16,7 @@ Usage:
     python3 build.py --corpus [ROOT]     # corpus check (register 21, T11)
 
 Example (specimen):
-    python3 build.py ~/talks/decks/L01-opening-talk/talk.md
+    python3 build.py examples/roles-demo/talk.md
 
 --corpus without ROOT uses the corpus.yaml content roots; with ROOT it scans
 that directory (per-deck pass/fail + cross-deck slug collisions + tag drift

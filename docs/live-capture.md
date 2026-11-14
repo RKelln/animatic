@@ -58,9 +58,9 @@ One card, one shot.
 ## A capture in the duo column: the demo screen
 
 **Added 2026-10-18.** A live screen in `layout=duo` becomes a demo screen: the
-notes in one pane, the capture in the other. Ryan's shape for it: the pane runs
+notes in one pane, the capture in the other. The shape: the pane runs
 the **full stage height**, edge to edge, at **55vw** with a 45vw text column
-(W04's "Meet Search Desk" is the first consumer). The split favours the window
+(a search-tool demo was the first consumer). The split favours the window
 because most shared windows are landscape.
 
 Three things the piece rules could not supply:

@@ -57,7 +57,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "tests" / "fixtures" / "waypoints"
 TOKEN = "TESTTOKEN-q7Zk3-not-a-real-secret"
-WPATH = "/tpl_2026/waypoint/W99"
+WPATH = "/event/waypoint/W99"
 
 
 # ---------------------------------------------------------------------------

@@ -2,14 +2,14 @@
 slug: roles-demo
 title: "Animatic: style specimen"
 date: 2026-09-05
-venue: Internal style test
+venue: Style test
 dur: ~3 min
 theme: workshop
 media: media
-status: style specimen — exercises every screen role against real placeholder media (Experimance photos, ink studies)
+status: style specimen — exercises every screen role against generated placeholder pictures
 ---
 
-<!-- from: none; specimen content only. Images are placeholders from _media/ryan/ (Experimance fieldwork + generated ink studies). -->
+<!-- from: none; specimen content only. The pictures are drawn by make-media.py beside this file; swap in your own with the same names. -->
 
 <!-- shot -->
 # Animatic: style specimen
@@ -44,9 +44,9 @@ The spoken words run underneath every screen. This paragraph is VO: it will neve
 Numbers get a screen of their own, on paper or on the ground: same type, same size. This slide is the stat-over-image test.
 
 <!-- shot: roundabout layout=piece role=lower -->
-Experimance fieldwork, Toronto.
+A lower third: rings, drawn by make-media.py.
 
-(Visual: the Experimance roundabout from above. Bright geometry, busy colour.)
+(Visual: concentric rings from above. Bright geometry, busy colour.)
 
 A lower third names the image while the voice keeps moving. Transient: it leaves when the picture changes.
 
@@ -56,7 +56,7 @@ A lower third names the image while the voice keeps moving. Transient: it leaves
 The dim scrim buys the words room over bright ground. This heading is the hero test: light hero words over the brightest ground in the folder.
 
 <!-- shot: ink-vortices kb=in role=credits -->
-Ink study, generated. Placeholder for the closing image.
+Ink swirl, drawn by make-media.py. Placeholder for the closing image.
 
 A beat screen: media and an attribution line, no words spoken.
 
@@ -80,7 +80,7 @@ The quote-over-background test. Same words could sit on video; the ground is ful
 <!-- shot: credits -->
 ### Credits
 
-Images: Experimance fieldwork photographs, Ryan Kelln. Ink studies generated for the slide pipeline.
+Images: procedural placeholders from make-media.py, Ryan Kelln.
 
 Type: Georgia for display and reading, system sans for labels and captions.
 

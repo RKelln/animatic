@@ -1,17 +1,16 @@
 # Media pipeline — how a talk's visuals live and get made
 
-Migrated 2026-09-05 from the TPL instance conventions. Per-talk media lives
-under `media/` next to the talkfile; humans write the talk, agents run the
-pipeline, Ryan approves every final.
+Per-talk media lives under `media/` next to the talkfile; humans write the
+talk, agents run the pipeline, and a human approves every final.
 
 ## Files per deck (one set each)
 
 | File | Role | Who edits |
 |---|---|---|
-| `talk.md` | the talk: VO + shots. One file | Ryan (and agents, in chat) |
-| `media/cards.yaml` | CURRENT state per visual: brief, live prompt, approved outputs, credit/licence/alt | Agent drafts, Ryan approves |
+| `talk.md` | the talk: VO + shots. One file | the author (and agents, in chat) |
+| `media/cards.yaml` | CURRENT state per visual: brief, live prompt, approved outputs, credit/licence/alt | Agent drafts, author approves |
 | `media/gen-log.md` | ARCHAEOLOGY: append-only attempts with intent/delta/verdict/keep/surprise | Agent appends while iterating |
-| `media/style.md` | deck visual defaults; cards inherit unless overridden | Ryan (with agent) |
+| `media/style.md` | deck visual defaults; cards inherit unless overridden | the author (with agent) |
 | `media/<slug>/attempts/` | every generated file + saved expanded_prompts, one attempt per file | agent |
 | shared `_media/library.yaml` | media reused across talks + third-party credits | agent |
 
@@ -91,8 +90,7 @@ exploration, many candidates cheap, reviewed in the morning; then a FAL pass
 fields in gen-log.md, never part of the talk format.
 
 Engine mechanics (endpoints, params, pricing, expanded_prompt/seed behavior,
-the built-in Hermes toolset) live in `media-engines.md`; the two legs are
-operated by the `fal-gen` and `local-gen` Hermes skills.
+the harness's built-in toolset) live in `media-engines.md`.
 
 Defaults: video clips 10-15s max (engine cap 15s), 768p, 16:9, diegetic audio
 muted in deck backgrounds, seed recorded every attempt, prompt expansion

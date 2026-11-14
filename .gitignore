@@ -8,8 +8,10 @@ __pycache__/
 # E3: alternate-theme build dirs (--theme lecture etc.)
 **/out-*/
 
-# agent scratch: plans and notes that live with the workspace, not the code
+# agent scratch and local-only tooling state
 .hermes/
+.claude/
+.venv/
 
 # a browser test killed mid-run leaves its Chromium profile
 waypoint-profile-*/

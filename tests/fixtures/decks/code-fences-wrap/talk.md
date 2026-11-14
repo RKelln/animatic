@@ -13,9 +13,9 @@ status: "composite fixture (spec: Text, fenced code, Fitting) - width never shri
 ### What's on the page
 
 ```
-- Ryan: plans-first. Fresh independent takes valued.
-- Ryan shares ideas as context, not tasks: engage first, don't produce until asked.
-- TPL copy: grade 6, no em-dashes.
+- Reviewer: plans-first. Fresh independent takes valued.
+- Reviewer shares ideas as context, not tasks: engage first, don't produce until asked.
+- Public copy: grade 6, no em-dashes.
 - Research briefs: holistic not hype, ~ vs ✓; continuation: primary→thread→investigation→counter-claims.
 ```
 

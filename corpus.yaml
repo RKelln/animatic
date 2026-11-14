@@ -1,33 +1,20 @@
-# corpus.yaml — animatic content-root declaration (T11, check 21).
+# corpus.yaml — content roots for the corpus check (`python3 build.py --corpus`,
+# `python3 check.py --corpus --strict`).
 #
-# Machine-local content roots for the corpus harness.  Spec §6 / shipping.md
-# ("content roots are config"): a shipped copy of this repo rewrites these
-# paths for its own machine — nothing else in the tooling knows where
-# content lives.  Committed here because this repo has no remote and the
-# TPL residency instance IS Ryan's machine (same precedent as
-# remaps/l01-standins.yaml); keep personal paths out of skills/templates.
+# Each root is scanned for decks (talk.md or *.talk.md). Every deck gets the full
+# per-deck check plus a fresh cues.json build, then cross-deck slug collisions are
+# reported once. The corpus check only reads; it never writes into a root.
+# Point these at your own talks. Paths may use ~ and are resolved on this machine.
 #
-# Sections:
-#   decks      — roots scanned for deck dirs (talk.md / *.talk.md).  Each
-#                found deck gets the full per-deck check (checks 1-16, 18,
-#                28) plus a fresh cues.json artifact build (checks 17/18),
-#                then cross-deck slug collisions (check 5).
-#   concepts   — additional OKF concept roots (not decks) whose frontmatter
-#                `tags:` feed the tag-drift / coverage reports (spec §10).
-#                Deck roots also contribute their decks' tags; add the
-#                research wiki here.  raw/ and scrapes/ subtrees are
-#                machine-collected, never authored concepts, and are skipped.
-#   banks      — shared media banks (library.yaml) outside the deck roots.
-#                library.yaml files found under deck roots are auto-included;
-#                per-deck media/cards.yaml pools are owned by their deck's
-#                own check run and are not re-swept here.
+#   decks     roots scanned for deck directories.
+#   concepts  extra roots (notes, a wiki) whose frontmatter `tags:` feed the tag-drift
+#             and coverage reports. Deck roots contribute their own tags too.
+#   banks     shared media banks (library.yaml) outside the deck roots. A library.yaml
+#             under a deck root is included automatically.
 
 decks:
-  - ~/talks/decks
-  - ~/Documents/art/animatic/examples
+  - examples
 
-concepts:
-  - ~/Documents/notes
+concepts: []
 
-banks:
-  - ~/talks/decks/_media/library.yaml
+banks: []

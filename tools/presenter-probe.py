@@ -59,10 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     missing = check_build(args.deck)
     if missing is not None:
-        talkfile = REPO / ".." / "talks" / "decks"  # hint only, not a guess
         print(f"{args.deck}/present/presenter.html is missing — build it first:\n"
-              f"  python3 build.py <talkfile> --out {args.deck}\n"
-              f"(decks for the TPL program live under {talkfile.resolve()})", file=sys.stderr)
+              f"  python3 build.py <talkfile> --out {args.deck}", file=sys.stderr)
         return 1
 
     class Handler(http.server.SimpleHTTPRequestHandler):

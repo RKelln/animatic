@@ -1,25 +1,137 @@
 # Animatic
 
-A personal system for writing talks, lectures, and workshops as scripts, and
-rendering them as films. Named for the animatic: the timed, moving pre-visual of
-a film. The automatic ring is intentional: agents do the assembly, Ryan directs
-and curates.
+Write a talk as a script. Get slides, a handout, a web page and a recorded video from the same file.
 
-## What a talk is here
+Animatic is a talk-writing system for people who speak. You write one plain-text
+file (a **talkfile**) that reads like a video-essay narration: the spoken words are
+the default text, and a shot marker drops in wherever the picture changes. The same
+file renders as:
 
-One plain-text file per talk (the "talkfile") reads like a video-essay narration
-script. The spoken words are the default text; visual shots drop in where the
-picture changes; on-screen text is rare and explicit.
+- **Present view**: image-forward slides for the live talk, with the script in the speaker notes and a second presenter window (`s`).
+- **Document view**: the spoken words as prose with the visuals embedded. Print it to a PDF handout or publish it as a scrolling web page.
+- **Video**: a narrated web version and a video, with audio captured live and sliced per slide. (Experimental.)
 
-The same file renders as:
-- present view: cinematic slides for the live talk (image-forward, slow motion, few words)
-- document view: the spoken text as prose with visuals embedded = PDF handout and scrolling web page (contents rail, a per-screen anchor keyed by cue id, and per-screen sources; no script)
-- recorded narrated web version and YouTube video (audio captured live, sliced per slide by the advance timeline; no hand-timed subtitles)
+The name is the *animatic*, the timed, moving pre-visual of a film.
 
-## Includes
+It was built for, and first used in, the Toronto Public Library's Applied AI
+Innovator in Residence programme (2026), where the same talk had to work live, as a
+printable handout, and as a web page for people who could not attend.
+
+## Quick start
+
+Requires Python 3.10 or newer. Python 3.12 is what it is developed on.
+
+```sh
+git clone <this repo> animatic && cd animatic
+uv sync                      # or: python3 -m venv .venv && .venv/bin/pip install -e .
+uv run animatic examples/roles-demo/talk.md --out /tmp/demo
+```
+
+Then open `/tmp/demo/present/index.html` in a browser. Arrow keys page through the
+slides; `s` opens the presenter window. `/tmp/demo/document/index.html` is the
+handout view. Without uv, run the scripts directly with a Python that has
+`pyyaml` and `pillow` installed: `python3 build.py examples/roles-demo/talk.md --out /tmp/demo`.
+
+Check that everything works on your machine:
+
+```sh
+uv run python tests/run.py   # the golden suite: 65 profiles, should end "failed: 0"
+```
+
+Optional tools, used only by the features that need them:
+
+| Tool | Needed for |
+|---|---|
+| Chromium or Chrome | the handout PDF (`tools/handout-pdf.py`) and the browser tests |
+| ffmpeg / ffprobe | video stills, timing from recordings, web-sized video |
+
+Without them, builds still work; the affected feature says what is missing.
+
+## Your first talk
+
+Save this as `talk.md`:
+
+```markdown
+---
+slug: hello
+title: "Hello, animatic"
+theme: lecture
+---
+
+<!-- shot -->
+# Hello, animatic
+
+The spoken words go underneath every screen. They show up in the speaker notes
+and in the handout, never on the slide.
+
+---
+
+## Movement 1 · The idea
+
+<!-- shot -->
+### One idea per screen
+
+Headings are the rare on-screen text.
+
+<!-- shot -->
+> A quote can have a screen of its own.
+~ Someone worth quoting
+```
+
+```sh
+uv run animatic-check talk.md     # 0 fatal means the file is well formed
+uv run animatic talk.md --out out    # render
+uv run animatic talk.md --out out --watch   # rebuild on every save
+```
+
+Each `<!-- shot -->` starts a screen. A shot can name a picture
+(`<!-- shot: river kb=in dim=0.4 text=light -->`), and the name is resolved from a
+media card, a file in the deck's `media/` folder or a shared library.
+`examples/roles-demo/talk.md` exercises every screen role and is the best next read.
+The full grammar is `docs/format-spec-v1.md`.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `animatic <talkfile> [--out DIR]` | render present view, document view and the JSON sidecars (same as `python3 build.py`) |
+| `animatic-check <talkfile> [--strict]` | the check suite; `--register` lists every check |
+| `python3 tools/handout-pdf.py <talkfile> <out.pdf>` | handout PDF (needs Chromium) |
+| `python3 tools/web-export.py <talkfile> <out-dir>` | the document view as a self-contained web folder |
+| `python3 tools/timing-report.py <talkfile>` | how long the talk runs, by movement and screen |
+| `python3 tools/agent-export.py ...` | a plain-text file of the hands-on parts, for a coding agent |
+| `python3 tools/serve-deck.py` | serve a built deck locally, with video Range support |
+| `python3 tests/run.py` | golden and property tests |
+
+Builds are deterministic: running one twice gives identical bytes.
+
+## For coding agents
+
+Read `AGENTS.md` first (`CLAUDE.md` is a symlink to it) or `llms.txt`. The talkfile
+format is the stable contract (`docs/format-spec-v1.md`); the code behind it is
+expected to change. `python3 check.py <talkfile> --strict` is the quickest way to
+verify a talkfile you have edited, and `python3 tests/run.py` verifies a code change.
+
+## Documentation
+
+| Doc | About |
+|---|---|
+| `docs/format-spec-v1.md` | the talkfile grammar (normative) |
+| `docs/media-pipeline.md` | media cards, generation log, style cascade |
+| `docs/media-engines.md` | image and video generation engines, endpoints, conventions |
+| `docs/presenter-view.md` | the second window and why it syncs over postMessage |
+| `docs/live-capture.md` | `type: live` screens: a live window capture inside the deck |
+| `docs/quick-select.md` | answering questions by jumping to a shelf slide |
+| `docs/waypoints.md` | publishing "where the room is" for participants' agents |
+| `docs/tokens.md` | design tokens and the two themes |
+| `tests/README.md` | how the test suite is built |
+
+## Features
+
+### Includes
 
 `<!-- include: path [live] -->` on its own line splices another file's screens in at
-that point, so a standard piece (TPL's privacy slides, an about-me, credits) is
+that point, so a standard piece (a privacy slide, an about-me, credits) is
 written once and used by every talk. The path is relative to the including file;
 absolute paths are refused. Name included files `*.section.md` (the corpus check
 treats `*.talk.md` as decks).
@@ -39,7 +151,7 @@ treats `*.talk.md` as decks).
   section's copy is published as `<slug>--lib` beside it (`docs/media-pipeline.md`).
 - `--watch` follows included files. Properties: `tests/properties/include_props.py`.
 
-## Quick select
+### Quick select
 
 During Q&A someone asks about a topic the talk does not cover. In the presenter window
 press `/`, type "agents", pick a result with Up / Down / Enter, and that slide appears on
@@ -71,7 +183,7 @@ Full design: `docs/quick-select.md`.
 - Properties: `tests/properties/quick_props.py`; the browser test is
   `tests/browser_quick_select.py`.
 
-## Waypoints
+### Waypoints
 
 When the talk reaches a marked slide the deck publishes one word, so participants'
 agents can tell them where the room is. Full design: `docs/waypoints.md` (the service and
@@ -99,49 +211,13 @@ the machine-side hook are other repos; this is the deck's half).
 - Properties: `tests/properties/waypoint_props.py`; the browser test is
   `tests/browser_waypoint.py`.
 
-## Repo layout
-
-- `docs/format-spec-v1.md` — the talkfile grammar (normative; v1.0 draft, hardening 2026-09-08)
-- `docs/format-spec.md` — retired v0.5 (superseded marker only; see v1)
-- `docs/media-pipeline.md` — media cards, generation log, style cascade, engine posture
-- `docs/live-capture.md` — `type: live` screens: window capture, secure-context rule, hookup panel, diagnostics dump
-- `docs/presenter-view.md` — the second window: `s` for the speaker UI, `n` for in-page notes, and why the sync is postMessage
-- `docs/engine-decision.md` — builder spike decision record (engine, PDF path, parse model)
-- `docs/web-edition-report.md` — proposal only, nothing built: what the SAgE trends page suggests for a web edition of the document view
-- `templates/` — starter media card set (style, cards, gen-log)
-- `build.py` + `talkparse.py` + `mediaresolve.py` + `render.py` + `timing.py` — the builder (E2 spike):
-  one talkfile in, four views out: present view (own-pager deck, VO in
-  speaker notes), presenter view (`present/presenter.html`, the second-window
-  speaker UI on `s`), document view (static HTML handout, print-to-PDF via print CSS),
-  cues.json (ordered slide id to script text + `est_seconds`, the estimated
-  clock, for the future controller), plus two
-  generated sidecars: nav.json (cue id -> source line range, movement, kind —
-  addressability, and the document view's black-beat omissions) and
-  media-manifest.json (the resolution audit). Generated output lives in `out/`
-  (gitignored).
-- `timing.yaml` — the optional deck-local timing sidecar (`animatic.timing.v1`),
-  read and never written: an `authored` hand override or a `measured` value per
-  cue id, plus `settings.wpm`. The estimate stays in cues.json; the spec's
-  Timing section owns the clock.
-- `check.py` — the deterministic check suite: the full 1-39 check register
-  (spec §6/§7/§10/§11) with the fatal/warning/info/report taxonomy and
-  `--strict` (warnings fatal). Check 19 reports when the deck's effective
-  timing diverges from the declared `dur` by more than 30% (never a warning).
-  See `python3 check.py --register`.
-- `tools/timing-report.py` — the clock as a report: total against `dur` (or `--dur`), the
-  total at 130 and 150 wpm, and time by movement, timer and longest screen, split into
-  spoken, timer, video, minimum and override. A plain timer runs while the words are
-  spoken (the longer counts); a `reveal=timer` follows them (the two add).
-- `corpus.yaml` — the machine-local content-root declaration the corpus
-  harness (check 21) scans; a shipped copy rewrites its paths.
+## Reference
 
 ### Build
 
     python3 build.py <talkfile> [--out OUTDIR]
     python3 build.py <talkfile> [--out OUTDIR] --watch   # rebuild on every save; open pages reload
-    python3 build.py <talkfile> --watch --lease <path>   # ...and stop when that heartbeat goes stale
-                                                         # (pull-deck.sh heartbeats it, so a watcher
-                                                         # cannot outlive the pull that started it)
+    python3 build.py <talkfile> --watch --lease <path>   # ...and stop when that heartbeat file goes stale
 
 One watcher per `--out`: starting `--watch` on an `--out` that already has one stops the old
 watcher first (it prints `replacing the watcher already running…`), so the newest wins. The
@@ -155,10 +231,9 @@ started without `ANIMATIC_WAYPOINT_TOKEN` is swapped for one with it. Linux only
 
 Builds the deck, then prints the document view with headless Chromium. Rebuild
 it after any edit to the talkfile or its media; the PDF is a build product, so
-it is not committed. For the L01 talk, from this repo:
+it is not committed. For example:
 
-    D=~/talks/decks/L01-opening-talk
-    python3 tools/handout-pdf.py $D/talk.md $D/handout/L01-handout.pdf
+    python3 tools/handout-pdf.py examples/roles-demo/talk.md handout.pdf
 
 What the handout does (all from the one talkfile):
 
@@ -168,7 +243,7 @@ What the handout does (all from the one talkfile):
   downscaled JPEGs (`_media/doc/`, 1100 px wide), so the PDF stays near 8 MB.
 - A figure with the same slug as the figure just before it (including a
   `continue` shot) prints once; that screen's text still prints.
-- A screen whose shot carries the bare flag `live` (`<!-- shot: tpl-privacy-01 live -->`)
+- A screen whose shot carries the bare flag `live` (`<!-- shot: demo-screen live -->`)
   is for the room only: the present and presenter views show it, the handout
   leaves it out (nav.json says `reason: "live-only"`), and cues.json marks the
   cue `"live_only": true` so a video render must skip it. The bare flag `do`
@@ -201,7 +276,7 @@ directories, so the tool builds into `~/animatic-handout-build/<deck>/`
 
 Writes the document view as one self-contained folder: `index.html` plus
 `media/` holding only the web-sized images the page uses. Every link is
-relative, so the folder drops into a Hugo `static/` directory or any file
+relative, so the folder drops into a static-site `static/` directory or any file
 server. It adds `description` / `og:` tags from the title and `logline`, and
 refuses to export a page that links outside its folder or shows a local path
 (`/home/...`, `~/Documents/...`). Screens flagged `live` are not in it.
@@ -240,22 +315,25 @@ once, a shared-bank health sweep, and the tag drift / coverage reports
 content root; deterministic output. Strict variant: `python3 check.py
 --corpus [ROOT] --strict` (warnings become deck failures).
 
-Specimen (read-only input, TPL repo):
+## Layout
 
-    python3 build.py ~/talks/decks/L01-opening-talk/talk.md
+- `build.py`, `talkparse.py`, `mediaresolve.py`, `render.py`, `timing.py`: the builder. One talkfile in, four views out: present view (own-pager deck, script in the speaker notes), presenter view (`present/presenter.html`), document view (static HTML handout, print-to-PDF via print CSS), and `cues.json` (ordered cue id to script text and an estimated duration). Two sidecars are also written: `nav.json` (cue id to source line range, movement and kind) and `media-manifest.json` (the media resolution audit). Output goes to `out/` by default (gitignored).
+- `check.py`: the deterministic check suite (`--register` prints all of them) with a fatal / warning / info / report taxonomy and `--strict`.
+- `themes/`: CSS tokens and the two starter themes (`lecture`, `workshop`).
+- `templates/`: a starter media card set (`cards.yaml`, `style.md`, `gen-log.md`).
+- `tools/`: handout PDF, web export, agent export, timing report, deck server and other helpers.
+- `examples/`: small specimens, not real talks.
+- `tests/`: golden and property suites, and browser tests.
+- `timing.yaml`: an optional deck-local timing sidecar (`animatic.timing.v1`), read and never written.
+- `corpus.yaml`: content roots for the corpus check (`python3 build.py --corpus`).
 
-Deterministic output; re-running rebuilds the same bytes. See
-`docs/engine-decision.md` for the decisions encoded in the builder.
+## Status
 
-## Instances
+Format v1.0 draft. The grammar is meant to stay stable so that talks you write survive
+rewrites of the code; the code is not. There is no compatibility burden yet, so
+defects are removed rather than deprecated. Issues and pull requests are welcome, see
+`CONTRIBUTING.md`.
 
-- TPL Applied AI residency (first deployment): `~/talks/decks/` — content, banks, and per-talk files; its README points here for the spec.
+## Licence
 
-## Related
-
-- Hermes skill `talkfile-decks` (creative/) — authoring workflow (draft decks from content banks)
-- Kanban board `animatic` — build tickets (E1-E5, T01-T15 hardening)
-- Controller (Phase 2): live captions + voice/script advance, designed as a Peripherous plugin family — design brief t_dc90108c on the `peripherous` board
-
-Status: format v1.0 draft in hardening (`docs/format-spec-v1.md`); the
-grammar freezes behind a Ryan gate (kanban T12), then v1.0 ships.
+MIT, see `LICENSE`.

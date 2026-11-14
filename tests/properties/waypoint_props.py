@@ -220,7 +220,7 @@ def check(errors: list) -> None:
             err(errors, f"waypoint: the token appears {page_t.count(TOKEN)} times in the present page")
         m = re.search(r'var CFG = (\{.*?\});', page_t)
         cfg = json.loads(m.group(1)) if m else {}
-        if cfg.get("token") != TOKEN or cfg.get("url") != "http://127.0.0.1:8472/tpl_2026/waypoint/W99" \
+        if cfg.get("token") != TOKEN or cfg.get("url") != "http://127.0.0.1:8472/event/waypoint/W99" \
                 or cfg.get("words") != {"0": "start", "3": "key-choice", "5": "expanding", "7": "sharing"}:
             err(errors, f"waypoint: the page's config is {cfg}")
         pres_t = (out_t / "present" / "presenter.html").read_text(encoding="utf-8")
@@ -287,7 +287,7 @@ def check(errors: list) -> None:
         bare = tmp / "bare"
         bare.mkdir()
         txt = re.sub(r" waypoint=[a-z0-9-]+", "", src).replace("<!-- shot: -->", "<!-- shot -->")
-        txt = txt.replace("waypoints: { url: http://127.0.0.1:8472/tpl_2026/waypoint/W99 }\n", "")
+        txt = txt.replace("waypoints: { url: http://127.0.0.1:8472/event/waypoint/W99 }\n", "")
         (bare / "talk.md").write_text(txt, encoding="utf-8")
         shutil.copytree(deck / "sections", bare / "sections")
         out_b0 = tmp / "out-bare"

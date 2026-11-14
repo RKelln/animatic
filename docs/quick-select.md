@@ -29,7 +29,7 @@ A section joins the shelf by declaring a `quick:` block in its own frontmatter:
 ```yaml
 quick:
   title: What's an agent?
-  keywords: [agents, agentic, hermes, claude code, opencode, tools]
+  keywords: [agents, agentic, claude code, opencode, tools]
 ```
 
 - Sections with no `quick:` block stay off the shelf. Credits and take-home
@@ -176,7 +176,7 @@ position is saved, and the presenter's `animatic-state` carries `jumped`, `retur
 - Slides from other decks: promote the slide to a section instead
 - LLM topic tags, embeddings or typo tolerance
 - Editing talkfiles or sections: `quick:` blocks and `quick_sections` lines are
-  content, written and committed by Ryan's content sessions
+  content, written and committed by the author's content sessions
 
 ## Known costs
 
