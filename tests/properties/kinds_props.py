@@ -130,8 +130,9 @@ def check(errors: list) -> None:
         r = subprocess.run([sys.executable, str(REPO / "tools" / "web-export.py"), str(talk_md), str(web2),
                             "--back-url", "/event/page/"], capture_output=True, text=True)
         page2 = (web2 / "index.html").read_text() if r.returncode == 0 else ""
-        if page2.count('href="/event/page/"') != 2:
-            err(errors, f"kinds: --back-url gives {page2.count('href=\"/event/page/\"')} back links, want 2 "
+        back_href = 'href="/event/page/"'
+        if page2.count(back_href) != 2:
+            err(errors, f"kinds: --back-url gives {page2.count(back_href)} back links, want 2 "
                         f"(rc {r.returncode}: {r.stderr[:160]})")
         r = subprocess.run([sys.executable, str(REPO / "tools" / "web-export.py"), str(talk_md), str(tmp / "w3"),
                             "--back-url", "../elsewhere/"], capture_output=True, text=True)
