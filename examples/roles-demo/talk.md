@@ -3,7 +3,7 @@ slug: roles-demo
 title: "Animatic: style specimen"
 date: 2026-09-05
 venue: Style test
-dur: ~3 min
+dur: ~90 s
 theme: workshop
 media: media
 status: style specimen — exercises every screen role against generated placeholder pictures
