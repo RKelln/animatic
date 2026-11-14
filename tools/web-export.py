@@ -20,6 +20,7 @@ no present or presenter view, no cues.json, no originals.  Refuses to ship a
 page that points outside its own folder or names a local path.
 """
 import argparse
+import json
 import os
 import re
 import shutil
@@ -27,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 from html import escape
+from html import unescape as html_unescape
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -168,6 +170,39 @@ def setup_card(agent_url: str, coding_agent_url: str) -> str:
             f'<pre class="paste-box">{paste}</pre></div>{more}</aside>')
 
 
+def web_videos(html: str, work: Path) -> tuple[str, dict]:
+    """Frontmatter `web-video: true`: each video figure's still becomes a
+    click-to-play web copy (webvideo.py), the still its poster. It loops once
+    started; a card without `sound: true` plays muted. A card with
+    `web-video: false` keeps its still. Returns the page and {name: cached file}."""
+    import webvideo
+    manifest = json.loads((work / "media-manifest.json").read_text(encoding="utf-8"))
+    media = {e["slug"]: e["media"] for e in manifest["referenced"]}
+    files = {}
+
+    def swap(m: re.Match) -> str:
+        slug, fig = html_unescape(m.group(1)), m.group(0)
+        info = media.get(slug) or {}
+        f = info.get("file") or ""
+        if info.get("live") or info.get("web_video") is False or Path(f).suffix.lower() not in webvideo.VIDEO_EXTS:
+            return fig
+        src = Path(f) if Path(f).is_absolute() else work / f
+        got = webvideo.web_copy(src, bool(info.get("sound")))
+        img = re.search(r'<img class="figure-media media-image" src="(media/[^"]+)" alt="([^"]*)"[^>]*>', fig)
+        if not got or not img:
+            print(f"warn      : {slug}: no web copy; the page keeps the still", file=sys.stderr)
+            return fig
+        name = re.sub(r"[^A-Za-z0-9._-]+", "-", slug) + ".mp4"
+        files[name] = got
+        muted = "" if info.get("sound") else " muted"
+        video = (f'<video class="figure-media media-video" src="media/{name}" poster="{img.group(1)}" '
+                 f'controls loop playsinline preload="none"{muted} aria-label="{img.group(2)}"></video>')
+        return fig.replace(img.group(0), video, 1)
+
+    html = re.sub(r'<figure class="shot" data-slug="([^"]+)">.*?</figure>', swap, html, flags=re.S)
+    return html, files
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("talkfile")
@@ -204,6 +239,9 @@ def main() -> int:
     html = html.replace(MEDIA_PREFIX, "media/")
 
     meta = talkparse.build_talk(talk).meta
+    videos = {}
+    if str(meta.get("web-video", "")).strip().lower() in ("true", "yes", "on", "1"):
+        html, videos = web_videos(html, work)
     title = escape(str(meta.get("title", "")), quote=True)
     desc = escape(str(meta.get("logline", "")), quote=True)
     head = ""
@@ -249,8 +287,11 @@ def main() -> int:
     (out / "index.html").write_text(html, encoding="utf-8")
     for name in used:
         shutil.copy2(work / "_media" / "doc" / name, out / "media" / name)
+    for name, src in videos.items():
+        shutil.copy2(src, out / "media" / name)
+        (out / "media" / name).chmod(0o644)
     size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
-    print(f"web       : {out} ({len(used)} images, {size / 1e6:.1f} MB)")
+    print(f"web       : {out} ({len(used)} images, {len(videos)} videos, {size / 1e6:.1f} MB)")
     return 0
 
 

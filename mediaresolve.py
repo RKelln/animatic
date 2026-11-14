@@ -132,6 +132,7 @@ class MediaRef:
     steps: Optional[list] = None       # stepped-image card: the frame slugs, in order (card `steps:`); None = a plain image
     handout: Optional[str] = None      # stepped-image card: slug of the image the document view and handout print
     reading_copy: bool = True          # False (card `reading-copy: false`): slides only; the document view, handout and web export leave the picture out
+    web_video: bool = True             # video only: False (card `web-video: false`): the web export keeps the still, never the clip (rights, size)
 
     @property
     def label(self) -> str:
@@ -1094,6 +1095,8 @@ class MediaResolver:
                     f"seconds, or n%; the handout uses a quarter in"))
         if card and card.get("reading-copy") is False:
             ref.reading_copy = False
+        if card and card.get("web-video") is False:
+            ref.web_video = False
         if card and card.get("brief"):
             brief = card["brief"]
             if isinstance(brief, str) and brief.strip():

@@ -4773,6 +4773,28 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
 # ---------------------------------------------------------------------------
 
 
+# Print breaks (2026-11-14). Keeping every screen whole left a third of many
+# pages blank: a long screen that missed the page jumped whole to the next.
+# Now only a short screen is kept whole (a page break never strands a line or
+# two of it); a longer one may break, with its figure held to the paragraph
+# after it and at least three lines each side of a break (components.css).
+PRINT_KEEP_SHARE = 0.4          # of a printed page's text height
+_PRINT_WORDS_PER_LINE = 13      # letter, 15 mm margins, 11 pt
+_PRINT_LINES_PER_PAGE = 44
+_PRINT_FIGURE_LINES = 14        # a capped figure (68 mm) and its margins
+
+
+def _print_share(body_html: str) -> float:
+    """Roughly how much of a printed page a screen's document HTML fills."""
+    lines = 0.0
+    for para in re.split(r"</?(?:p|li|h[2-4]|blockquote|pre|tr)\b", body_html):
+        words = len(re.sub(r"<[^>]+>", " ", para).split())
+        if words:
+            lines += -(-words // _PRINT_WORDS_PER_LINE) + 0.5
+    lines += _PRINT_FIGURE_LINES * body_html.count('<figure class="shot"')
+    return lines / _PRINT_LINES_PER_PAGE
+
+
 def _figure_css(talk: Talk, override=None) -> str:
     """The handout's figure width (frontmatter `handout-figures:`, or the
     `override` from the command line): `capped` (the default: natural width,
@@ -4974,18 +4996,17 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
         repeat = bool(slug) and slug == last_fig
         if slug:
             last_fig = slug
-        current["items"].append(
-            f'<div class="screen" id="cue-{cue_id}">'
-            + _doc_screen_blocks(
-                talk, screen, resolver, skip_deck_h1=deck_title,
-                cite_no=cite_no,
-                skip_figure=(repeat
-                             or (not pools and _is_pool_slug(resolver, slug))
-                             or (not placeholders and bool(slug)
-                                 and not resolver.resolve(slug).found)),
-                toc=toc, anchor=f"cue-{cue_id}", skip_section_title=section_title)
-            + _screen_sources_html(screen, cite_no)
-            + "</div>")
+        body = (_doc_screen_blocks(
+                    talk, screen, resolver, skip_deck_h1=deck_title,
+                    cite_no=cite_no,
+                    skip_figure=(repeat
+                                 or (not pools and _is_pool_slug(resolver, slug))
+                                 or (not placeholders and bool(slug)
+                                     and not resolver.resolve(slug).found)),
+                    toc=toc, anchor=f"cue-{cue_id}", skip_section_title=section_title)
+                + _screen_sources_html(screen, cite_no))
+        keep = " keep" if _print_share(body) <= PRINT_KEEP_SHARE else ""
+        current["items"].append(f'<div class="screen{keep}" id="cue-{cue_id}">{body}</div>')
 
     def render_flow(blocks) -> str:
         return "".join(blocks)
@@ -5127,6 +5148,8 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
     consumed = set()
     if ref is not None and not ref.reading_copy:
         ref = None      # card `reading-copy: false`: a slide picture only; the words still print
+    if ref is not None and ref.live and not ref.poster:
+        ref = None      # a live capture with no poster has nothing to print: no figure, the words still print
     if ref is not None and not skip_figure:
         # the shot's playback / sound overrides hold in the handout as the
         # card's do; slide-only flags (advance, kb, fit) stay out
@@ -5444,6 +5467,8 @@ def media_ref_dict(ref: MediaRef) -> dict:
         d["playback"] = ref.playback
     if ref.sound:
         d["sound"] = True
+    if not ref.web_video:
+        d["web_video"] = False
     # a stepped-image card names its frames and the image the handout prints
     if ref.steps:
         d["steps"] = list(ref.steps)

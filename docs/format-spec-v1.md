@@ -1406,6 +1406,15 @@ Both forms take `--back-url <url or /site/path>` (with `--back-label`, default
 page and in its foot. Every web export also gets a fixed **Top** button and a
 "Back to the top" link in the foot; none of these print. Differences:
 
+- **Videos (frontmatter `web-video: true`, 2026-11-14).** Each video figure's still
+  becomes a click-to-play web copy: H.264 MP4, at most 720p and 30 fps, no audio
+  track unless the card says `sound: true` (`webvideo.py`, cached under
+  `~/.cache/animatic/web-video/`). The still is its poster, `preload="none"` so
+  nothing downloads until the reader presses play, and it loops once started. A
+  card with `web-video: false` keeps its still (rights, or size). Live captures
+  never become video. The handout PDF always prints stills.
+  `tools/web-video.py --talk <talk.md>` encodes a talk's videos into the cache and
+  lists their sizes.
 - `do` screens print in place, rendered like content screens (heading, text,
   spoken text), so their typed prompts show on the page. `(Do: ...)` notes never
   print. Room screens (`live`) stay out. Screens from a section whose frontmatter
@@ -1566,6 +1575,7 @@ sound: true | false     # video only; default false (muted)
 steps: [slug, slug, ...]  # image only: frames the present view steps through (Media: Stepped images)
 handout: last | first | <slug> | <n>   # with steps: the frame the handout prints (default: the card's own image, else the last frame)
 reading-copy: false    # slides only: the document view, handout and web export leave the picture out; the screen's words still print
+web-video: false       # video only: a web export with `web-video: true` keeps this card's still instead of playing it
 alt / credit / licence / brief / prompts.{image,video}
 
 # FREE — never read, never validated
@@ -1578,7 +1588,8 @@ screen hosts a window capture the presenter starts in the browser
 differ, and the manifest records `source: live` with `file: null`. It still
 counts as found — the screen is complete and never becomes a placeholder.
 `poster:` is the one optional disk artifact, and it is the still the handout
-prints, because a printed page cannot be live. A live screen takes no `kb` and
+prints, because a printed page cannot be live. With no poster the reading copy prints no figure
+(2026-11-14), only the screen's words. A live screen takes no `kb` and
 no `dim`: drift and a scrim both fight a moving picture. Full contract, and the
 secure-context requirement that governs where a deck can be presented:
 `docs/live-capture.md`.

@@ -1394,6 +1394,7 @@
 
   figure.shot { margin: 1.6em 0; text-align: center; }
   figure.shot img, figure.shot video { max-width: 100%; border-radius: 4px; margin: 0 auto; }
+  figure.shot video { display: block; width: 100%; height: auto; background: #000; }
   /* the timer's one quiet line (the clock itself is present-view only) */
   .animatic-slide .timer-private { display: none; }
   .timer-note-inline { font-style: italic; color: var(--doc-muted); }
@@ -1511,7 +1512,11 @@
     @page { size: letter; margin: 16mm 15mm; }
     body.view-document { max-width: none; padding: 0; }
     /* the contents list may run on from the title's page; each part's group stays whole */
-    .screen { break-inside: avoid; }
+    /* a short screen stays whole; a long one may break (render.py _print_share) */
+    .screen.keep { break-inside: avoid; }
+    p, li, blockquote { orphans: 3; widows: 3; }
+    figure.shot { break-after: avoid; }
+    .screen-sources { break-before: avoid; }
     h2, h3, h4 { break-after: avoid; }
     .doc-toc .toc-cols { columns: 2; column-gap: 8mm; }
     .doc-toc-rail { display: none; }

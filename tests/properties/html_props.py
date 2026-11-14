@@ -504,6 +504,8 @@ def check(fx, errors: list) -> None:
         c["media"]["slug"]
         for c in cues["cues"]
         if c.get("media") and c["kind"] != "black" and not c.get("live_only")
+        # a live capture with no poster prints nothing (no figure, words only)
+        and not (c["media"].get("live") and not c["media"].get("poster"))
     ]
     # a figure naming the slug of the figure just before it (a `continue`
     # shot, or the same slug again) is printed once, at its first appearance
