@@ -8,8 +8,7 @@ __pycache__/
 # E3: alternate-theme build dirs (--theme lecture etc.)
 **/out-*/
 
-# agent scratch and local-only tooling state
-.hermes/
+# local tooling state
 .claude/
 .venv/
 
@@ -18,3 +17,8 @@ waypoint-profile-*/
 
 # build.py --watch: which watcher owns an --out
 .*.watch.pid
+
+# packaging
+*.egg-info/
+dist/
+build/
