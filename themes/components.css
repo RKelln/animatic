@@ -599,7 +599,9 @@
     border-radius: 6px;
     padding: 0.55em 1.1em;
   }
-  .lower-third { white-space: nowrap; }
+  /* the box fits its text up to max-width, then wraps: nowrap here let a long
+     caption run out of its own plate */
+  .lower-third { width: max-content; }
 
   /* credits overlay — persistent attribution line on a media screen */
   .credits-line {
@@ -616,7 +618,7 @@
     border-radius: 6px;
     padding: 0.5em 1em;
   }
-  .credits-line { white-space: nowrap; }
+  .credits-line { width: max-content; }
 
   /* credits screen — full-screen end roll (no media on screen) */
   .credits-screen {
