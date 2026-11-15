@@ -182,14 +182,14 @@ That is a fact about how long that screen's notes are rather than a layout
 defect: no readable font size makes 3300 characters fit a small window. The
 probe reports it with the pixels so the decision is visible.
 
-**TODO: `warm (file://)` in `tests/browser_quick_select.py` failed once in about 12 runs on
+**Known issue: `warm (file://)` in `tests/browser_quick_select.py` failed once in about 12 runs on
 2026-11-05, right after several browser tests in a row, and passed the rest. Likely timing;
 the failing check wasn't captured. Print it next time it fails.**
 
-**TODO: update the probe's live-control expectations.** Its `live control: stalled`
+**Known issue: update the probe's live-control expectations.** Its `live control: stalled`
 and `live control: idle` cases fail on every deck with a live screen. They still expect
 what was true in September: a stalled capture offers Stop first, and an idle one offers
-no button. Share and Stop moved to the presenter window on 2026-10-27 (`35d37ae`), so
+no button. Share and Stop moved to the presenter window on 2026-10-27, so
 the page now offers `Share again` and `Share a window`, on purpose. The expectations
 are stale; the page is right. Fix them in `tools/presenter-probe.html`, around
 `wantsButton`.

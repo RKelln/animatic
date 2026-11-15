@@ -44,7 +44,7 @@ The spoken words run underneath every screen. This paragraph is VO: it will neve
 Numbers get a screen of their own, on paper or on the ground: same type, same size. This slide is the stat-over-image test.
 
 <!-- shot: roundabout layout=piece role=lower -->
-A lower third: rings, drawn by make-media.py.
+Rings, drawn by make-media.py
 
 (Visual: concentric rings from above. Bright geometry, busy colour.)
 

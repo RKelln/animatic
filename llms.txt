@@ -9,6 +9,7 @@ Start with the README, then the format spec. The talkfile format is the stable c
 - [Talkfile format v1](docs/format-spec-v1.md): the normative grammar
 - [Example talk](examples/roles-demo/talk.md): every screen role in one small deck
 - [Media pipeline](docs/media-pipeline.md): media cards, generation log, style cascade
+- [Command reference](docs/reference.md), [Features](docs/features.md), [Styling](docs/styling.md): build and export commands, optional features, themes
 - [Presenter view](docs/presenter-view.md), [Live capture](docs/live-capture.md), [Quick select](docs/quick-select.md), [Waypoints](docs/waypoints.md): feature docs
 - [Tests](tests/README.md): golden and property suites
 

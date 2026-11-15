@@ -1,8 +1,8 @@
 # AGENTS.md — animatic
 
 Animatic turns one markdown **talkfile** per talk into a present view (cinematic
-slides), a document view (the spoken words as prose: handout and web page) and a
-recorded video essay. Read `README.md` first for what it is and how to install it.
+slides), a document view (the spoken words as prose: handout and web page) and an
+agent export. Read `README.md` first for what it is and how to install it.
 The code is expected to keep being rewritten; the **talkfile format is the stable
 contract** (`docs/format-spec-v1.md`), because authored talks must survive.
 
@@ -34,7 +34,7 @@ missing browser exit 77 (skipped), they do not fail.
     ANIMATIC_WAYPOINT_TOKEN=... python3 build.py <talkfile>   # a deck that publishes waypoints; without it, inert (docs/waypoints.md)
     python3 build.py <talkfile> --watch [...]      # rebuild on save, open pages reload (Ctrl-C stops); replaces any watcher already on that --out
     python3 build.py <talkfile> --quick-sections DIR   # trial-build with a quick-select shelf (docs/quick-select.md)
-    python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see README: Handout PDF)
+    python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see docs/reference.md)
     python3 tools/agent-export.py <talkfile> <out.md> --core <core.md> --page-url URL --home-url URL   # plain-text file: the hands-on parts, for a coding agent beside the home page
     python3 tools/web-export.py --home <talkfile> <out-dir> --agent-url URL --coding-agent-url URL    # home page: do screens in place, Copy buttons, setup card
     python3 tools/timing-report.py <talkfile> [--dur 2h] [--wpm N] [--screens] [--json]   # how long it runs, by movement, timer and screen

@@ -114,7 +114,7 @@ What the code does, beyond the text above:
   slow old response cannot change the status. A request already sent can still reach the service
   after a newer one, rarely, and `w` corrects it. Built with the token under `--watch`, each
   reload on screen 1 publishes `start` again. A second `--watch` on the same `--out` stops the first, so a
-  watcher started without the token is replaced by one with it (README, Build). Chromium sent the preflight the spec predicted
+  watcher started without the token is replaced by one with it (docs/reference.md, Build). Chromium sent the preflight the spec predicted
   (`OPTIONS` with `Access-Control-Request-Headers: authorization`) from `file://` (`Origin: null`)
   and from `http://127.0.0.1`; the service must answer it for both (see "The service contract").
 - **Presenter.** The deck posts the state in `animatic-state` (`waypoint`: `{enabled, word,

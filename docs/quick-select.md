@@ -167,7 +167,7 @@ position is saved, and the presenter's `animatic-state` carries `jumped`, `retur
 - **`tools/presenter-probe`:** the search box fits at 1280x800 and 1920x1080 (the probe
   now opens the search over a deck with a shelf and measures the panel, the input, the
   results and the 16:9 preview at each size).
-- **Docs:** README and `docs/presenter-view.md` keys table, plus the format spec for
+- **Docs:** the `docs/presenter-view.md` keys table, plus the format spec for
   the two new frontmatter fields.
 
 ## Out of scope for v1

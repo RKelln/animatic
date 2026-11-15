@@ -82,9 +82,9 @@ Deck `style.md` applies to every card unless a card overrides a field with its
 own `style:` block. Unknown keys pass through into prompt assembly. Later: a
 program-level style layer above the deck level; closer always wins.
 
-## Engine posture (2026-09-05)
+## Engine posture
 
-Two-generation: LOCAL first (steamy box, images only) for bulk overnight
+Two-generation: LOCAL first (images only) for bulk overnight
 exploration, many candidates cheap, reviewed in the morning; then a FAL pass
 (fal.ai, H3 Max for video) for the shortlist and finals. Engines are per-attempt
 fields in gen-log.md, never part of the talk format.

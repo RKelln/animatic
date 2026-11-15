@@ -1,28 +1,23 @@
-# Media engines — what generates deck media, and how to call it
+# Media engines: what generates deck media, and how to call it
 
-> Agent-maintained. Canonical reference for generation-engine mechanics in the
-> ANIMATIC deck pipeline. Card and prompt conventions live in `media-pipeline.md`;
-> this file covers the engines themselves: endpoints, parameters, pricing, what
-> comes back, and per-engine working conventions. Cards and prompts stay
-> engine-agnostic; the engine appears only as a per-attempt field in gen-log.md.
->
-> Two legs: a cloud leg (fal.ai: finals and all video) and a local leg (ComfyUI:
-> bulk local images). Written from live schema checks; verify prices and
-> parameters against the provider before relying on them.
+Reference for the generation engines behind a deck's media. Card and prompt
+conventions live in [media-pipeline.md](media-pipeline.md); this file covers the
+engines themselves: endpoints, parameters, pricing, what comes back, and working
+conventions. Cards and prompts stay engine-agnostic; the engine appears only as a
+per-attempt field in the generation log (`gen-log.md`). Animatic works without any
+of this: media can be files you made or found, and generation is optional.
 
-## Engine posture (one pipeline, two legs)
+Verify prices and parameters against the provider before relying on them.
 
-- LOCAL first when steamy is healthy: bulk image candidates overnight, many
-  seeds, cheap, reviewed in the morning. Local = images ONLY (GTX 1080 Ti 11GB,
-  established 2026-09-05: video is not viable on steamy).
-- FAL pass for the shortlist and finals, and for ALL video (fal.ai MiniMax H3
-  Max).
-- Steamy status: DOWN since 2026-09-05 (GPU wedge after a kill -9 on ComfyUI:
-  NV_ERR_TIMEOUT / nvidia_modeset oops, survives warm reboot; fix = full power
-  cycle, PSU off 60s, then 3-5 min quiet; graceful stops only via comfy.sh stop).
-  While down, the pipeline runs fal-only. Local mechanics land with E4
-  (t_918106c9); when it lands, extend the `local-gen` skill rather than creating
-  a sibling.
+## Engine posture
+
+- **Cloud (fal.ai, MiniMax H3 Max):** finals and all video.
+- **Local (for example ComfyUI):** bulk image candidates, many seeds, cheap,
+  reviewed later. Images only; local video is not practical on a consumer GPU.
+  Local engines never return an expanded prompt (ComfyUI runs your prompt
+  verbatim), so record the prompt and full parameters in the log entry: the
+  prompt is what the model heard. Tag the engine in the log, for example
+  `local-comfyui`.
 
 ## fal.ai — MiniMax H3 Max family
 
@@ -30,8 +25,7 @@ Post-trained H3 variant tuned for prompt adherence and aesthetics. Agent-readabl
 surface per model: `https://fal.ai/models/minimax/h3-max/<task>/llms.txt`.
 **Rule: fetch the model's llms.txt before any run campaign** — it carries the
 live input/output schema, the current pricing note, and usage examples. Schemas
-below were verified against llms.txt on 2026-09-06 and correct the 2026-09-05
-recon where they disagree.
+below were verified against llms.txt in September 2026.
 
 ### Endpoints (fal.run / queue.fal.run both route)
 
@@ -48,7 +42,7 @@ Reference-to-video details:
   Audio cannot be the only ref (pair it with at least one image or video).
 - Total refs (all modalities) ≤ 12 files.
 
-### Parameters (verified 2026-09-06)
+### Parameters
 
 | Param | Values | Default |
 |---|---|---|
@@ -77,7 +71,7 @@ Reference-to-video details:
   r2v run reproducible even when you did not pass a seed.
 - `timings` — inference seconds (when the route reports them).
 
-**Seed behavior is per endpoint (verified against llms.txt 2026-09-06):**
+**Seed behaviour is per endpoint:**
 
 | Endpoint | seed in output schema? |
 |---|---|
@@ -85,31 +79,25 @@ Reference-to-video details:
 | image-to-video | NO — same rule |
 | reference-to-video | YES — returned as `seed` ("Base seed for reproducing the generation") |
 
-The 2026-09-05 recon ("seed returned on output") was right for
-reference-to-video and over-generalized; an early draft of this doc made the
-opposite mistake (input-only everywhere). The per-endpoint truth above is what
-holds. If you omit the seed on t2v/i2v you cannot reproduce; on r2v the response
-tells you what was used.
+If you omit the seed on text-to-video or image-to-video you cannot reproduce the run;
+on reference-to-video the response tells you what was used.
 
-### Pricing (llms.txt, 2026-09-06)
+### Pricing
 
-| Endpoint | 480p /s | 768p /s | Note |
-|---|---|---|---|
-| text-to-video | $0.0125 (promo) | $0.02 (promo) | 75% launch promo ends **2026-09-07**, then 4x |
-| image-to-video | $0.0125 (promo) | $0.02 (promo) | same promo note |
-| reference-to-video | $0.05 | $0.08 | listed at FULL rate, no promo note |
+Rates in September 2026, per second of output (verify before a campaign; the
+model's `llms.txt` carries the current rate and any promotion):
 
-Reference images bill as tokens: first 4096 tokens included (about 4 x
-1024x1024 images free), then ~$0.02 per 1k tokens (1024x1024 = 1k; 2048x2048 =
-4k = $0.08).
+| Endpoint | 480p | 768p |
+|---|---|---|
+| text-to-video | $0.05 | $0.08 |
+| image-to-video | $0.05 | $0.08 |
+| reference-to-video | $0.05 | $0.08 |
 
-Budget shapes (post-promo unless noted): a 10s 768p t2v clip ≈ $0.20 during the
-promo, ≈ $0.80 after. A deck using video as a motion accent (5-10 clips) ≈ $1-4
-promo / $4-8 after. Text-only renders and CSS Ken Burns = $0.
-
-**Pricing rule:** promo notes expire silently. llms.txt per model carries the
-current note; the fal.ai pricing page is the fallback. Re-check before any run
-campaign — the rates jump 4x the day after a promo ends and nothing tells you.
+Launch promotions existed and expired without notice, with rates jumping to four
+times the promo price the next day. Reference images bill as tokens: the first
+4096 tokens are included (about four 1024x1024 images), then about $0.02 per 1k
+tokens. A 10 s 768p clip is about $0.80. A deck using video as a motion accent
+(5 to 10 clips) is about $4 to $8. Text-only renders and CSS Ken Burns cost nothing.
 
 ### Conventions that follow
 
@@ -119,68 +107,6 @@ campaign — the rates jump 4x the day after a promo ends and nothing tells you.
   still, or split into 2 clips. Loop-friendly cuts ~6s with a final frame
   identical to the first.
 - Expansion: `balanced` for iteration, `quality` for finals.
-- `FAL_KEY` is read from the environment only (never the repo). Export it in
+- `FAL_KEY` is read from the environment only, never the repo. Export it in
   the session when a direct API call is made.
 - Defaults for deck media: 10-15s max, 768p, 16:9, seed recorded every attempt.
-
-## Agent-harness built-in toolset route (video_gen / image_gen / bfl)
-
-Enabled 2026-09-05 on the cli platform toolsets (`config.yaml`:
-`platform_toolsets.cli` includes `bfl`, `image_gen`, `video_gen`;
-`video_gen: {provider: fal, model: minimax-h3}`). Toolsets bind at session
-start — after enabling or changing them, a FRESH session is required.
-
-- `video_generate` tool → FAL backend, model `minimax-h3`. Routes: text-to-video
-  (prompt only), image-to-video (`image_url`), reference-to-video with IMAGE
-  refs (`reference_image_urls`). No video/audio reference inputs on this
-  surface — motion-transfer and audio refs require the raw fal endpoint.
-- `image_generate` tool → FAL backend, FLUX 2 Klein 9B (Black Forest Labs),
-  text-to-image plus image-to-image/editing with up to 9 reference images.
-  License check: BFL klein 9B is non-commercial for direct downloads per the
-  local-ai-image-generation recon (2026-09-05); verify the API-hosted license
-  before public/commercial finals use the built-in image route.
-
-### What the built-in surface exposes vs the raw fal queue
-
-| Capability | Built-in tool | Raw fal endpoint |
-|---|---|---|
-| Result | `video`/`image` URL or local path | `video.url` + `expanded_prompt` + `timings` |
-| Seed | input param only; NEVER echoed in the result | input only (same; see seed correction above) |
-| expanded_prompt | NOT returned | returned (the diagnostic) |
-| resolution | 360p/540p/720p/1080p (clamped onto 480P/768P) | 480P / 768P |
-| aspect_ratio | 16:9, 9:16, 1:1 (+ clamped) | full set incl. 21:9, adaptive |
-| audio | boolean toggle | baked diegetic audio (mute in deck) |
-| negative_prompt | supported | not on this family's schema |
-| refs | images only (r2v); no video/audio | images + video + audio, ≤ 12 |
-
-**Gen-log integration:** built-in runs are fine for smoke tests and quick
-candidates (precedent: rainforest-canopy a1, recorded as `engine: fal.ai
-minimax h3 text-to-video (harness video_generate tool)` with `expanded: not
-saved`). Because the tool hides expanded_prompt and never echoes seed, prefer
-the RAW fal endpoint for attempts where the diagnostic matters: finalists,
-`quality`-expansion runs, anything you may need to reproduce or explain. Decide
-per attempt; record the engine tag honestly either way.
-
-## Local engine (steamy) — posture only
-
-Full mechanics land with E4 (t_918106c9), which is blocked on the steamy GPU
-wedge. What holds now:
-
-- Engine tag in gen-log: `local-steamy`.
-- Local = images only. Local images never carry an expanded_prompt (ComfyUI
-  runs your prompt verbatim) — record prompt + full params verbatim in the
-  entry instead; the prompt IS what the model heard.
-- Stack mechanics (torch ceiling, GGUF quants, klein 4B Apache-clean model,
-  API workflow JSON, serve/stop discipline): see the `local-ai-image-generation`
-  skill (mlops category) and its `references/steamy-klein-stack.md`.
-- Overnight bulk runner + review gallery: E4 scope; when it lands, patch the
-  `local-gen` skill.
-
-## Changelog
-
-- 2026-09-06 (E5, t_34a421d1): created. Moved + corrected the 2026-09-05 recon:
-  seed is per-endpoint (r2v returns it; t2v/i2v do not); promo split per
-  endpoint; image-to-video gained `end_image_url` and has no aspect_ratio param;
-  built-in toolset section added; engine-notes.md in decks/_media reduced to a
-  pointer. Seed/aspect rows refined the same day after an independent review
-  pass confirmed the r2v output-schema seed against the full llms.txt text.
