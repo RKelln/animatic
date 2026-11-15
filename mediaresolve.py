@@ -383,7 +383,7 @@ class MediaResolver:
             except yaml.YAMLError:
                 pass
 
-        # check 10 (missing-checks register, frontier-review Part 4): every
+        # check 10 (missing-checks register): every
         # card-declared path (`approved:`/`file:`/`outputs[]`) must resolve to
         # an existing file.  Warn naming the card + path; the finding also
         # stays registered so `animatic check` can report it later.  Runs over

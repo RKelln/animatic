@@ -7,8 +7,8 @@ elapsed time, and a preview of the current and next screen. Pressing `s` again
 (or closing the window) closes it, and the in-page notes panel moved to **`n`**
 for the one-screen room.
 
-Animatic replaced reveal.js with its own pager (`docs/engine-decision.md` §1,
-superseded by §6), so reveal's notes plugin behaviour was never rebuilt. This is
+Animatic uses its own pager instead of reveal.js, so reveal's notes plugin
+behaviour does not come for free. This is
 that missing piece, in reveal's shape: two windows, the speaker UI in the
 second.
 

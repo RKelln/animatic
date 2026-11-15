@@ -2,7 +2,7 @@
 #
 # Only deliberate values belong here: an `authored` override for a cue the
 # author knows better than the estimate, and `measured` seconds from a
-# recording or a test read (the alignment tooling in docs/audio-route.md writes
+# recording or a test read (future alignment tooling would write
 # those).  The estimate is never echoed back — it is regenerable, and it stays
 # in cues.json where it belongs.
 schema: animatic.timing.v1

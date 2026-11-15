@@ -1,4 +1,4 @@
-"""Corpus-harness property checks (register 21, T11).
+"""Corpus-harness property checks.
 
 The golden suite's fixtures are deliberately synthetic and committed; the
 corpus harness exists precisely so the REAL content root is never committed

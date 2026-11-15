@@ -1,4 +1,4 @@
-"""tests/run.py — the animatic golden + property suite (T10).
+"""tests/run.py — the animatic golden + property suite.
 
 One command, one exit code:
 
@@ -26,7 +26,7 @@ views, check suite).  HTML is never byte-diffed.
 
 Golden discipline: a changed builder behavior shows up as a golden diff that
 must be understood; --update-goldens is the escape hatch, used after the
-change is intentional.  Blessed only against green T01-T09 (the current
+change is intentional.  Blessed only against a green suite (the current
 HEAD at bless time).
 """
 
@@ -204,7 +204,7 @@ def main(argv=None) -> int:
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-    # corpus harness (check 21 / T11): one synthetic corpus tree under /tmp —
+    # corpus harness (check 21): one synthetic corpus tree under /tmp —
     # real content roots are never committed, but the harness machinery is
     # regression-covered here (discovery, verdicts, drift, banks, determinism)
     corpus_errors: list = []

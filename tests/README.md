@@ -1,4 +1,4 @@
-# tests/ — the golden + property suite (T10)
+# tests/ — the golden + property suite
 
 One command, one exit code:
 
@@ -13,7 +13,7 @@ One command, one exit code:
 - `fixtures/constructs/*.talk.md` — one minimal synthetic file per frozen
   construct or register rule. Constructs are media-free or placeholder-only
   (see the media pool below); the composite decks own real resolution.
-  `multiline-shot.talk.md` is the T07 construct fixture (register check 27),
+  `multiline-shot.talk.md` is the construct fixture (register check 27),
   committed before this suite and included unchanged except status quoting.
   `cue-id-space.talk.md` is generated (103 one-card screens) and pins the
   three-digit cue-id space past the 99 cliff (register check 18).
@@ -23,7 +23,7 @@ One command, one exit code:
   `soft-wrap.talk.md` pins merged line spans — a soft-wrapped paragraph, a
   two-line quote, a two-line list — the spans `nav.json` ranges are built
   from (a range that stops at a block's first line leaves body lines
-  belonging to no screen; T13).
+  belonging to no screen).
   `reveal-timer.talk.md` pins `reveal=timer` (spec: Timer screens, "Revealed
   timers"): a block timer, a corner timer, `list+timer`, `timer+list` (any order),
   a plain timer that still starts on arrival, and the warned cases (no timer on
@@ -93,7 +93,7 @@ One command, one exit code:
   and the quick search swallowing it, and an inert build (exit 77 without chromium).
   `timing-drift.talk.md` declares `dur: 45 min` on a two-screen deck: the
   clock (check 19) must report the divergence and the deck must still build
-  (spec: Timing; T15).
+  (spec: Timing).
   `shot-continue.talk.md` pins `continue` / `cont` shots: each opens its own
   screen on the previous screen's media slug and flags, a flag written on
   the continue shot wins (spec: The shot directive).
@@ -157,7 +157,7 @@ One command, one exit code:
     (`-`, `*`, `+`, `1.`, `2)`, spaces, tab, none).
   - `decks/_media/library.yaml` — the shared library home for deck
     fixtures (sibling of each deck dir, per spec §11).
-  - `timing-demo` (T15) — the clock end to end: `dur: ~1 min` sits inside the
+  - `timing-demo` — the clock end to end: `dur: ~1 min` sits inside the
     report threshold only because the deck-local `timing.yaml` applies an
     `authored` override (9.0 s) and a `measured` value (14.5 s) over the
     estimates; `settings.wpm: 175` proves the sidecar's speech rate is read.
@@ -192,7 +192,7 @@ One command, one exit code:
     line; the document's movement sections,
     Sources list, figures, and opening section must match cues.json; no
     remote assets or machine-local paths in any view.
-  - `nav_props` — the addressability map (T13): entries are exactly the cue
+  - `nav_props` — the addressability map: entries are exactly the cue
     ids in order and agree per screen on ordinal/movement/kind; the entry
     shape is frozen (no unit ids, no `id` field, no grouping span); ranges are
     ordered, never overlap, and each starts at a screen boundary (the opening
@@ -200,7 +200,7 @@ One command, one exit code:
     non-blank body line outside the ranges is inert (comment, `---`, movement
     heading) so a range that ends early fails; the document flag mirrors the
     black kind.
-  - `timing_props` — the clock (T15, spec: Timing): every cue carries a
+  - `timing_props` — the clock (spec: Timing): every cue carries a
     positive-float `est_seconds` at least as long as its pure read time at the
     deck's speech rate; the build never writes `timing.yaml` and never puts the
     estimate in it; check 19 reports on `timing-drift` and stays silent on
@@ -210,7 +210,7 @@ One command, one exit code:
     (ffprobe against a generated clip), precedence, and malformed-sidecar
     handling (rows report and skip; a broken sidecar never breaks a build).
   - `check_props` — every fixture is run through `check.check_file` (the
-    T11 per-deck seam) with the built cues.json, with and without --strict,
+    per-deck seam) with the built cues.json, with and without --strict,
     so the artifact assertions (checks 17 and 18) fire per fixture.
 - `run.py` — per fixture profile: build twice into temp dirs and require the
   trees byte-identical (determinism, spec §8; `nav.json` rides this tree
@@ -231,8 +231,8 @@ One command, one exit code:
 
 ## Golden discipline
 
-Blessed on 2026-09-08 against HEAD 452a6ef (T01-T09 all merged and green);
-re-blessed 2026-09-09 (media status have -> file) and 2026-09-10 (T15:
+Blessed against a green suite;
+re-blessed 2026-09-09 (media status have -> file) and 2026-09-10 (
 `est_seconds` on every cue — one added field per cue object and nothing else).
 A builder change that alters emitted semantics shows as a golden diff and
 must be understood before re-blessing; a golden that starts failing for an

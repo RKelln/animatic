@@ -1,7 +1,7 @@
 """talkparse.py — talkfile lexer + screen assembler.
 
 Grammar source: docs/format-spec-v1.md (the normative spec in this repo).
-Encoded parse-model decisions (rationale in docs/engine-decision.md):
+Encoded parse-model decisions:
 
 - A SCREEN (present-view slide, document-view step, cues.json cue) is opened
   by a shot directive comment (`<!-- shot ... -->`).  Text never opens a
@@ -1445,7 +1445,7 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
 
     Valueless `kb`/`dim`/`text` are stored with an empty value and render
     inert — the flag-value-out-of-range taxonomy warning is check-suite
-    territory (T08), not the tokenizer's.
+    territory, not the tokenizer's.
     """
     if name not in KNOWN_FLAGS:
         shot.warnings.append(
@@ -2414,7 +2414,7 @@ def assemble(meta: dict, raw_blocks: list, source: str,
                 # "~ Name, venue" paragraph whose immediately preceding block
                 # is a quote (tilde stripped on screen).  `~` is the ONLY
                 # attribution form (spec: Text; the `Source: ` shape was deleted
-                # — T03/D4 — and falls through to VO with a check-24 warning).
+                #  and falls through to VO with a check-24 warning).
                 #
                 # Attribution OUTRANKS a pending role payload: on the both-up
                 # screen (quote + attribution + our paraphrase) the credit line

@@ -549,7 +549,7 @@ def check(fx, errors: list) -> None:
     # link into the handout has the same address as a cue in the deck.  The
     # contents list is generated from the talk's own headings, so its jumps
     # must resolve and must run in screen order; the per-screen source lines
-    # must point at the one numbered list.  (These are the web-edition pass-1
+    # must point at the one numbered list.  (This is the web-edition
     # contract: render.py emits `cue-<id>` wrappers, `_toc_html`, and
     # `_screen_sources_html`.)
     nav = json.loads((fx.out / "nav.json").read_text(encoding="utf-8"))

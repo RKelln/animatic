@@ -92,14 +92,27 @@ and in the handout, never on the slide.
 
 ## Movement 1 · The idea
 
-<!-- shot -->
-### One idea per screen
+### A heading above a shot stays off the slide but prints in the handout
 
-Headings are the rare on-screen text.
+<!-- shot: reveal -->
+Spoken text before a list is not shown on the slide. It appears in the presenter
+notes for you to read.
+
+- Lists show on the slide
+- Add `reveal` to the shot and they appear one at a time
+- Each press of the next key shows the next item
+
+Text after the list is spoken once it is all visible. A next mark in the script
+where you will press the key [next] gives the presenter view a reminder at
+that point [next] to show the next list item.
 
 <!-- shot -->
 > A quote can have a screen of its own.
 ~ Someone worth quoting
+
+[Timer: 5:00]
+
+This slide shows a five-minute timer.
 ```
 
 ```sh

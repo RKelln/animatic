@@ -13,7 +13,7 @@ One talkfile in, three views out:
 Usage:
     python3 build.py TALKFILE [--out OUTDIR]
     python3 build.py TALKFILE --watch    # rebuild on every save
-    python3 build.py --corpus [ROOT]     # corpus check (register 21, T11)
+    python3 build.py --corpus [ROOT]     # corpus check
 
 Example (specimen):
     python3 build.py examples/roles-demo/talk.md

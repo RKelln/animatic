@@ -1,4 +1,4 @@
-"""check.py — animatic deterministic check suite (T08).
+"""check.py — animatic deterministic check suite.
 
 One talkfile in, one exit code out.  Deterministic: same input, same findings,
 same order, same exit code.  No LLM, no network, no writes outside the caller's
@@ -37,14 +37,12 @@ Severity taxonomy (spec: Error and warning taxonomy as the register defines it):
               `dur` (19).  Not diagnostics: a deck carrying them is not
               defective.
 
-Register canonicalization (engine-decision Verification/Error and warning taxonomy: "register canonicalization
-is T08").  The 1-30 register table with owner + status lives in REGISTER below
+The register of checks (see "Error and warning taxonomy" in docs/format-spec-v1.md).  The 1-30 register table with owner + status lives in REGISTER below
 and prints with --register.  Rows implemented here: 1-9, 11-16, 18 (model
 assert + artifact assert), 19 (the timing clock; the estimate itself ships
 from render.py/timing.py), 21 (corpus harness), 28.  Rows enforced by the
-parser/resolver ships from earlier tickets: 10 (mediaresolve), 17 (render,
-T02), 22-26 (talkparse), 27 (T07 fixture).  Explicitly deferred with reason:
-20 (the --variant build lands with T14; T14's file scope includes check.py).
+parser/resolver: 10 (mediaresolve), 17 (render), 22-26 (talkparse), 27 (fixture).  Explicitly deferred with reason:
+20 (the --variant build is not built yet).
 
 Check 19 reads the deck-local `timing.yaml` sidecar (timing.py) next to the
 talkfile: the clock compares sum(effective seconds) against the declared
@@ -53,7 +51,7 @@ or unreadable sidecar is never an error — it just leaves every cue at its
 estimate.
 
 Importable by build.py and a future `animatic` wrapper (there is no animatic
-CLI today).  check_file() is the per-deck seam the --corpus driver (T11)
+CLI today).  check_file() is the per-deck seam the --corpus driver
 reuses; corpus mode builds each deck's cues.json into a temp dir so the
 artifact assertions 17/18 fire per deck, and the suite never edits
 talkparse.py/render.py and never writes outside /tmp or the caller's chosen
@@ -116,7 +114,7 @@ GENLOG_RENAME_RE = re.compile(
 GENLOG_SPLIT_RE = re.compile(
     r"^-\s+split:\s+([a-z0-9][a-z0-9-]*)-a(\d+)\s+->\s+new slug\s+`([a-z0-9][a-z0-9-]*)`")
 
-# Canonical register (work-spec: Text coverage table + report Part 4/6 additions).
+# Canonical register (see "Error and warning taxonomy" in docs/format-spec-v1.md).
 # status: implemented (this file) | enforced (owner ticket) | fixture |
 #         deferred (owner ticket).
 REGISTER = [
@@ -129,24 +127,24 @@ REGISTER = [
     (7,  "flags on non-first shots of a screen (ignored)",           INFO,    "implemented"),
     (8,  "`piece`+`dim` / `kb`+`piece` info notes",                  INFO,    "implemented"),
     (9,  "duplicate overlay roles on one screen",                    WARNING, "implemented"),
-    (10, "card-declared path resolves to an existing file",          WARNING, "enforced: mediaresolve.py (T01)"),
+    (10, "card-declared path resolves to an existing file",          WARNING, "enforced: mediaresolve.py"),
     (11, "media shot with no card (orphaned brief)",                 WARNING, "implemented"),
     (12, "`(Visual:)` stage note with no media shot on the screen",  INFO,    "implemented"),
     (13, "attempt files vs gen-log entries drift",                   REPORT,  "implemented"),
     (14, "attempt numbering gapped/non-monotonic per slug",          REPORT,  "implemented"),
     (15, "`status: approved` card with no resolvable file",          INFO,    "implemented"),
     (16, "licence-before-public-use (third-party on a public deck)", REPORT,  "implemented"),
-    (17, "no absolute paths in cues.json",                           FATAL,   "enforced: render.py (T02); artifact check in check.py"),
+    (17, "no absolute paths in cues.json",                           FATAL,   "enforced: render.py; artifact check in check.py"),
     (18, "lexical sort of cue ids == ordinal order",                 FATAL,   "implemented"),
     (19, "sum(est_seconds) vs frontmatter dur divergence",           REPORT,  "implemented: check.py + timing.py"),
-    (20, "variant build emits included/excluded manifest",           REPORT,  "deferred: T14"),
+    (20, "variant build emits included/excluded manifest",           REPORT,  "deferred: not built yet"),
     (21, "corpus: all decks parse/build/pass",                       REPORT,  "implemented"),
-    (22, "malformed Movement heading fatal",                         FATAL,   "enforced: talkparse.py (T05)"),
-    (23, "nested parens warning",                                    WARNING, "enforced: talkparse.py (T06)"),
-    (24, "attribution-shaped line with no quote warns",              WARNING, "enforced: talkparse.py (T06)"),
-    (25, "no silent token drop in a shot comment",                   WARNING, "enforced: talkparse.py (T05)"),
-    (26, "no warning text contains 'line 0'",                        WARNING, "enforced: talkparse.py (T07); guard in check.py"),
-    (27, "multi-line shot fixture",                                  WARNING, "fixture: tests/fixtures/constructs/multiline-shot.talk.md (T07)"),
+    (22, "malformed Movement heading fatal",                         FATAL,   "enforced: talkparse.py"),
+    (23, "nested parens warning",                                    WARNING, "enforced: talkparse.py"),
+    (24, "attribution-shaped line with no quote warns",              WARNING, "enforced: talkparse.py"),
+    (25, "no silent token drop in a shot comment",                   WARNING, "enforced: talkparse.py"),
+    (26, "no warning text contains 'line 0'",                        WARNING, "enforced: talkparse.py; guard in check.py"),
+    (27, "multi-line shot fixture",                                  WARNING, "fixture: tests/fixtures/constructs/multiline-shot.talk.md"),
     (28, "`[^id]` footnote with no sources: registry entry",         WARNING, "implemented"),
     (29, "card `playback:`/`sound:` value unknown, on a non-video, or unbakeable", WARNING, "implemented: check.py + mediaresolve.py"),
     (30, "`dim` on a media screen with no on-screen text",              WARNING, "implemented"),
@@ -177,12 +175,11 @@ REGISTER = [
 
 DEFERRED = {
     20: "check 20 needs the --variant build that emits the included/excluded "
-        "manifest; that lands with T14 (dense renumbering + canonical remap), "
-        "whose file scope includes check.py.",
+        "manifest; that is not built yet.",
 }
 
 
-DEFERRED_LINE = ("deferred : check 20 -> T14 (variant manifest) — full reason "
+DEFERRED_LINE = ("deferred : check 20 (variant manifest, not built yet) — full reason "
                  "under --register")
 
 
@@ -432,8 +429,8 @@ def check_4_movements(talk, resolver, report: Report) -> None:
 def check_5_deck_slug_collisions(files: list, report: Report) -> None:
     """Across a content root (any multi-talkfile invocation): two frontmatter
     slugs slugifying equal.  Single-deck runs cannot evaluate this — corpus
-    wiring arrives with T11's --corpus; the detector lives here so T11 calls
-    it over the root."""
+    wiring arrives with --corpus; the detector lives here so the corpus
+    run calls it over the root."""
     if len(files) < 2:
         return
     by_slug = {}
@@ -775,7 +772,7 @@ def check_16_licence(talk, resolver, report: Report) -> None:
 def check_cues_json(path: Path, report: Report) -> None:
     """Artifact-mode checks against a cues.json (register 17 + 18).  The
     suite is source-first: these run only when the caller hands over a built
-    cues.json (--cues, or T10/T11 driving the artifact)."""
+    cues.json (--cues, or the test suite and corpus run driving the artifact)."""
     try:
         text = path.read_text(encoding="utf-8")
         data = json.loads(text)
@@ -1324,7 +1321,7 @@ def run_checks(talk, resolver, source_text: str,
 
 
 def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
-    """Per-deck seam (T11's --corpus drives this per deck).  Raises nothing:
+    """Per-deck seam (the --corpus run drives this per deck).  Raises nothing:
     parse errors become a fatal parse_error on the Report."""
     p = Path(path)
     report = Report(source=str(p), strict=strict)
@@ -1366,7 +1363,7 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
 
 
 # ---------------------------------------------------------------------------
-# Corpus harness (check 21, T11) — content roots -> per-deck pass/fail + drift
+# Corpus harness (check 21) — content roots -> per-deck pass/fail + drift
 # ---------------------------------------------------------------------------
 
 CORPUS_CONFIG = "corpus.yaml"            # repo-root content-root declaration
@@ -1680,7 +1677,7 @@ def run_corpus(roots: dict, *, strict: bool = False,
           f"concepts={len(roots.get('concepts', []))} "
           f"banks={len(roots.get('banks', []))}")
     print(f"decks     : {len(decks)} found — per-deck check_file() (checks "
-          f"1-16, 18 model, 22-29); artifact asserts 17/18 live in the T10 "
+          f"1-16, 18 model, 22-29); artifact asserts 17/18 live in the "
           f"golden suite where a real build exists")
 
     deck_results = []
@@ -1900,7 +1897,7 @@ def main(argv=None) -> int:
             ap.error("--corpus is exclusive with TALKFILE arguments")
         if args.cues:
             ap.error("--corpus is exclusive with --cues (artifact checks "
-                     "live in the golden suite, T10)")
+                     "live in the golden suite)")
         root = None if args.corpus == "__config__" else args.corpus
         return corpus_main(root, strict=args.strict)
 

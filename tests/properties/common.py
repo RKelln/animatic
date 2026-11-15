@@ -1,4 +1,4 @@
-"""Shared helpers for the T10 golden/property suite."""
+"""Shared helpers for the golden/property suite."""
 
 from __future__ import annotations
 

@@ -9,7 +9,7 @@ Three provenance tiers, ordered by truth: **measured > authored > estimated**.
 - `authored` — a hand override in the deck-local `timing.yaml` sidecar
   (`animatic.timing.v1`): cue id -> {seconds, provenance}.
 - `measured` — real timing from a recording or a test read: the alignment
-  tooling (docs/audio-route.md) writes the same sidecar with
+  tooling (not built yet) would write the same sidecar with
   `provenance: measured`.  Recognized here, never produced here.
 
 This module is the sidecar reader plus the arithmetic and nothing else.  The

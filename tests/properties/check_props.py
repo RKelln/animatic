@@ -1,6 +1,6 @@
 """Property checks over the check suite itself (register-driven).
 
-Every fixture is run through check.check_file (the T11 per-deck seam) with
+Every fixture is run through check.check_file (the per-deck seam) with
 and without --strict and with the built cues.json, so the artifact
 assertions (checks 17 + 18: no machine paths, lexical==ordinal ids) fire on
 every fixture, not just on goldens:
