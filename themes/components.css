@@ -865,8 +865,7 @@
   .animatic-slide.duo-live .media-zone.piece.duo .live-host .live-poster {
     border: 0; box-shadow: none;
   }
-  /* The chip and Stop move OFF the window and into the text pane.
-     2026-10-18: "so it doesn't hide the live window"). The pane is the thing
+  /* The chip and Stop move OFF the window and into the text pane, so they do not hide the live window. The pane is the thing
      the room is reading; presenter chrome belongs in the margin, which is
      empty below the text. The offset is stage arithmetic in vw because the
      containing block is the pane, not the stage: 6vw minus the pane itself
