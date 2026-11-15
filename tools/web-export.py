@@ -20,6 +20,7 @@ no present or presenter view, no cues.json, no originals.  Refuses to ship a
 page that points outside its own folder or names a local path.
 """
 import argparse
+import atexit
 import json
 import os
 import re
@@ -228,6 +229,9 @@ def main() -> int:
     talk = Path(a.talkfile).resolve()
     out = Path(a.out).resolve()
     work = Path(a.work) if a.work else Path(tempfile.mkdtemp(prefix="animatic-web-"))
+    if a.work is None:
+        # a build dir this script made is scratch: never leave a ~1.2 GB copy behind
+        atexit.register(shutil.rmtree, work, ignore_errors=True)
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work),
                         "--no-handout-placeholders"] + (["--home-page"] if a.home else []), stdout=subprocess.DEVNULL,
                        env={k: v for k, v in os.environ.items() if k != "ANIMATIC_WAYPOINT_TOKEN"})

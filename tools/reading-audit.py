@@ -10,9 +10,11 @@ public.  It reads only; it never edits the talk.  Built so an agent can fix a
 talk from this report plus the few screens it names, without reading all of it.
 """
 import argparse
+import atexit
 import html as html_mod
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -39,6 +41,9 @@ def main() -> int:
     a = ap.parse_args()
     talk = Path(a.talkfile).resolve()
     work = Path(a.work) if a.work else Path(tempfile.mkdtemp(prefix="animatic-audit-"))
+    if a.work is None:
+        # a build dir this script made is scratch: never leave a ~223 MB copy behind
+        atexit.register(shutil.rmtree, work, ignore_errors=True)
     subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work)],
                    stdout=subprocess.DEVNULL, check=True)
     cues = json.loads((work / "cues.json").read_text())
