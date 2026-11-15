@@ -123,7 +123,7 @@ verify a talkfile you have edited, and `python3 tests/run.py` verifies a code ch
 | `docs/live-capture.md` | `type: live` screens: a live window capture inside the deck |
 | `docs/quick-select.md` | answering questions by jumping to a shelf slide |
 | `docs/waypoints.md` | publishing "where the room is" for participants' agents |
-| `docs/tokens.md` | design tokens and the two themes |
+| `docs/tokens.md` | styling reference: layers, tokens, themes, how to add one |
 | `tests/README.md` | how the test suite is built |
 
 ## Features

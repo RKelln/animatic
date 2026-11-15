@@ -827,7 +827,7 @@
     box-shadow: var(--piece-shadow);
   }
   /* A live capture in the DUO column: a text pane on one side, the demo
-     window on the other. Ryan's shape (2026-10-18): the pane is the FULL stage
+     window on the other. The shape: the pane is the FULL stage
      height, edge to edge, and most of the width, with the notes in the other
      side. 45/55 splits in favour of the window because most shared windows are
      landscape: a 16:9 capture gets 1056x594 here, and a tall window fills the
@@ -865,7 +865,7 @@
   .animatic-slide.duo-live .media-zone.piece.duo .live-host .live-poster {
     border: 0; box-shadow: none;
   }
-  /* The chip and Stop move OFF the window and into the text pane (Ryan,
+  /* The chip and Stop move OFF the window and into the text pane.
      2026-10-18: "so it doesn't hide the live window"). The pane is the thing
      the room is reading; presenter chrome belongs in the margin, which is
      empty below the text. The offset is stage arithmetic in vw because the

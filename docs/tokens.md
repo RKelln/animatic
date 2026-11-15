@@ -1,11 +1,7 @@
-# Animatic design tokens and themes
+# Styling: design tokens and themes
 
-Status: E3 baseline (2026-09-05, committed) — A (lecture) and C (workshop)
-feel-tested on the roles-demo specimen and L01 and locked for now; swept
-2026-09-08 (engine layer row removed, spare slot deleted, placeholder default
-decided — see decision log). Open questions below remain live. Docs move when
-the deck does: this file is the human spec, the CSS in themes/ is the machine
-source. Propose, never lock.
+This file is the human reference for how animatic looks; the CSS in `themes/`
+is the machine source. Two themes ship: `lecture` (default) and `workshop`.
 
 ## The layer contract
 
@@ -79,97 +75,74 @@ display. The dark ink-in-water studies and deep aerial shots live here.
 
 The lights are on and the words matter. Warm paper stage, ink text,
 olive-clay accent, sans-leaning UI for text-forward cards. Media defaults
-to full-bleed atmosphere here too (Ryan 2026-09-05: atmosphere is the
-default in every theme); the framed "piece" look is opt-in per shot.
+to full-bleed atmosphere here too (atmosphere is the default in every theme); the framed "piece" look is opt-in per shot.
 
 - stage: `#f2ecdf` / ink `#262019` / accent `#7d5f2e`; dim tint warm dark
   `#241f18`
 - character: centered text (the room's difference is the daylight palette
-  and sans-leaning UI, not pinned type — Ryan 2026-09-05), no glow on paper,
+  and sans-leaning UI, not pinned type), no glow on paper,
   full-bleed atmosphere default, lower thirds as paper chips, quotes over
   media sit on a warm paper plate (`--quote-panel-bg` 0.55 alpha; the blur
   carries the legibility)
 
-## Palette decision log
+## Design rationale
 
-- 2026-09-05 (Ryan + agent): three directions proposed from standing
-  principles (warm, civic, curious; CVD-safe; no saturated red/blue pairs):
-  A reference room, B green room, C workshop daylight. Ryan: "probably A
-  and C, let's feel it out." Starter set = lecture (A), workshop (C),
-  spare slot held for B.
-- Image consultation 2026-09-05: Ryan's placeholder media (_media/ryan/)
-  reads in two families: bright aerial fieldwork (needs scrim discipline
-  and text zones) and dark ink-in-water studies (warm vortices on deep
-  ink = palette A's own colour story). A sits on the ink images; C frames
-  the aerials.
-- Corrections from the first live feel-test (2026-09-05): (1) type scale
-  was browser-16px-based and read small from a distance — the stage now
-  sets an explicit cinematic base (3.6vh) so em sizes track projection
-  height; (2) framed media is NOT a theme default — full-bleed atmosphere
-  is the default in both themes, and the floating framed look is the
-  opt-in `piece` flag, meant for images shown as objects (e.g. other
-  people's work); (3) non-owned images carry credit tags via the existing
-  lower / credits roles.
-- Motion resolved (2026-09-05, after three failed attempts): Ken Burns
-  drift = CSS animation translating the IMAGE itself inside a static
-  overflow-hidden lens. The image layer is oversized 130% and centred, so
-  its texture always exceeds the clip: edges can never surface and the
-  drift is a pure compositor blit. Failed first: scale-based CSS on the
-  image (per-frame texture resampling = stutter); failed second: rAF JS
-  transform writes (main-thread frame drops); failed third: animating the
-  LENS with will-change (the compositor baked the 100% clip into the
-  layer texture, exposing edges). Pan amplitude ~±7%/2.5% at 22 s legs
-  clears pixel-snapping; CSS compositor animations beat JS rAF for this.
-- Pager: reveal.js could not stand in at all in the desktop preview pane
-  (remote content is blocked there, and even in browsers the CDN deck is
-  one network failure from dead). E3 owns the present view: a small
-  inline pager (keyboard, hash, `n` notes panel, `s` presenter window,
-  `i` diagnostics dump, swipe, progress), one self-contained HTML file per
-  deck plus the presenter page. Media publishes to out/_media with
-  relative paths, so a deck is a portable folder.
-- Diagnostics panel (`i`, 2026-09-15): same translucent-glass register as the
-  notes and hookup panels, monospace, `user-select: text`, and — unlike the
-  presentation layers — deliberately interactive, because its whole purpose is
-  to be scrolled and copied. It sits outside `.screen-body`, so the
-  click-through rule that governs the slide body does not apply to it.
-- Presenter layout (`s`, 2026-09-15): the window exists to be read from, so it is
-  a priority order, not fixed boxes — current pane 2fr against next-up 1fr, the
-  current notes the largest type in the window (1.12rem vs 0.88rem), the preview
-  the first thing to give up space (34vh down to a 12vh thumbnail) and scrolling
-  the last resort via the `fitNotes()` ladder (natural → two columns → solo).
-  Full contract + the probe that measures it: `docs/presenter-view.md`.
-- Feel-test round 2 (2026-09-05, roles-demo + L01 live in Firefox):
-  (1) text over full-bleed media is THE common slide — every text role
-  (title card, fit hero, stat, quote, list) can take a background via a
-  media shot, and role shots stat/lower/credits overlay-merge onto an
-  unvoiced media screen (stat joined in E3); (2) legibility kit: dim=N
-  scrims, per-slide `text=light|dark` mode (ink text dies on dark ground;
-  light glyphs + dark glow are the default ask), and a structural halo
-  contract — lecture = `--stage-text-glow` on over-media text, workshop =
-  pale paper halo; the shadow should be nearly invisible unless toggled
-  (Ryan); (3) quotes over media sit on a frosted plate (`--quote-panel-bg`
-  + backdrop blur + 2px edge blur + radius 1.1em) wrapping quote AND
-  credit; 32em max width; workshop plate at 0.55 alpha, "the blur carries
-  the legibility"; (4) `fit` on a text-carrying media slide = hero type as
-  big as the slide allows; media-only `fit` keeps letterbox-contain;
-  (5) workshop text stays CENTERED like lecture — the room's character is
-  palette + sans UI, not pinned type.
-- Media stand-ins (`--media-remap`): unproduced slugs (brief/to-find/
-  prompting) can be pointed at real files for style tests and drafts.
-  Last in resolution order — real art always wins, so stand-ins
-  evaporate when art lands; manifest records `source: standin`.
-  remaps/l01-standins.yaml = temporary L01 set (3 stand-ins + 1 real
-  video; 10 placeholders remain by design: charts/composites have no
-  honest stand-in).
-- 2026-09-08 (T04 hygiene sweep): (1) the `engine` layer row is gone from
-  the table above — E3 removed reveal.js and the builder inlines exactly
-  reset/base/components/theme (`@layer reset, base, components, theme;` in
-  render.py); (2) the `spare` third-theme slot is deleted (D9) — direction B
-  returns only when a deck actually wants it, never as an empty slot (an
-  empty slot in a spec invites an agent to invent a theme); (3) placeholder
-  visibility default decided (D10): present ON, document OFF,
-  `--show-placeholders` opts a document build in. The look, when shown,
-  stays a feel-test question below.
+Decisions behind the look, kept because they explain behaviour that would
+otherwise look arbitrary.
+
+- **Palettes.** Warm, civic, curious; colour-vision-safe; no saturated red/blue
+  pairs. `lecture` sits on dark ink-in-water and night imagery; `workshop`
+  frames bright aerial photography.
+- **Type scale.** The stage sets an explicit cinematic base (4.8vh) so `em`
+  sizes track projection height; a browser-16px base reads small from the back
+  of a room. `fit=hero` slides keep 3.6vh (`--hero-base`) and plain titles keep
+  a fixed size (`--title-k`), so only body text scales with the base.
+- **Media default.** Full-bleed atmosphere is the default in both themes. The
+  floating framed look is the opt-in `piece` flag, for images shown as objects
+  (other people's work, book covers). Media that is not yours carries credit
+  tags via the `lower` / `credits` roles.
+- **Text over media is the common slide.** Every text role (title card, fit
+  hero, stat, quote, list) can sit on a media shot, and `stat`, `lower` and
+  `credits` overlay-merge onto an unvoiced media screen. The legibility kit is
+  `dim=N` scrims, per-slide `text=light|dark` (ink text dies on a dark ground;
+  light glyphs with a dark glow are the default), and a structural halo:
+  `lecture` uses `--stage-text-glow`, `workshop` a pale paper halo. The shadow
+  should be nearly invisible unless toggled.
+- **Quote plates.** Quotes over media sit on a frosted plate
+  (`--quote-panel-bg`, backdrop blur, 2px edge blur, 1.1em radius, 32em max
+  width) wrapping quote and credit. The workshop plate is 0.55 alpha; the blur
+  carries the legibility.
+- **`fit` on text.** On a text-carrying media slide `fit` means hero type as
+  big as the slide allows; media-only `fit` keeps letterbox-contain. Text stays
+  centred in both themes: the difference between rooms is palette and UI
+  type, not pinned layout.
+- **Ken Burns drift.** A CSS animation translates the image itself inside a
+  static overflow-hidden lens. The image layer is oversized 130% and centred,
+  so its texture always exceeds the clip and edges never surface; the drift is
+  a pure compositor blit. Scaling the image (per-frame resampling), driving it
+  with requestAnimationFrame (main-thread drops) and animating the lens with
+  `will-change` (the compositor bakes the clip into the texture and exposes
+  edges) all failed. Amplitude is about ±7% / 2.5% on 22 s legs.
+- **Pager.** The present view is one self-contained HTML file per deck (plus
+  the presenter page) with a small inline pager: keyboard, hash, `n` notes
+  panel, `s` presenter window, `i` diagnostics dump, swipe, progress. No CDN,
+  so a deck is not one network failure from dead. Media publishes to
+  `out/_media` with relative paths, so a deck is a portable folder.
+- **Diagnostics panel (`i`).** Same translucent-glass register as the notes
+  panel, monospace, `user-select: text`, and deliberately interactive: its job
+  is to be scrolled and copied. It sits outside `.screen-body`, so the
+  click-through rule for the slide body does not apply.
+- **Presenter layout (`s`).** A priority order, not fixed boxes: current pane
+  2fr against next-up 1fr, current notes the largest type in the window, the
+  preview first to give up space, scrolling last (the `fitNotes()` ladder:
+  natural, two columns, solo). Contract and probe: `docs/presenter-view.md`.
+- **Media stand-ins.** `--media-remap` points unproduced slugs at real files
+  for style tests and drafts. It is last in resolution order, so real art
+  always wins and stand-ins evaporate when art lands; the manifest records
+  `source: standin`. Charts and composites have no honest stand-in and stay
+  placeholders.
+- **Placeholders.** Shown in the present view, hidden in document builds;
+  `--show-placeholders` opts a document build in.
 
 ## Add a theme
 
@@ -178,28 +151,15 @@ default in every theme); the framed "piece" look is opt-in per shot.
 3. Add `<slug>` to `KNOWN_THEMES` in render.py.
 4. Add the theme's character rules in the same file (layer theme, so they
    may restyle any component with plain selectors).
-5. Palette consultation with Ryan before locking any palette.
+5. Try it on `examples/roles-demo`, which exercises every role.
 
-## Open questions (feel-test list)
+## Open questions
 
-- Stat slides: accent rule under the number works on paper and black; does
-  the brass want to be stronger?
-- Few-credits vs many-credits column behaviour; real end rolls may want
-  section grouping, not a flat list.
-- Lower third position and size on 1920x1080 (currently bottom left chip).
+- Stat slides: does the brass accent rule want to be stronger?
+- Credits: real end rolls may want section grouping, not a flat list.
+- Lower third position and size at 1920x1080 (currently a bottom-left chip).
 - Whether the reveal fade is the right inter-screen motion (vs hard cuts).
-- Placeholder look when shown: placeholders now default OUT of document
-  builds (D10, 2026-09-08 — present ON, document OFF, `--show-placeholders`
-  overrides); the look itself, when a document build opts in, is still a
-  feel-test question.
-- Duo object side: book covers may read better with the object on the LEFT
-  (left-to-right reading); specimen tests object-right only (asked Ryan,
-  unanswered).
-- Hero-quote plate: a pull quote at `fit` scale on the frosted plate (the
-  second "hero" Ryan named; heading heroes are done).
-- Backdrop blur over VIDEO is the expensive case (re-blurs per frame);
-  a reduced-blur mode behind a flag if quote plates stack on video.
-- Base raised 2026-11-10: slide body base 3.6vh -> 4.8vh (default text was still
-  small from a distance, and fit=hero was being used just for legibility).
-  fit=hero slides keep 3.6vh (`--hero-base`) and plain titles keep their
-  4.2vh-era size (`--title-k`), so only non-title text grew.
+- Duo layout: book covers may read better with the object on the left.
+- Hero-quote plate: a pull quote at `fit` scale on the frosted plate.
+- Backdrop blur over video re-blurs per frame; a reduced-blur mode may be
+  needed if quote plates stack on video.

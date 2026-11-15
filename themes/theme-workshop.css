@@ -4,7 +4,7 @@
    text-forward cards. The bright aerial Experimance photos frame
    naturally on paper (frames, not full-bleed scrims).
 
-   Palette decision log: docs/tokens.md (Ryan, 2026-09-05). */
+   Token contract and rationale: docs/tokens.md. */
 
 @layer theme {
   :root {
@@ -38,7 +38,7 @@
   }
 
   /* character: paper stage, ink text, no glow. Text stays CENTERED like
-     the lecture room (Ryan 2026-09-05: the workshop difference is the
+     the lecture room (the workshop difference is the
      daylight palette and sans UI, not left-pinned type). */
   .animatic-slide { background: var(--stage-bg); }
   .animatic-slide h1.slide-title,
