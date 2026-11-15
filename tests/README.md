@@ -260,7 +260,7 @@ passes.
 - Every source line number is the talkfile's own, 1-based with the
   frontmatter counted, which is how every warning and every `nav.json` range
   reads, so a number matches what an editor shows (2026-09-28; before that
-  they were body-relative, which put L01's warnings 64 lines off). Editing the
+  they were body-relative). Editing the
   frontmatter therefore shifts the numbers after it. The fixtures pin the
   numbering both ways (a warning's line and a range's line are the same
   number for the same line); frontmatter lines belong to no range.

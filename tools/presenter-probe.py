@@ -8,9 +8,9 @@ shapes the presenter itself; see docs/presenter-view.md). This does the three
 steps that were easy to get wrong by hand: serve the repo root, check the deck
 is actually built, and hand over the right URL.
 
-    python3 tools/presenter-probe.py --deck out-w01
-    python3 tools/presenter-probe.py --deck out-w01 --sizes 1280x800,1920x1080
-    python3 tools/presenter-probe.py --deck out-l01 --json /tmp/probe.json --open
+    python3 tools/presenter-probe.py --deck out-demo
+    python3 tools/presenter-probe.py --deck out-demo --sizes 1280x800,1920x1080
+    python3 tools/presenter-probe.py --deck out-demo --json /tmp/probe.json --open
 
 Exit codes: 0 = served and stopped by the user, 1 = the deck is not built.
 The probe itself always exits 0: it is a measuring instrument, and a layout
@@ -46,7 +46,7 @@ def check_build(slug: str) -> Path | None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="serve + open the presenter layout probe")
-    ap.add_argument("--deck", default="out-w01", help="built deck dir, relative to the repo root")
+    ap.add_argument("--deck", default="out-demo", help="built deck dir, relative to the repo root")
     ap.add_argument("--port", type=int, default=8790, help="port (0 picks a free one)")
     ap.add_argument("--sizes", default="1280x800,1440x900,1920x1080",
                     help="comma-separated WxH viewports for the iframe")

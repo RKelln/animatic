@@ -271,7 +271,7 @@ def check(fx, errors: list) -> None:
         # A capture in the DUO column has to size ITSELF: the duo zone is left
         # at auto height by `top: 50%; transform: translateY(-50%)`, and it is
         # size-contained, so `100cqh` measures 0 and the host collapsed to a
-        # 2px sliver beside the text (measured in a real engine on W04's
+        # 2px sliver beside the text (measured in a real engine on a real deck's
         # "Meet Search Desk" screen, 2026-10-18). The fix is a duo-local rule,
         # so assert the rule AND its shape: a check for the selector alone
         # passes against an empty rule.
@@ -288,7 +288,7 @@ def check(fx, errors: list) -> None:
                 # A live duo screen is a DEMO slide and takes demo
                 # proportions; the plain duo split gives the capture the
                 # object-sized 32vw column, which reads as a small window in
-                # the room (Ryan, 2026-10-18).
+                # the room.
                 if "duo-live" not in cls.split():
                     err(errors, f"cue {c['id']}: live screen in the duo layout "
                                 f"is not marked duo-live, so the capture keeps "

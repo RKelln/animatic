@@ -729,6 +729,8 @@ def check_15_approved_no_file(talk, resolver, report: Report) -> None:
 
 
 def check_16_licence(talk, resolver, report: Report) -> None:
+    # Own work is a credit that names the deck's `author:` frontmatter value.
+    author = str(talk.meta.get("author", "") or "").strip().lower()
     status = str(talk.meta.get("status", "") or "")
     if not re.search(r"\b(delivered|public)\b", status, re.IGNORECASE):
         return
@@ -746,13 +748,14 @@ def check_16_licence(talk, resolver, report: Report) -> None:
                 continue
             credit = str(card.get("credit", "") or "")
             licence = str(card.get("licence", "") or "")
-            third_party = ("ryan" not in credit.lower()) if credit else True
+            own = bool(author) and author in credit.lower()
+            third_party = (not own) if credit else True
             licence_tbd = (not licence) or licence.strip().upper() in \
                 ("TBD", "?", "NONE", "UNKNOWN", "TO BE DETERMINED")
             if third_party or licence_tbd:
                 problems = []
                 if third_party and credit:
-                    problems.append(f"credit {credit!r} is not Ryan")
+                    problems.append(f"credit {credit!r} is not the deck author")
                 elif not credit:
                     problems.append("no credit recorded")
                 if licence_tbd:
@@ -1121,7 +1124,7 @@ def check_42_redundant_copy(talk, resolver, report: Report) -> None:
 def check_30_dim_without_text(talk, resolver, report: Report) -> None:
     """`dim` exists to keep on-screen text readable over a picture. On a screen
     with no text it only darkens the picture: a chart or photo that is too
-    bright should be fixed in the file, not dimmed (Ryan, 2026-09-28).
+    bright should be fixed in the file, not dimmed .
     Framed layouts ignore dim already (check 8 says so)."""
     for s in talk.screens:
         if s.shelf:
@@ -1641,7 +1644,7 @@ def _same_numbered_family(a: str, b: str) -> bool:
 def _suggest_tags(vocab2: Counter, meta: dict, head: str) -> list:
     """Suggest existing corpus tags (use >= 2 only) for an untagged file, by
     word overlap with its frontmatter prose + body head.  Suggest-only: the
-    agent proposes, Ryan confirms (spec: Error and warning taxonomy); never auto-applied."""
+    agent proposes, the human confirms (spec: Error and warning taxonomy); never auto-applied."""
     if not vocab2:
         return []
     prose = " ".join(str(meta.get(k, "")) for k in

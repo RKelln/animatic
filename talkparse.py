@@ -1989,7 +1989,7 @@ def build_talk(path, source: Optional[str] = None,
     meta, lines = _lex_frontmatter(body, source)
     qdir, qline = _quick_dir(meta, path, source, quick_sections)
     # every line number is the talkfile's own, frontmatter included
-    # (2026-09-28; was body-relative, which put L01's warnings 64 lines off)
+    # (file-relative, not body-relative)
     offset = body.count("\n") + 1 - len(lines)
     raw_blocks = _lex_blocks(lines, source, role_vocab, layout_vocab,
                              line_offset=offset)

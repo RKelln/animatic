@@ -76,7 +76,7 @@ def main(argv=None) -> int:
                          "(e.g. --theme lecture) for style comparisons")
     ap.add_argument("--media-remap", default=None, metavar="YAML",
                     help="slug -> file stand-in map for unproduced media "
-                         "(see remaps/l01-standins.yaml); real art always "
+                         "(a YAML file of slug: path); real art always "
                          "beats a stand-in")
     ap.add_argument("--link-media", action="store_true",
                     help="symlink media into OUT/_media instead of copying it: "
@@ -170,7 +170,7 @@ def build(talk_path: Path, args) -> int:
 
     # A build without the token must not silently replace one that has it: the
     # deck that was carried to the venue would stop publishing and say nothing
-    # (W13, 2026-11-07).  A watcher builds beside the output and swaps it in,
+    #.  A watcher builds beside the output and swaps it in,
     # so it names the folder it will replace in args.replaces.
     if not os.environ.get("ANIMATIC_WAYPOINT_TOKEN", "").strip() and not getattr(args, "allow_inert", False):
         prior = Path(getattr(args, "replaces", None) or args.out).expanduser().resolve() / "present" / "index.html"

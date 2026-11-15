@@ -44,7 +44,7 @@ E. POSSIBLE WINS
 F. THE PLAN
    Section A regrouped by what closing each gap takes: wire (art on disk), live
    (a `type: live` card), find, build (chart or diagram), generate, record
-   (Ryan's own screen or archive), or decide (not enough in the card or the
+   (a screen or archive you own), or decide (not enough in the card or the
    script to say). Each row carries the card brief or the screen's own visual
    direction as the description of what is needed.
 
@@ -240,14 +240,14 @@ STOP = set("""need find build generate record decide wire line same still rows r
 image test screen take takes
 the a an and or of to in on at for with from by as is are be it its this that
 these those into over under than then when what who how why not no yes one two three
-visual new card needed take silent voice under clip ryan tbd about each just like our own
+visual new card needed take silent voice under clip tbd about each just like our own
 your you they them their there here very more most some any all out off only also
 """.split())
 
 # Card-type and wording cues for what closing a gap takes, most specific first.
 NEED_ORDER = ["wire", "live", "find", "build", "generate", "record", "decide"]
 RECORD_WORDS = re.compile(r"\b(screen recording|screen capture|screenshot|your own|"
-                          r"ryan: a screenshot|ryan: screen|clip tbd|recorded)\b", re.I)
+                          r"clip tbd|recorded)\b", re.I)
 FIND_WORDS = re.compile(r"\b(public[- ]domain|licensed|photo|archive|found|prelinger|"
                         r"commons)\b", re.I)
 BUILD_WORDS = re.compile(r"\b(chart|diagram|map|graph)\b", re.I)

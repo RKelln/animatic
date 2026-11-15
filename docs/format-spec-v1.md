@@ -228,7 +228,7 @@ sources:                  # id = footnote label
   prince-2026: "Cloudflare CEO Matthew Prince, June 3 2026"
 generated: { by: agent, at: 2026-09-08T10:00:00-04:00 }
 verified:
-  - { by: human:ryan, at: 2026-09-09T18:00:00-04:00 }
+  - { by: human:alex, at: 2026-09-09T18:00:00-04:00 }
 ```
 
 - `sources:` is a flat map `id: "one-line attribution"`; ids are lowercase
@@ -247,7 +247,7 @@ agent:
   start: "https://example.org/files.zip: unzip it into a new folder."
   continue: "What a take-home folder from the room contains, so the agent can tell it."
   guide: "https://example.org/build-guide.md"                 # optional: a hand-written guide for the build part
-  author: "Ryan Kelln"                                          # whose voice the steps are in (falls back to `author:`)
+  author: "A. Presenter"                                        # whose voice the steps are in (falls back to `author:`)
   practice: "Dana, a made-up student with a part-time job; she is described in for-people/dana-guide.html."  # optional
   own: "goals.md (goals and free hours), weeks/ (one file per week), worklog.md (dated notes of what got done)."  # optional
 ```
@@ -468,7 +468,7 @@ the presenter notes show all three.
 | Kind | Marker | Present view | Reading copy (document view, handout, web export) | Agent export |
 |---|---|---|---|---|
 | content | no flag | yes | yes | yes |
-| exercise | `do` (`<!-- shot: do -->`, `<!-- shot: ryan-art do -->`) | yes | no (printed in place on the home page) | yes, as a hands-on part |
+| exercise | `do` (`<!-- shot: do -->`, `<!-- shot: my-art do -->`) | yes | no (printed in place on the home page) | yes, as a hands-on part |
 | room | `live` | yes | no | no |
 
 A shelf screen (quick select) is a room screen. A screen with both `live` and
@@ -642,7 +642,7 @@ is an unknown flag like any other; the one shot flag that touches a timer is
 <!-- shot -->
 ### Back in [Timer: 8:00]
 
-<!-- shot: w02-agent-anatomy -->
+<!-- shot: agent-anatomy -->
 ### Break
 [Timer: 8:00 corner]
 ```
@@ -828,7 +828,7 @@ new one:
 ### 3 · Build the key feature
 [Timer: 25m]
 
-<!-- shot: ryan-art -->
+<!-- shot: my-art -->
 ### Where apps live
 [timer corner]
 ```
@@ -1294,16 +1294,16 @@ been used; the next cycle is reshuffled and never opens on the file that ended
 the last.
 
 ```yaml
-- slug: ryan-art
+- slug: my-art
   type: image
   status: have
-  pool: ../_media/ryan/kaleido
+  pool: ../_media/art/kaleido
   seed: 2          # optional; change it to re-roll the whole deck
   text: light      # optional; default text= for every shot using the pool (any card may carry it)
   pins:            # optional; ids that always resolve to one file
     title-ink: ink_03889_2259_01.png
-  alt: Abstract art by Ryan Kelln
-  credit: Ryan Kelln
+  alt: Abstract art by A. Presenter
+  credit: A. Presenter
   licence: CC BY-SA
 ```
 

@@ -28,7 +28,7 @@ style file (`STYLE_WORKSHOP.md` or `STYLE_LECTURE.md`) before touching a sentenc
 
 - **Checker warnings.** Fix them. An unclosed `(` (check 46) means a stage note is being read as speech: close it.
 - **Room-only screens: add `live`.** A screen that only runs the room (Break, Questions, a timer, "Paste with
-  Command and V", hands-on steps, a hand-count) gets the bare flag: `<!-- shot: ryan-art live -->` or
+  Command and V", hands-on steps, a hand-count) gets the bare flag: `<!-- shot: my-art live -->` or
   `<!-- shot: live -->`. The slide and the presenter view keep it; the reading copy and any video drop it.
   Whole-slide `live` is the default answer. Do not mark a screen `live` if its spoken text carries an idea a
   reader needs.

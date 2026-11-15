@@ -74,7 +74,7 @@ Three things the piece rules could not supply:
 - **A full-height pane has no object edge.** The framed-object border and soft
   shadow come off; the split itself is the boundary.
 - **Presenter chrome has to stay off the picture.** The state chip and Stop
-  live in the text pane's bottom margin, not over the capture (Ryan: "so it
+  live in the text pane's bottom margin, not over the capture ("so it
   doesn't hide the live window"). Only the idle control, the still and the
   start button, stay in the pane, because before hookup the pane is empty.
 
@@ -287,7 +287,7 @@ With the deck served locally (`python3 tools/serve-deck.py`), point a browser at
 
 ```js
 window.animatic.go(10);                       // the live slide
-const host = document.querySelector('[data-live-slug="w01-arena-live"]');
+const host = document.querySelector('[data-live-slug="demo-live"]');
 const b = host.querySelector('.live-start').getBoundingClientRect();
 document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
 // want: BUTTON.live-start, inside the host.

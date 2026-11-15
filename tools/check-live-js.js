@@ -362,7 +362,7 @@ async function main() {
   check("panel rows carry a hook marker only while hooked", hookedRows.length === 0,
     "hooked rows=" + hookedRows.length);
 
-  // ---- Ryan's report, 2026-09-15: closing the shared window -----------------
+  // ---- Regression: closing the shared window -----------------
   //
   // "it did correctly stop showing the window but the Start Sharing button
   // wasn't clickable." The state machine has to offer the control back, and it

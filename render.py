@@ -524,7 +524,7 @@ def media_html(ref: MediaRef, shot_flags: dict | None = None, css_class: str = "
                 # No `autoplay` and preload="none": the pager plays the active
                 # slide's video and warms the next few (PAGER_JS warm()). With
                 # autoplay + preload="auto" on every slide, a served deck asked
-                # for every video at load (L01: 29 files, 754 MB), each range
+                # for every video at load (a deck with dozens of videos), each range
                 # request held one of the browser's six connections to the
                 # host, and the images queued behind them never loaded.
                 attrs = f'{muted}{loop} playsinline preload="none" data-autoplay{once}{sound}{adv}'
@@ -574,7 +574,7 @@ KB_VALUES = ("in", "out", "zoom-top")
 def media_fit(flags: dict) -> str:
     """How slide media fits the frame: "contain" (letterbox, never crop) or
     "cover" (fill, crop overflow). An explicit fit=contain / fit=cover wins.
-    Otherwise contain is the default (Ryan, 2026-09-28: charts, documents and
+    Otherwise contain is the default ( charts, documents and
     4:3 film were being cropped), except under `kb` drift, whose lens needs the
     picture to overfill the frame so an edge never shows. `fit=hero` is about
     text, not media, so it leaves the media at its default."""
@@ -4696,7 +4696,7 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
         # takes demo proportions (themes/components.css): the capture leads and
         # the text is the margin note. The plain duo split gives the capture
         # 32vw, which is a framed object's size and reads as a small window in
-        # the room (Ryan, 2026-10-18: "it works but the window is very small").
+        # the room (a small live window was hard to read).
         if ref is not None and ref.live:
             cls += " duo-live"
     if layout_name == "titled" and screen.media_shot is not None:

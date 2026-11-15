@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """find-talkfile.py — which talk.md built out-<slug>? Runs on the content box.
 
-    python3 tools/find-talkfile.py --outdir out-l01 [--corpus corpus.yaml]
+    python3 tools/find-talkfile.py --outdir out-demo [--corpus corpus.yaml]
 
 Maps an output folder back to the talkfile that produced it, so pull-deck.sh can
 start a watch without being told where the deck lives. The rule is the one
@@ -54,7 +54,7 @@ def slug_of(talk: pathlib.Path) -> str:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--outdir", required=True, help="e.g. out-l01")
+    ap.add_argument("--outdir", required=True, help="e.g. out-demo")
     ap.add_argument("--corpus", default=str(pathlib.Path(__file__).resolve().parent.parent
                                             / "corpus.yaml"))
     a = ap.parse_args(argv)

@@ -163,8 +163,8 @@ invisible to `tests/run.py` (state, never pixels) and hand-driving CDP for every
 layout change is a five-step incantation nobody repeats:
 
 ```bash
-python3 tools/presenter-probe.py --deck out-w01      # serves, prints the URL
-python3 tools/presenter-probe.py --deck out-w01 --sizes 1280x800,1920x1080 --open
+python3 tools/presenter-probe.py --deck out-demo      # serves, prints the URL
+python3 tools/presenter-probe.py --deck out-demo --sizes 1280x800,1920x1080 --open
 ```
 
 It drives the real presenter page in an iframe and hands it a constructed state
@@ -174,7 +174,7 @@ deck: its longest-notes screen, the median, the shortest, and the live screen.
 It reports pass/warn/fail per case per viewport, prints the JSON to the console,
 and exposes `window.presenterProbe.results`.
 
-Measured on W01 (2026-09-15, after the 2fr/1fr split and the ladder landed): 6
+Measured on a real workshop deck, after the 2fr/1fr split and the ladder landed): 6
 pass, 2 warn, 0 fail. The warns are the deck's own worst screen — cue 011, 3300
 characters of notes — which needs the `solo` rung at 800px tall and still
 overflows by 180px there, while the same screen fits in two columns at 1080p.

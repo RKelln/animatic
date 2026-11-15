@@ -50,7 +50,7 @@ A shot that comes from a section, whether the talk includes it
 (`<!-- include: -->`) or it sits on the quick-select shelf, **never** reads the
 deck's `cards.yaml` or `media/`. It resolves from the shared stage only (entry,
 then named file, then a `--media-remap` stand-in), so a section looks the same in
-every deck. That holds for pool slugs too: `ryan-art` is a library pool, and a
+every deck. That holds for pool slugs too: `my-art` is a library pool, and a
 deck card of the same name does not replace it inside a section. For a
 section's shot the entry is the card: its alt, credit, licence, type and
 playback apply. A `--media-remap` stand-in for the deck's `pic` does not fill a

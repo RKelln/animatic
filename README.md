@@ -22,7 +22,7 @@ printable handout, and as a web page for people who could not attend.
 Requires Python 3.10 or newer. Python 3.12 is what it is developed on.
 
 ```sh
-git clone <this repo> animatic && cd animatic
+git clone https://github.com/RKelln/animatic.git && cd animatic
 uv sync                      # or: python3 -m venv .venv && .venv/bin/pip install -e .
 uv run animatic examples/roles-demo/talk.md --out /tmp/demo
 ```

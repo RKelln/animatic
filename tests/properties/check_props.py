@@ -66,7 +66,7 @@ def check(fx, errors: list) -> None:
 # Unit: checks 13/14 read every shape a real gen-log records attempts in
 # ---------------------------------------------------------------------------
 
-# Every shape the L01 gen-log actually uses (2026-09-22): a spec header, an
+# Every shape a real gen-log uses: a spec header, an
 # ingest.py batch, a bulk `###` block, a rename, a split, and a promote line
 # (which must NOT count as a record, and must not break monotonic order).
 # Two genuine drifts are planted, and they must be the only findings.
