@@ -85,65 +85,6 @@ to full-bleed atmosphere here too (atmosphere is the default in every theme); th
   media sit on a warm paper plate (`--quote-panel-bg` 0.55 alpha; the blur
   carries the legibility)
 
-## Design rationale
-
-Decisions behind the look, kept because they explain behaviour that would
-otherwise look arbitrary.
-
-- **Palettes.** Warm, civic, curious; colour-vision-safe; no saturated red/blue
-  pairs. `lecture` sits on dark ink-in-water and night imagery; `workshop`
-  frames bright aerial photography.
-- **Type scale.** The stage sets an explicit cinematic base (4.8vh) so `em`
-  sizes track projection height; a browser-16px base reads small from the back
-  of a room. `fit=hero` slides keep 3.6vh (`--hero-base`) and plain titles keep
-  a fixed size (`--title-k`), so only body text scales with the base.
-- **Media default.** Full-bleed atmosphere is the default in both themes. The
-  floating framed look is the opt-in `piece` flag, for images shown as objects
-  (other people's work, book covers). Media that is not yours carries credit
-  tags via the `lower` / `credits` roles.
-- **Text over media is the common slide.** Every text role (title card, fit
-  hero, stat, quote, list) can sit on a media shot, and `stat`, `lower` and
-  `credits` overlay-merge onto an unvoiced media screen. The legibility kit is
-  `dim=N` scrims, per-slide `text=light|dark` (ink text dies on a dark ground;
-  light glyphs with a dark glow are the default), and a structural halo:
-  `lecture` uses `--stage-text-glow`, `workshop` a pale paper halo. The shadow
-  should be nearly invisible unless toggled.
-- **Quote plates.** Quotes over media sit on a frosted plate
-  (`--quote-panel-bg`, backdrop blur, 2px edge blur, 1.1em radius, 32em max
-  width) wrapping quote and credit. The workshop plate is 0.55 alpha; the blur
-  carries the legibility.
-- **`fit` on text.** On a text-carrying media slide `fit` means hero type as
-  big as the slide allows; media-only `fit` keeps letterbox-contain. Text stays
-  centred in both themes: the difference between rooms is palette and UI
-  type, not pinned layout.
-- **Ken Burns drift.** A CSS animation translates the image itself inside a
-  static overflow-hidden lens. The image layer is oversized 130% and centred,
-  so its texture always exceeds the clip and edges never surface; the drift is
-  a pure compositor blit. Scaling the image (per-frame resampling), driving it
-  with requestAnimationFrame (main-thread drops) and animating the lens with
-  `will-change` (the compositor bakes the clip into the texture and exposes
-  edges) all failed. Amplitude is about ±7% / 2.5% on 22 s legs.
-- **Pager.** The present view is one self-contained HTML file per deck (plus
-  the presenter page) with a small inline pager: keyboard, hash, `n` notes
-  panel, `s` presenter window, `i` diagnostics dump, swipe, progress. No CDN,
-  so a deck is not one network failure from dead. Media publishes to
-  `out/_media` with relative paths, so a deck is a portable folder.
-- **Diagnostics panel (`i`).** Same translucent-glass register as the notes
-  panel, monospace, `user-select: text`, and deliberately interactive: its job
-  is to be scrolled and copied. It sits outside `.screen-body`, so the
-  click-through rule for the slide body does not apply.
-- **Presenter layout (`s`).** A priority order, not fixed boxes: current pane
-  2fr against next-up 1fr, current notes the largest type in the window, the
-  preview first to give up space, scrolling last (the `fitNotes()` ladder:
-  natural, two columns, solo). Contract and probe: `docs/presenter-view.md`.
-- **Media stand-ins.** `--media-remap` points unproduced slugs at real files
-  for style tests and drafts. It is last in resolution order, so real art
-  always wins and stand-ins evaporate when art lands; the manifest records
-  `source: standin`. Charts and composites have no honest stand-in and stay
-  placeholders.
-- **Placeholders.** Shown in the present view, hidden in document builds;
-  `--show-placeholders` opts a document build in.
-
 ## Add a theme
 
 1. Copy `themes/theme-lecture.css` to `themes/theme-<slug>.css`; retitle.
@@ -152,14 +93,3 @@ otherwise look arbitrary.
 4. Add the theme's character rules in the same file (layer theme, so they
    may restyle any component with plain selectors).
 5. Try it on `examples/roles-demo`, which exercises every role.
-
-## Open questions
-
-- Stat slides: does the brass accent rule want to be stronger?
-- Credits: real end rolls may want section grouping, not a flat list.
-- Lower third position and size at 1920x1080 (currently a bottom-left chip).
-- Whether the reveal fade is the right inter-screen motion (vs hard cuts).
-- Duo layout: book covers may read better with the object on the left.
-- Hero-quote plate: a pull quote at `fit` scale on the frosted plate.
-- Backdrop blur over video re-blurs per frame; a reduced-blur mode may be
-  needed if quote plates stack on video.
