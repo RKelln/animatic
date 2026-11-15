@@ -4,7 +4,7 @@ Thanks for looking. Issues and pull requests are welcome.
 
 ## Setup
 
-    git clone <repo> animatic && cd animatic
+    git clone https://github.com/RKelln/animatic.git && cd animatic
     uv sync            # or: python3 -m venv .venv && .venv/bin/pip install -e .
     uv run python tests/run.py
 
