@@ -11,7 +11,7 @@ Start with the README, then the format spec. The talkfile format is the stable c
 - [Role specimen](examples/roles-demo/talk.md): every screen role in one small deck
 - [Media pipeline](docs/media-pipeline.md): media cards, generation log, style cascade
 - [Command reference](docs/reference.md), [Features](docs/features.md), [Styling](docs/styling.md): build and export commands, optional features, themes
-- [Presenter view](docs/presenter-view.md), [Live capture](docs/live-capture.md), [Quick select](docs/quick-select.md), [Waypoints](docs/waypoints.md): feature docs
+- [Presenter view](docs/presenter-view.md), [Live capture](docs/live-capture.md), [Quick select](docs/quick-select.md), [Waypoints](docs/waypoints.md): feature docs; [waypoint service example](examples/waypoint-service/README.md): the receiving service and hook
 - [Tests](tests/README.md): golden and property suites
 
 Verify a change with `python3 tests/run.py` (expect "failed: 0") and a talkfile with `python3 check.py <talk.md> --strict`.

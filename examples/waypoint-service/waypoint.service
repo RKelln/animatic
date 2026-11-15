@@ -1,0 +1,44 @@
+# /etc/systemd/system/waypoint.service
+#
+# The waypoint service as an unprivileged user, listening on 127.0.0.1:8472 behind a
+# reverse proxy. Adjust the user and paths. The token lives in token.env (mode 600,
+# one line: WAYPOINT_TOKEN=...); see README.md for making it.
+#
+#   sudo cp waypoint.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now waypoint
+#   journalctl -u waypoint -f
+#
+# Standard library only: the system python3 runs it.
+
+[Unit]
+Description=Workshop waypoint
+After=network.target
+
+[Service]
+Type=simple
+User=waypoint
+Group=waypoint
+WorkingDirectory=/opt/waypoint
+# systemd reads this as root before dropping privileges, so mode 600 is enough.
+EnvironmentFile=/opt/waypoint/token.env
+ExecStart=/usr/bin/python3 /opt/waypoint/server.py serve --data /opt/waypoint/data
+Restart=on-failure
+RestartSec=5
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=waypoint
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# Everything else under / is read-only to it.
+ReadWritePaths=/opt/waypoint/data
+
+[Install]
+WantedBy=multi-user.target

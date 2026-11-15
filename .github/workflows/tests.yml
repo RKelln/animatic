@@ -13,3 +13,4 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -e .
       - run: python3 tests/run.py
+      - run: python3 examples/waypoint-service/test_waypoint.py

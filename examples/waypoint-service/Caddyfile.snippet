@@ -1,0 +1,15 @@
+# The waypoint route for a Caddyfile, inside your site block.
+#
+# The site-wide `Access-Control-Allow-Origin: *` stays if you have one: a waypoint is
+# a bare label anyone may read, and the token protects the writes. The service does not
+# set that header itself, so there is exactly one copy. If your site sets none, add
+# `header Access-Control-Allow-Origin *` inside the handle below.
+
+	@waypoint path /waypoint /waypoint/*
+	handle @waypoint {
+		# A word is at most 24 characters; the service refuses over 1024 bytes too.
+		request_body {
+			max_size 1KB
+		}
+		reverse_proxy 127.0.0.1:8472
+	}

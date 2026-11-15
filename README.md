@@ -153,8 +153,9 @@ room is. Mark a slide (`<!-- shot: waypoint=expanding -->`) and the deck publish
 word when you reach it. A hook on each participant's machine can turn the word into a
 fixed note for their agent, so someone who fell behind finds out without asking. Remote
 text never reaches an agent, only a word from a list you wrote. The deck's half is in
-this repo; the small service and the hook are yours to run, and
-[docs/waypoints.md](docs/waypoints.md) gives the contract they must meet.
+this repo, and [examples/waypoint-service](examples/waypoint-service) is a working
+example of the other two parts: a small service (standard library Python) and the hook
+script. [docs/waypoints.md](docs/waypoints.md) gives the contract they must meet.
 
 ## For coding agents
 

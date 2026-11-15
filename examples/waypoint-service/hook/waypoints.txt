@@ -1,0 +1,10 @@
+# One line per waypoint word: word | the note the agent gets, once, the first time a
+# message is sent after the room reaches it. An empty note records the word and says
+# nothing. Words are set by `waypoint=word` in a screen's shot
+# (<!-- shot: waypoint=word -->) in the talkfile; check-waypoints.py checks the two
+# match. Lines starting with # are ignored.
+start |
+setup | [Workshop note] The presenter has moved the room to Setup. If this person isn't there yet, say so in one line and offer to finish the current step, or to wave the presenter over. Then deal with their message.
+build | [Workshop note] The presenter has moved the room to Build. If this person isn't there yet, say so in one line and offer to catch them up, or to wave the presenter over. Then deal with their message.
+break | [Workshop note] The presenter has called a break. Finish only what is already running, and tell them in one line that it will keep until they are back. Do not start anything new. Then deal with their message.
+wrap-up | [Workshop note] The presenter has moved the room to Wrap-up. If they have not saved their work yet, say so in one line and offer to do it. Then deal with their message.

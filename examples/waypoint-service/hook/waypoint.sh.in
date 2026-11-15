@@ -1,0 +1,41 @@
+#!/bin/bash
+# UserPromptSubmit hook. Prints the room's waypoint, plus a fixed note when it is new.
+# Always exits 0: a hook must never get between a person and their agent.
+# The only text that can reach the agent is a line of waypoints.txt next to this script.
+# Fill in __URL__ (the full waypoint URL for your event) and __EVENT__ (its name) before use:
+#   sed -e "s#__URL__#https://example.org/waypoint/workshop-3#" -e "s#__EVENT__#workshop-3#" waypoint.sh.in > waypoint.sh
+# Bash 3.2 and BSD awk/sed safe: no bash 4 features, no GNU-only flags.
+export LC_ALL=C
+dir="$(cd "$(dirname "$0")" && pwd)"
+seen="${TMPDIR:-/tmp}/waypoint-__EVENT__"
+# The service sends the word as the body and how old it is (seconds, counted on the server) in
+# X-Waypoint-Age. A word older than max_age is a leftover from an earlier run: ignored, not recorded.
+max_age=10800
+age=""
+if resp="$(curl -fsS -i --max-time 1 "__URL__" 2>/dev/null)"; then
+  resp="$(printf '%s\n' "$resp" | tr -d '\r')"
+  word="$(printf '%s\n' "$resp" | sed '1,/^$/d')"   # the body: everything after the headers
+  age="$(printf '%s\n' "$resp" | awk -F': *' 'tolower($1)=="x-waypoint-age" {print $2; exit}')"
+  case "$age" in ""|*[!0-9]*) age="" ;; esac
+  [ "${#age}" -le 9 ] || age=""
+else
+  word="$(cat "$seen" 2>/dev/null)"   # offline or no word set: use the last word seen
+fi
+if [ -n "$age" ] && [ "$age" -gt "$max_age" ]; then exit 0; fi
+case "$word" in ""|*[!a-z0-9-]*) exit 0 ;; esac
+[ "${#word}" -le 24 ] || exit 0
+line="$(awk -F ' *[|] *' -v w="$word" '$1==w {print; exit}' "$dir/waypoints.txt" 2>/dev/null)"
+[ -n "$line" ] || exit 0   # a word with no line here is ignored, and not marked as seen
+if [ "$word" != "$(cat "$seen" 2>/dev/null)" ]; then
+  printf '%s\n' "$word" > "$seen" 2>/dev/null
+  note="$(printf '%s\n' "${line#*|}" | sed 's/^ *//')"
+  [ -z "$note" ] || printf '%s\n' "$note"
+fi
+if [ -z "$age" ]; then
+  printf 'Room waypoint: %s\n' "$word"
+elif [ "$age" -lt 60 ]; then
+  printf 'Room waypoint: %s (just reached)\n' "$word"
+else
+  printf 'Room waypoint: %s (reached %s min ago)\n' "$word" "$((10#$age / 60))"
+fi
+exit 0

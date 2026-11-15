@@ -11,7 +11,8 @@ participant's machine (hook on each message) -- GET --> service
     +- hook looks the word up in a local file --> a fixed note for the agent
 ```
 
-This repo holds the deck's half. The service and the hook are yours to run; the
+This repo holds the deck's half, and `examples/waypoint-service/` is a working example
+of the service and the hook, to adapt. You run them; the
 contract they must meet is below. Waypoints are optional: a deck with none is
 unchanged.
 

@@ -60,8 +60,8 @@ Full design: `docs/quick-select.md`.
 ## Waypoints
 
 When the talk reaches a marked slide the deck publishes one word, so participants'
-agents can tell them where the room is. Full design: `docs/waypoints.md` (the service and
-the machine-side hook are other repos; this is the deck's half).
+agents can tell them where the room is. Full design: `docs/waypoints.md` (`examples/waypoint-service/` is an example of the service and the machine-side hook;
+this is the deck's half).
 
 - Mark a slide with `waypoint=expanding` in its shot (`<!-- shot: waypoint=expanding -->`, or
   alongside other tokens: `<!-- shot: reveal=timer live waypoint=expanding -->`), and give the talk `waypoints: { url: https://example.com/event/waypoint/demo }` in its
