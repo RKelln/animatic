@@ -86,7 +86,7 @@ Type: Georgia for display and reading, system sans for labels and captions.
 
 Palette: warm paper, warm ink, olive clay. Theme tokens live in themes/theme-workshop.css.
 
-- Cascade layers: engine, reset, base, components, theme
+- Cascade layers: reset, base, components, theme
 - Ken Burns: slow, one drift per shot, breathing not action
 - Black beats: full-stage silence, deliberate
 

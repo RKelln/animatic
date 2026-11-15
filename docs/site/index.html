@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animatic: write the talk, get the rest</title>
+<meta name="description" content="Write a talk as a script. Get slides, a handout, a web page and an agent brief from one plain-text file.">
+<style>
+  :root {
+    --bg: #12100c; --ink: #f2ecdf; --muted: #a79e8e; --brass: #d8a95c; --line: #2c261c;
+    --panel: #1b1812; --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 18px/1.6 var(--serif); }
+  a { color: var(--brass); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  .hero { overflow: hidden; padding: 96px 0 72px; text-align: center;
+    background: radial-gradient(ellipse 60% 70% at 68% 22%, rgba(216,169,92,.55), rgba(216,169,92,0) 70%),
+                radial-gradient(ellipse 90% 90% at 50% 0%, #1d1810, var(--bg)); }
+  .hero h1 { font-size: clamp(2.4rem, 7vw, 4.6rem); line-height: 1.05; margin: 0 0 18px; font-weight: 400;
+    text-shadow: 0 2px 28px rgba(0,0,0,.7); letter-spacing: -.01em; }
+  .hero p.sub { font-size: clamp(1.05rem, 2.4vw, 1.4rem); max-width: 34em; margin: 0 auto 34px; opacity: .92; }
+  .btns { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .btn { font: 600 .95rem var(--sans); letter-spacing: .02em; text-decoration: none; padding: 13px 22px;
+    border-radius: 999px; border: 1px solid var(--brass); color: var(--ink); transition: background .15s, color .15s; }
+  .btn.primary { background: var(--brass); color: #17130b; }
+  .btn:hover { background: var(--ink); color: #17130b; border-color: var(--ink); }
+  .shot { margin: 40px auto 0; }
+  .shot img, .pic { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line);
+    box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .cap { text-align: center; color: var(--muted); font: .85rem var(--sans); margin: 14px 0 0; }
+  section { padding: 72px 0 0; }
+  h2 { font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.2rem); margin: 0 0 8px; }
+  .lede { color: var(--muted); margin: 0 0 32px; max-width: 40em; }
+  .cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+  .card h3 { margin: 0 0 6px; font-size: 1.1rem; color: var(--brass); font-weight: 400; }
+  .card p { margin: 0; font-size: .98rem; opacity: .9; }
+  code { font-family: var(--mono); font-size: .9em; }
+  pre { margin: 0; background: #0d0b08; border: 1px solid var(--line); border-left: 3px solid var(--brass);
+    border-radius: 10px; padding: 20px 22px; overflow-x: auto; font: .88rem/1.55 var(--mono); color: var(--ink); }
+  pre .k { color: var(--brass); } pre .d { color: var(--muted); }
+  .two { display: grid; gap: 28px; grid-template-columns: 1fr; align-items: start; }
+  @media (min-width: 820px) { .two { grid-template-columns: 1fr 1fr; } }
+  footer { padding: 72px 0 56px; color: var(--muted); font: .9rem var(--sans); text-align: center; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <h1>Write the talk.<br>Get the rest.</h1>
+    <p class="sub">One plain-text script. Slides, a handout, a web page and a brief for your coding agent, all from the same file.</p>
+    <div class="btns">
+      <a class="btn primary" href="tour/present/index.html">Watch the 4-minute tour</a>
+      <a class="btn" href="tour/document/index.html">Read it as a handout</a>
+      <a class="btn" href="https://github.com/RKelln/animatic">View on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="shot">
+    <img src="img/one-file-three-views.png" alt="One talkfile, rendered as a slide and as a handout page" width="1800" height="477">
+    <p class="cap">The tour is itself a talkfile. Press <b>→</b> to page, <b>s</b> for the presenter window, <b>n</b> for notes.</p>
+  </div>
+
+  <section>
+    <h2>Why a talk should be text</h2>
+    <p class="lede">Slide software is built for hands and mice. Animatic is built so a person and an agent can both write, check and rebuild the same talk.</p>
+    <div class="cards">
+      <div class="card"><h3>Agents can work with it</h3><p>A small, checked grammar. An agent writes the file, runs <code>animatic-check</code>, reads the findings and fixes them.</p></div>
+      <div class="card"><h3>Media has a paper trail</h3><p>Every picture is a card with credit, licence and how it was made. Checks catch the gaps before the room does.</p></div>
+      <div class="card"><h3>One source, many exports</h3><p>Slides, handout PDF, web page and agent brief cannot drift apart, because they are the same file.</p></div>
+      <div class="card"><h3>Deterministic</h3><p>The same file builds to the same bytes, so a diff of the output is a diff of your changes.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>It reads like narration</h2>
+    <p class="lede">Spoken words are the default text. A shot marker says where the picture changes. The words stay in the speaker notes and the handout, off the slide.</p>
+    <pre><span class="k">&lt;!-- shot: river kb=in dim=0.4 text=light --&gt;</span>
+### The river holds the room
+
+<span class="d">The dim scrim buys the words room over
+bright ground. These spoken words run
+under the picture.</span>
+
+<span class="k">&lt;!-- shot: reveal --&gt;</span>
+- Lists reveal one line per key press
+- The presenter window shows what is next
+
+<span class="k">[Timer: 2:00]</span></pre>
+    <div class="shot">
+      <img class="pic" src="img/presenter-view.png" alt="The presenter window: current slide, next slide, notes and clock" width="1600" height="650">
+      <p class="cap">Press <b>s</b> in the deck for the presenter window: the notes, what is next, and a clock.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Running a workshop with agents?</h2>
+    <p class="lede">Mark a slide with a waypoint and the deck publishes one word when you reach it. A hook on each participant's machine turns that word into a note for their coding agent, so anyone who fell behind finds out without asking.</p>
+  </section>
+
+  <section>
+    <h2>Try it</h2>
+    <div class="two">
+<pre>git clone https://github.com/RKelln/animatic.git
+cd animatic
+uv sync
+uv run animatic examples/tour/talk.md --out out
+<span class="d"># open out/present/index.html</span></pre>
+      <div>
+        <p style="margin-top:0">Python 3.10+, MIT licensed. Chromium and ffmpeg are optional, for the handout PDF and video stills.</p>
+        <p><a href="https://github.com/RKelln/animatic#readme">README</a> · <a href="https://github.com/RKelln/animatic/blob/main/docs/format-spec-v1.md">Talkfile format</a> · <a href="https://github.com/RKelln/animatic/blob/main/llms.txt">llms.txt</a></p>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>First used in the Toronto Public Library's Applied AI Innovator in Residence programme, 2026. MIT licence.</footer>
+</body>
+</html>

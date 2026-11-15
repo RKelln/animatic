@@ -4,6 +4,8 @@ Write a talk as a script. Get slides, a handout, a web page and a plain-text age
 
 ![One talkfile, rendered as a slide and as a handout page](docs/img/one-file-three-views.png)
 
+**[Watch the four-minute tour](https://rkelln.github.io/animatic/)**: a deck written in Animatic, with its handout and web page.
+
 Animatic is a talk-writing system for people who speak. You write one plain-text
 file (a **talkfile**) that reads like a video-essay narration: the spoken words are
 the default text, and a shot marker drops in wherever the picture changes. The same
@@ -43,13 +45,13 @@ Requires Python 3.10 or newer. Python 3.12 is what it is developed on.
 ```sh
 git clone https://github.com/RKelln/animatic.git && cd animatic
 uv sync                      # or: python3 -m venv .venv && .venv/bin/pip install -e .
-uv run animatic examples/roles-demo/talk.md --out /tmp/demo
+uv run animatic examples/tour/talk.md --out /tmp/demo
 ```
 
 Then open `/tmp/demo/present/index.html` in a browser. Arrow keys page through the
-slides; `s` opens the presenter window. `/tmp/demo/document/index.html` is the
+slides; `s` opens the presenter window (below). `/tmp/demo/document/index.html` is the
 handout view. Without uv, run the scripts directly with a Python that has
-`pyyaml` and `pillow` installed: `python3 build.py examples/roles-demo/talk.md --out /tmp/demo`.
+`pyyaml` and `pillow` installed: `python3 build.py examples/tour/talk.md --out /tmp/demo`.
 
 Check that everything works on your machine:
 
@@ -70,6 +72,8 @@ Developed and tested on Linux with Python 3.10 and 3.12. The builder is plain Py
 so it should run on macOS and Windows, but those are untested. `--watch` replacing an
 older watcher uses `/proc`, so it is Linux only, and the handout tool has notes for
 snap-packaged Chromium (see [docs/reference.md](docs/reference.md)).
+
+![The presenter window: current slide, next slide, notes and clock](docs/img/presenter-view.png)
 
 ## Your first talk
 
@@ -124,7 +128,7 @@ uv run animatic talk.md --out out --watch   # rebuild on every save
 Each `<!-- shot -->` starts a screen. A shot can name a picture
 (`<!-- shot: river kb=in dim=0.4 text=light -->`), and the name is resolved from a
 media card, a file in the deck's `media/` folder or a shared library.
-`examples/roles-demo/talk.md` exercises every screen role and is the best next read.
+`examples/tour/talk.md` is the tour deck; `examples/roles-demo/talk.md` exercises every screen role.
 The full grammar is `docs/format-spec-v1.md`.
 
 ## Commands
@@ -141,6 +145,16 @@ The full grammar is `docs/format-spec-v1.md`.
 | `python3 tests/run.py` | golden and property tests |
 
 Builds are deterministic: running one twice gives identical bytes.
+
+## Workshops with agents
+
+If your audience works beside coding agents, waypoints tell those agents where the
+room is. Mark a slide (`<!-- shot: waypoint=expanding -->`) and the deck publishes one
+word when you reach it. A hook on each participant's machine can turn the word into a
+fixed note for their agent, so someone who fell behind finds out without asking. Remote
+text never reaches an agent, only a word from a list you wrote. The deck's half is in
+this repo; the small service and the hook are yours to run, and
+[docs/waypoints.md](docs/waypoints.md) gives the contract they must meet.
 
 ## For coding agents
 
