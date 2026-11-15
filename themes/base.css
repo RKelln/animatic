@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    /* Required token set — themes must define every one (see docs/tokens.md). */
+    /* Required token set — themes must define every one (see docs/styling.md). */
     /* stage (present view, 1920x1080 projection canvas) */
     --stage-bg: #000;
     --stage-ink: #fff;

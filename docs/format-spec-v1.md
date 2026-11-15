@@ -159,7 +159,7 @@ logline: "One sentence: the thesis."  # what `animatic search` returns
   inlines). Two themes ship with the system: `lecture` (default — a warm dark
   room, image-forward) and `workshop` (a daylight room, text-forward). Missing,
   unknown, or pending values fall back to `lecture` with one warning. The full
-  token contract lives in `docs/tokens.md`.
+  token contract lives in `docs/styling.md`.
 
 ### Media directory
 
@@ -688,7 +688,7 @@ theme's display face with fixed-width cells (so they never jiggle): `m:ss`, or
   The token's own text is removed from the flow. A credits line or a paper-theme
   lower third on the same screen is lifted clear of the plate.
 - Lecture uses the dark stage tokens, workshop the paper tokens. The one new token
-  is `--stage-alert` (see docs/tokens.md).
+  is `--stage-alert` (see docs/styling.md).
 
 **Run rules.**
 

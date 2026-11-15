@@ -23,7 +23,7 @@
 
 Themes: the `theme:` frontmatter field selects themes/<slug>.css
 (theme-<slug>.css on disk).  Unknown / TBD themes fall back to `lecture`
-with a warning.  See docs/tokens.md for the token set and layer contract.
+with a warning.  See docs/styling.md for the token set and layer contract.
 
 Deterministic: no timestamps, no set iteration, stable ordering everywhere.
 """
@@ -65,7 +65,7 @@ LAYER_ORDER = "@layer reset, base, components, theme;"
 
 
 # ---------------------------------------------------------------------------
-# Theme loading (cascade layers, see docs/tokens.md)
+# Theme loading (cascade layers, see docs/styling.md)
 # ---------------------------------------------------------------------------
 
 

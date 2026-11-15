@@ -3,7 +3,7 @@
    tokens. Theme files (layer theme) restyle any of this with plain
    rules — no specificity fights, no !important.
 
-   Role vocabulary (docs/tokens.md): media, heading card, quote card,
+   Role vocabulary (docs/styling.md): media, heading card, quote card,
    stat, lower, credits overlay, credits screen, black beat, title card. */
 
 @layer components {
