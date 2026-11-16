@@ -38,6 +38,7 @@ missing browser exit 77 (skipped), they do not fail.
     python3 tools/agent-export.py <talkfile> <out.md> --core <core.md> --page-url URL --home-url URL   # plain-text file: the hands-on parts, for a coding agent beside the home page
     python3 tools/web-export.py --home <talkfile> <out-dir> --agent-url URL --coding-agent-url URL    # home page: do screens in place, Copy buttons, setup card
     python3 tools/timing-report.py <talkfile> [--dur 2h] [--wpm N] [--screens] [--json]   # how long it runs, by movement, timer and screen
+    python3 tools/shorten-includes.py [PATH ...] [--write]   # rewrite `../_sections/x.section.md` includes to the bare section name (proves each rewrite; no PATH = corpus roots)
     python3 build.py --corpus                      # every deck under corpus.yaml roots
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
     python3 check.py --register                    # the canonical check register (1-53)
