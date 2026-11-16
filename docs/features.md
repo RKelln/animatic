@@ -26,7 +26,7 @@ searched.
 
 - Each file is lexed on its own. Every screen from an included file points at the
   directive's line in the talk (warnings, `nav.json` ranges), and `nav.json` adds
-  `"include": "<path as written>"` to those screens.
+  `"include"` naming the include as it was written (`ai-terms`, or the path).
 - `live` marks every screen inside as live-only (see the `live` shot flag in
   "What the handout does"). A `continue` shot after the include does not inherit it.
 - Includes nest to 3 deep. A missing file, a cycle, an absolute path, an unknown flag

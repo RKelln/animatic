@@ -36,6 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 import check as check_mod  # noqa: E402
+import exercises  # noqa: E402
 import render  # noqa: E402
 import talkparse  # noqa: E402
 
@@ -165,6 +166,20 @@ def check(errors: list) -> None:
         t_bl = _talk(bare / "D1", "<!-- include: ai-terms live -->\n")
         if [s.live_only for s in t_bl.screens] != [True, True]:
             errors.append(f"bare include live: {[s.live_only for s in t_bl.screens]!r}")
+
+        # `agent-export: skip` is read from the file the include RESOLVED to, so a
+        # bare name and a path behave the same (exercises.section_skipped)
+        (bare / "_sections" / "skipme.section.md").write_text(
+            "---\nagent-export: skip\n---\n<!-- shot -->\n### Skip me\n\nLine.\n",
+            encoding="utf-8")
+        t_skip = _talk(bare / "D1", "<!-- include: skipme -->\n")
+        if not exercises.section_skipped(t_skip.screens[0]):
+            errors.append("bare include: `agent-export: skip` not seen through a name")
+        if not str(t_skip.screens[0].include_path).endswith("_sections/skipme.section.md"):
+            errors.append(f"bare include: include_path {t_skip.screens[0].include_path!r}")
+        t_skip2 = _talk(bare / "D1", "<!-- include: ../_sections/skipme.section.md -->\n")
+        if not exercises.section_skipped(t_skip2.screens[0]):
+            errors.append("path include: `agent-export: skip` no longer seen")
 
         # `include_sections:` moves the directory the names resolve in
         t_cfg = _talk(deck, "<!-- include: s -->\n", front="include_sections: sections\n")

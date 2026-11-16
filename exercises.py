@@ -16,16 +16,15 @@ import talkparse
 _SKIP_CACHE: dict = {}
 
 
-def section_skipped(screen, talk_dir) -> bool:
+def section_skipped(screen) -> bool:
     """True when the screen comes from an included section whose own frontmatter says
     `agent-export: skip` (an introduction or credits: fine in the reading copy, noise in a
-    self-run workshop)."""
-    inc = screen.include
+    self-run workshop). The parser resolved the include, so a bare section name
+    (`<!-- include: about-ryan -->`) and a path read the same file here."""
+    inc = screen.include_path
     if not inc:
         return False
     path = Path(inc)
-    if not path.is_absolute() and talk_dir is not None:
-        path = (Path(talk_dir) / path).resolve()
     if path not in _SKIP_CACHE:
         skip = False
         try:
@@ -102,18 +101,18 @@ class Card:
         return body
 
 
-def skipped_screens(talk, talk_dir=None) -> set:
+def skipped_screens(talk) -> set:
     """Ordinals of the screens in `agent-export: skip` sections: left out of the home
     page and the agent export, kept in the plain reading copy."""
-    return {s.idx for s in talk.screens if section_skipped(s, talk_dir)}
+    return {s.idx for s in talk.screens if section_skipped(s)}
 
 
-def collect(talk, talk_dir=None) -> list:
+def collect(talk) -> list:
     """Every hands-on part, in page order."""
     moves = {m.index: m.title for m in talk.movements}
     cards = []
     for s in talk.screens:
-        if section_skipped(s, talk_dir) or render.is_black_screen(s) or s.room_only:
+        if section_skipped(s) or render.is_black_screen(s) or s.room_only:
             continue
         heading = render.screen_title(s) or moves.get(s.movement) or "step"
         say = render.screen_script(s)

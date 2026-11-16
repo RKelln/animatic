@@ -228,7 +228,7 @@ def build(talk_path: Path, args) -> int:
                                pools=False if args.no_handout_pools else None,
                                placeholders=False if args.no_handout_placeholders else None,
                                home=args.home_page,
-                               omit=(exercises.skipped_screens(talk, Path(talk.source).parent)
+                               omit=(exercises.skipped_screens(talk)
                                      if args.home_page else None))
     cues = render_cues(talk, resolver, out)
     nav = render_nav(talk, out)

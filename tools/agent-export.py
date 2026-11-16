@@ -88,7 +88,7 @@ def export(talk_path: Path, core_path: Path, page_url: str, reading_url: str = "
                 "as they reach them. Use 'The hands-on parts' below to know what each one is for. "
                 "Answer questions about anything on that page; fetch it if you need to.", ""]
     out += ["## The hands-on parts", ""]
-    for card in exercises.collect(talk, talk_path.parent):
+    for card in exercises.collect(talk):
         out += [f"### {card.title}", ""]
         for para in card.instructions():
             out += [para, ""]

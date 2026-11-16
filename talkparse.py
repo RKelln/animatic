@@ -524,6 +524,11 @@ class Shot:
     # The include directive's path as authored, when this shot came from an
     # included file (nav.json reports it); None for the talkfile's own shots.
     include: Optional[str] = None
+    # The file that directive resolved to, as an absolute path. Nav reports the
+    # path as authored; anything that needs to READ the file (exercises.py, for
+    # a section's `agent-export: skip`) uses this, resolved once here so no
+    # other module has to guess whether `include` is a section name or a path.
+    include_path: Optional[str] = None
     # Quick select (spec: docs/quick-select.md): (section id, title, keywords)
     # when this shot came from a section that declares a `quick:` block, in a
     # deck that has opted in with `quick_sections`.  None everywhere else.
@@ -621,6 +626,11 @@ class Screen:
     def include(self) -> Optional[str]:
         """The authored include path this screen came from, if any."""
         return self.shots[0].include if self.shots else None
+
+    @property
+    def include_path(self) -> Optional[str]:
+        """The absolute path of the file this screen's include resolved to."""
+        return self.shots[0].include_path if self.shots else None
 
     @property
     def section(self) -> Optional[tuple]:
@@ -1893,6 +1903,7 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
                 sh = fb["shot"]
                 sh.line_begin = line
                 sh.include = rel          # the outermost directive wins
+                sh.include_path = str(target)
                 if qtuple is not None:
                     sh.quick = qtuple     # so does the outermost `quick:`
                 for f in rb["flags"]:
