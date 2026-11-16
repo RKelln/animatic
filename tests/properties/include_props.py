@@ -10,6 +10,12 @@ A throwaway deck under /tmp, because includes are about files next to files.
   included file points at the directive's line;
 - nested includes work; a cycle, a missing file, an absolute path, an unknown
   flag, nesting past the limit and a Movement heading are fatal, with a line;
+- a bare name (`<!-- include: ai-terms -->`, no `/` and no `.`) is a section:
+  it resolves to `../_sections/<name>.section.md` beside the deck directory by
+  default, or in the directory `include_sections:` names, and a name written
+  inside an included file still resolves in the talk's own section directory;
+- a bare name with no section behind it, an `include_sections:` that is not a
+  relative directory path, and one that is absolute are fatal, with a line;
 - an included file's frontmatter `cites:` / `sources:` join the talk's, the
   talk winning;
 - an included file's `cites:` entry prints in the Sources list and counts in
@@ -59,14 +65,20 @@ Section voice.
 """
 
 
-def _talk(deck: Path, body: str):
-    (deck / "talk.md").write_text(HEAD + body, encoding="utf-8")
+def _head(front: str = "") -> str:
+    """HEAD with extra frontmatter lines after the opening `---`."""
+    return HEAD.replace("---\n", "---\n" + front, 1) if front else HEAD
+
+
+def _talk(deck: Path, body: str, front: str = ""):
+    (deck / "talk.md").write_text(_head(front) + body, encoding="utf-8")
     return talkparse.build_talk(deck / "talk.md")
 
 
-def _fatal(deck: Path, body: str, want: str, errors: list, label: str) -> None:
+def _fatal(deck: Path, body: str, want: str, errors: list, label: str,
+           front: str = "") -> None:
     try:
-        _talk(deck, body)
+        _talk(deck, body, front)
     except ValueError as exc:
         msg = str(exc)
         if "check 22" not in msg or want not in msg:
@@ -128,6 +140,42 @@ def check(errors: list) -> None:
         t_nest = _talk(deck, "<!-- include: sections/outer.section.md -->\n")
         if len(t_nest.screens) != 2 or t_nest.screens[0].include != "sections/outer.section.md":
             errors.append("include: nested include did not splice")
+
+        # a bare name is a section in ../_sections, beside the deck directory
+        bare = tmp / "decks"
+        (bare / "_sections").mkdir(parents=True)
+        (bare / "D1").mkdir()
+        (bare / "_sections" / "ai-terms.section.md").write_text(SECTION, encoding="utf-8")
+        (bare / "D1" / "parts").mkdir()
+        (bare / "D1" / "parts" / "outer.section.md").write_text(
+            "<!-- include: ai-terms -->\n", encoding="utf-8")
+        t_bare = _talk(bare / "D1", "<!-- include: ai-terms -->\n")
+        if len(t_bare.screens) != 2:
+            errors.append(f"bare include: expected 2 screens, got {len(t_bare.screens)}")
+        if [s.include for s in t_bare.screens] != ["ai-terms", "ai-terms"]:
+            errors.append(f"bare include: include {[s.include for s in t_bare.screens]!r}")
+        if [p.name for p in t_bare.includes] != ["ai-terms.section.md"]:
+            errors.append(f"bare include: talk.includes {t_bare.includes!r}")
+        # a name inside an included file resolves in the talk's directory,
+        # not the one that file sits in
+        t_nb = _talk(bare / "D1", "<!-- include: parts/outer.section.md -->\n")
+        if len(t_nb.screens) != 2:
+            errors.append(f"bare nested: expected 2 screens, got {len(t_nb.screens)}")
+        # `live` on a bare-name directive still marks every screen inside
+        t_bl = _talk(bare / "D1", "<!-- include: ai-terms live -->\n")
+        if [s.live_only for s in t_bl.screens] != [True, True]:
+            errors.append(f"bare include live: {[s.live_only for s in t_bl.screens]!r}")
+
+        # `include_sections:` moves the directory the names resolve in
+        t_cfg = _talk(deck, "<!-- include: s -->\n", front="include_sections: sections\n")
+        if len(t_cfg.screens) != 2 or t_cfg.screens[0].include != "s":
+            errors.append(f"include_sections: {[(s.include) for s in t_cfg.screens]!r}")
+        _fatal(deck, "<!-- include: s -->\n", "not found", errors,
+               "bare name, no sections dir")
+        _fatal(deck, "<!-- include: s -->\n", "relative", errors,
+               "include_sections absolute", front=f"include_sections: {deck}\n")
+        _fatal(deck, "<!-- include: s -->\n", "directory path", errors,
+               "include_sections not a string", front="include_sections: [sections]\n")
 
         # fatals
         (deck / "sections" / "cyc.section.md").write_text(

@@ -167,6 +167,15 @@ logline: "One sentence: the thesis."  # what `animatic search` returns
 the deck's media files — default `media`. The resolution order ("Media") and
 the card path rule ("Media pipeline contract") are written against that name.
 
+### Section directory
+
+`include_sections:` names the directory a bare include name resolves in — the
+same folder `quick_sections:` usually names — default `../_sections` beside the
+deck directory. `<!-- include: ai-terms -->` is `ai-terms.section.md` there;
+a token with a `/` or a `.` is a path and is untouched by the setting. A value
+that is not a relative directory path is fatal (check 22). "Includes" in
+[features.md](features.md) has the directive itself.
+
 ### Quick select (the shelf)
 
 Two optional fields let a talk carry sections it never reaches in normal paging, for

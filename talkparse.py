@@ -76,6 +76,12 @@ SHOT_RE = re.compile(r"^\s*<!--\s*shot(?::\s*(.*?))?\s*-->\s*$")
 DO_NOTE_RE = re.compile(r"^\s*do\s*:\s*(.*)$", re.IGNORECASE | re.DOTALL)
 INCLUDE_RE = re.compile(r"^\s*<!--\s*include:\s*(\S+)((?:\s+\S+)*?)\s*-->\s*$")
 INCLUDE_FLAGS = ("live", "do")
+# A bare name (`<!-- include: ai-terms -->`: no `/` and no `.`) is a section in
+# the talk's section directory: frontmatter `include_sections:` when it is
+# there, `../_sections` beside the deck directory otherwise.  The extension is
+# the section naming convention, so the name stays a name.
+INCLUDE_SECTION_EXT = ".section.md"
+INCLUDE_SECTIONS_DEFAULT = "../_sections"
 # `waypoint=word` in a screen's shot (`<!-- shot: waypoint=word -->`) marks that screen with a
 # word the deck publishes when the talk reaches it (docs/waypoints.md).  Check 49.  The old
 # standalone `<!-- waypoint: word -->` line is gone; WAYPOINT_OPEN_RE only recognises it to
@@ -1716,6 +1722,47 @@ def _include_error(source: str, line: int, msg: str) -> ValueError:
     return ValueError(f"{source}:{line}: check 22: {msg}")
 
 
+def _meta_line(path, key: str) -> int:
+    """The line a frontmatter key is written on, for an error message (1 if absent)."""
+    try:
+        for n, ln in enumerate(Path(path).read_text(encoding="utf-8").split("\n"), 1):
+            if ln.startswith(key + ":"):
+                return n
+    except OSError:
+        pass
+    return 1
+
+
+def _is_include_name(rel: str) -> bool:
+    """True for `<!-- include: ai-terms -->`: no directory and no extension.
+    Anything with a `/` or a `.` is a path, resolved as it always was."""
+    return "/" not in rel and "\\" not in rel and "." not in rel
+
+
+def _include_sections(meta: dict, path, source: str) -> Path:
+    """The directory a bare include name resolves in.
+
+    `include_sections:` in the frontmatter (relative to the talkfile), else
+    `../_sections` beside the deck directory: the folder every deck's
+    `quick_sections:` line already names.  A value that is not a relative
+    directory path is fatal (check 22), but a directory that is merely absent
+    is only an error when a bare name needs it, so a talk with no sections
+    folder parses exactly as it always did.
+    """
+    if "include_sections" not in meta:
+        return (Path(path).resolve().parent / INCLUDE_SECTIONS_DEFAULT).resolve()
+    raw = meta["include_sections"]
+    line = _meta_line(path, "include_sections")
+    if not isinstance(raw, str) or not raw.strip():
+        raise _include_error(source, line, "`include_sections:` must be a "
+                             "directory path relative to the talkfile")
+    val = raw.strip()
+    if Path(val).is_absolute():
+        raise _include_error(source, line, f"`include_sections: {val}` must be "
+                             "relative to the talkfile")
+    return (Path(path).resolve().parent / val).resolve()
+
+
 _WAYPOINT_MOVED = ("the standalone waypoint line is gone: put the word in the screen's shot, "
                     "<!-- shot: waypoint=word -->")
 
@@ -1768,7 +1815,8 @@ def _quick_block(raw, source: str, line: int) -> tuple:
 
 def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
                      layout_vocab, stack: tuple, includes: list,
-                     frag_meta: list, quick_on: bool = False) -> list:
+                     frag_meta: list, quick_on: bool = False,
+                     sections_dir: Optional["Path"] = None) -> list:
     """Replace each `include` block with the included file's blocks.
 
     Each file is lexed on its own, so line numbers, paragraph state and
@@ -1776,7 +1824,14 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
     to the include directive's line in the file that wrote it, so warnings
     and nav.json ranges point somewhere the author can find.  Flags written
     on the directive (`live`) are applied to every shot inside.
+
+    A bare name (`<!-- include: ai-terms -->`) resolves in `sections_dir`, the
+    talk's section directory, wherever the directive is written: one folder,
+    one setting, however deep the nesting goes.  A path (`sections/x.section.md`)
+    stays relative to the file that wrote it, as it always was.
     """
+    if sections_dir is None:
+        sections_dir = (host.parent / INCLUDE_SECTIONS_DEFAULT).resolve()
     out: list = []
     for rb in raw_blocks:
         if rb["kind"] != "include":
@@ -1787,12 +1842,20 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
         if bad:
             raise _include_error(source, line, f"include flag {bad[0]!r} unknown; "
                                  f"known: {', '.join(INCLUDE_FLAGS)}")
-        if Path(rel).is_absolute():
-            raise _include_error(source, line, f"include path {rel!r} must be "
-                                 f"relative to the including file")
-        target = (host.parent / rel).resolve()
-        if not target.is_file():
-            raise _include_error(source, line, f"include file not found: {rel}")
+        if _is_include_name(rel):
+            target = (sections_dir / (rel + INCLUDE_SECTION_EXT)).resolve()
+            if not target.is_file():
+                raise _include_error(source, line, f"include {rel!r} not found: "
+                                     f"no {rel}{INCLUDE_SECTION_EXT} in "
+                                     f"{sections_dir} (a bare name is a section; "
+                                     f"`include_sections:` names another directory)")
+        else:
+            if Path(rel).is_absolute():
+                raise _include_error(source, line, f"include path {rel!r} must be "
+                                     f"relative to the including file")
+            target = (host.parent / rel).resolve()
+            if not target.is_file():
+                raise _include_error(source, line, f"include file not found: {rel}")
         if target in stack:
             raise _include_error(source, line, f"include cycle through {rel}")
         if len(stack) >= INCLUDE_MAX_DEPTH:
@@ -1811,7 +1874,7 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
                                       "that includes it; put it in the talkfile")
         fblocks = _expand_includes(fblocks, target, fsource, role_vocab,
                                    layout_vocab, stack + (target,), includes,
-                                   frag_meta, quick_on)
+                                   frag_meta, quick_on, sections_dir)
         qtuple = None
         if quick_on and "quick" in meta:
             qtitle, qkw = _quick_block(meta["quick"], fsource, line)
@@ -1888,7 +1951,8 @@ def _quick_dir(meta: dict, path, source: str, override) -> tuple:
 
 
 def _append_shelf(talk: Talk, path, qdir: Path, qline: int, role_vocab,
-                  layout_vocab, role_bundles, source: str) -> None:
+                  layout_vocab, role_bundles, source: str,
+                  sections_dir: Optional[Path] = None) -> None:
     """Lex every shelf section like an include and append its screens after
     the talk's last real screen (spec: docs/quick-select.md).
 
@@ -1916,7 +1980,7 @@ def _append_shelf(talk: Talk, path, qdir: Path, qline: int, role_vocab,
         blocks = _expand_includes(
             [{"kind": "include", "path": rel, "flags": [], "line": qline}],
             host, source, role_vocab, layout_vocab, (host,), inner, frag,
-            quick_on=True)
+            quick_on=True, sections_dir=sections_dir)
         sub = assemble({}, blocks, source, role_vocab=role_vocab,
                        layout_vocab=layout_vocab, role_bundles=role_bundles)
         if not sub.screens:
@@ -1988,6 +2052,7 @@ def build_talk(path, source: Optional[str] = None,
     role_bundles = load_role_bundles(deck_dir)
     meta, lines = _lex_frontmatter(body, source)
     qdir, qline = _quick_dir(meta, path, source, quick_sections)
+    sdir = _include_sections(meta, path, source)
     # every line number is the talkfile's own, frontmatter included
     # (file-relative, not body-relative)
     offset = body.count("\n") + 1 - len(lines)
@@ -1998,7 +2063,7 @@ def build_talk(path, source: Optional[str] = None,
     raw_blocks = _expand_includes(raw_blocks, Path(path).resolve(), source,
                                   role_vocab, layout_vocab,
                                   (Path(path).resolve(),), includes, frag_meta,
-                                  quick_on=qdir is not None)
+                                  quick_on=qdir is not None, sections_dir=sdir)
     # an included file's `cites:` / `sources:` join the talk's; the talk wins
     section_cite_ids: list = []
     for fm in frag_meta:
@@ -2017,7 +2082,7 @@ def build_talk(path, source: Optional[str] = None,
     _check_waypoints(talk, source)
     if qdir is not None:
         _append_shelf(talk, path, qdir, qline, role_vocab, layout_vocab,
-                      role_bundles, source)
+                      role_bundles, source, sdir)
     return talk
 
 

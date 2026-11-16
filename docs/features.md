@@ -10,6 +10,20 @@ written once and used by every talk. The path is relative to the including file;
 absolute paths are refused. Name included files `*.section.md` (the corpus check
 treats `*.talk.md` as decks).
 
+Write the **name alone** and it is a section: `<!-- include: ai-terms -->` splices
+`../_sections/ai-terms.section.md`, the folder beside the deck directory that
+every deck's `quick_sections:` line already names. A token with a `/` or a `.` is
+a path and resolves exactly as it did before, so the long form is always there
+when you want another folder or a one-off file. One frontmatter line moves where
+names resolve:
+
+    include_sections: ../_sections     # the default
+
+A name written *inside* an included file resolves in the talk's directory, not in
+the one that file sits in: one folder, one setting, however deep the nesting. A
+name with no section behind it is fatal (check 22) and prints the directory it
+searched.
+
 - Each file is lexed on its own. Every screen from an included file points at the
   directive's line in the talk (warnings, `nav.json` ranges), and `nav.json` adds
   `"include": "<path as written>"` to those screens.
