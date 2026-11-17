@@ -11,10 +11,13 @@ The commands behind the README's quick start: build, handout PDF, web page, audi
     animatic pack  [DECK] [--out DIR] [--strict] [--verify] [--inert]
     animatic token [--show|--check]
 
-`DECK` is a talkfile or a folder holding one: its `talk.md`, or its only
-`*.talk.md`. Omitted, it is the current directory, so `cd decks/W04 && animatic
-build` does the obvious thing; two talkfiles in one folder is an error, never a
-guess.
+`DECK` is a talkfile, a folder holding one (its `talk.md`, or its only
+`*.talk.md`), or a deck's name from the content roots: its outdir (`out-w04`),
+its slug (`w04-ai-job-search`) or the slug's first segment (`w04`, which is what
+pull-deck takes). Omitted, it is the current directory, so `cd decks/W04 &&
+animatic build` does the obvious thing and `animatic pack W04` works from
+anywhere the content roots can see. A name matching two decks is an error, never
+a guess.
 
 The output folder defaults to `out-<first dash segment of the slug>` (`out-w04`
 for `W04-ai-job-search`) — the rule `tools/find-talkfile.py` and pull-deck

@@ -35,7 +35,7 @@ missing browser exit 77 (skipped), they do not fail.
 
 ## Commands (verify, don't assume)
 
-    animatic build [DECK] [--out DIR] [--watch] [...]  # the CLI; DECK = talkfile or folder, omitted = CWD; default out-<slug>
+    animatic build [DECK] [--out DIR] [--watch] [...]  # the CLI; DECK = talkfile, folder, or deck name (W04); omitted = CWD; default out-<slug>
     animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]   # --json = findings as JSON
     animatic decks [--json]                        # deck identity: outdir, slug, theme, dur (--json for tools/scripts)
     animatic pack  [DECK] [--out DIR] [--strict]   # sealed release: plain build + check + BUILD.json; never a watch build

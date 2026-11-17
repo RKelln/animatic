@@ -9,10 +9,10 @@
                                             a sealed, presentable copy
     animatic token [--show|--check]         store or inspect the waypoint token
 
-DECK is a talkfile or a folder holding one (talk.md, or its only *.talk.md).
-Omitted, it is the current directory, so `cd decks/W04-ai-job-search && animatic
-build` does the obvious thing.  Two talkfiles in one folder is an error, never a
-guess.
+DECK is a talkfile, a folder holding one (talk.md, or its only *.talk.md), or a
+deck's name from the content roots — `W04`, `out-w04`, `w04-ai-job-search` — so
+`animatic pack W04` works from any directory.  Omitted, it is the current
+directory.  Two talkfiles in one folder is an error, never a guess.
 
 The default output folder is `out-<first dash segment of the slug>` (out-w04 for
 W04-ai-job-search), the rule `tools/find-talkfile.py` and pull-deck already use.
@@ -67,17 +67,24 @@ def _version() -> str:
 # Deck identity: the one place that answers "which deck?" and "which folder?"
 # ---------------------------------------------------------------------------
 
-def resolve_deck(arg: Optional[str], base: Optional[Path] = None) -> Path:
-    """A talkfile from ARG (a file, or a folder holding one), else from BASE
-    (default: the current directory).  Never guesses between two candidates."""
+def resolve_deck(arg: Optional[str], base: Optional[Path] = None,
+                 corpus: Optional[str] = None) -> Path:
+    """A talkfile from ARG, else from BASE (default: the current directory).
+
+    ARG may be a talkfile, a folder holding one, or a deck's name from the
+    content roots — `W04`, `out-w04` or `w04-ai-job-search`, the names pull-deck
+    and the deck folders use.  Never guesses between two candidates."""
     here = Path(base or Path.cwd()).expanduser()
     if arg:
         p = Path(arg).expanduser()
         if p.is_file():
             return p.resolve()
-        if not p.is_dir():
+        if p.is_dir():
+            here = p
+        elif "/" in arg or "\\" in arg or arg.lower().endswith(".md"):
             raise DeckError(f"no such deck: {p}")
-        here = p
+        else:
+            return deck_by_name(arg, corpus=corpus)
     if (here / "talk.md").is_file():
         return (here / "talk.md").resolve()
     found = sorted(here.glob("*.talk.md"))
@@ -87,6 +94,27 @@ def resolve_deck(arg: Optional[str], base: Optional[Path] = None) -> Path:
         raise DeckError(f"no talk.md in {here} — name a deck or cd into one")
     listed = "\n  ".join(str(f) for f in found)
     raise DeckError(f"{here} holds {len(found)} talkfiles; name one:\n  {listed}")
+
+
+def deck_by_name(name: str, corpus: Optional[str] = None) -> Path:
+    """A deck from the content roots, by the name you would type about it:
+    its outdir (`out-w04`), its slug (`w04-ai-job-search`), or the slug's first
+    segment (`w04`) — the same name pull-deck.sh takes.  Refuses to guess."""
+    want = name.strip().lower()
+    hits = {}
+    for row in deck_rows(corpus=corpus):
+        seg = row["slug"].split("-")[0]
+        if (want in (row["outdir"], row["slug"], seg)
+                or "out-" + want == row["outdir"]):
+            hits[row["talkfile"]] = row
+    if len(hits) == 1:
+        return Path(next(iter(hits)))
+    if not hits:
+        raise DeckError(f"no deck called {name!r} under the content roots "
+                        f"(`animatic decks` lists them)")
+    listed = "\n  ".join(f"{h['outdir']:<10} {h['slug']:<24} {p}"
+                         for p, h in sorted(hits.items()))
+    raise DeckError(f"{name!r} matches {len(hits)} decks; name one:\n  {listed}")
 
 
 def deck_meta(talk: Path) -> dict:
@@ -579,8 +607,9 @@ USAGE = """animatic — decks, checks, builds and packs under one name
   animatic token [--show|--check]       store or inspect the waypoint token
                                         (kept in ~/.config/animatic/waypoint-token)
 
-DECK is a talkfile or a folder holding one; omitted, it is the current
-directory. Output defaults to out-<slug>. Exit: 0 ok, 1 not right, 2 usage.
+DECK is a talkfile, a folder holding one, or a deck's name (W04); omitted, it is
+the current directory. Output defaults to out-<slug>. Exit: 0 ok, 1 not right,
+2 usage.
 """
 
 

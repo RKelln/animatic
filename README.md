@@ -165,6 +165,10 @@ The full grammar is `docs/format-spec-v1.md`.
 
 Builds are deterministic: running one twice gives identical bytes.
 
+A `DECK` may be a talkfile, a folder holding one, or a deck's name from the
+content roots — `animatic pack W04`, `animatic build out-w04`, or the full slug.
+Omitted, it is the current directory.
+
 ## Workshops with agents
 
 If your audience works beside coding agents, waypoints tell those agents where the

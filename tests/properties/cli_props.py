@@ -122,6 +122,23 @@ def check(errors: list) -> None:
         corpus = tmp / "corpus.yaml"
         corpus.write_text(f"decks:\n  - {tmp}\nconcepts: []\nbanks: []\n",
                           encoding="utf-8")
+
+        # -- deck by name: the name you would type is the name it knows -------
+        for name in ("out-solo", "solo-one", "SOLO"):
+            got = cli.resolve_deck(name, corpus=str(corpus))
+            if got != (one / "talk.md").resolve():
+                err(errors, f"resolve_deck({name!r}) -> {got}, wanted the solo deck")
+        try:
+            cli.resolve_deck("a", corpus=str(corpus))     # a-one and a-three both
+            err(errors, "a name matching two decks must be a refusal")
+        except cli.DeckError:
+            pass
+        try:
+            cli.resolve_deck("nope", corpus=str(corpus))
+            err(errors, "an unknown deck name must be an error")
+        except cli.DeckError:
+            pass
+
         code, out = _run(["decks", "--json", "--corpus", str(corpus)])
         if code != 0:
             err(errors, f"decks --json exited {code}")
