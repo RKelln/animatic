@@ -5003,8 +5003,11 @@ def render_document(talk: Talk, resolver: MediaResolver, out_dir: Path,
                                  or (not pools and _is_pool_slug(resolver, slug))
                                  or (not placeholders and bool(slug)
                                      and not resolver.resolve(slug).found)),
-                    toc=toc, anchor=f"cue-{cue_id}", skip_section_title=section_title)
+                    toc=toc, anchor=f"cue-{cue_id}", skip_section_title=section_title,
+                    mark_print=home)
                 + _screen_sources_html(screen, cite_no))
+        if home and screen.exercise:
+            body = COPY_ON + body + COPY_OFF
         keep = " keep" if _print_share(body) <= PRINT_KEEP_SHARE else ""
         current["items"].append(f'<div class="screen{keep}" id="cue-{cue_id}">{body}</div>')
 
@@ -5115,11 +5118,20 @@ def _cite_links(rendered: str) -> str:
         rendered)
 
 
+# Home page only: comment markers around the parts whose typed lines and code blocks are for the person
+# to copy (a `do` screen, a `[notes]` run). tools/web-export.py puts Copy buttons inside them and
+# nowhere else, then removes the markers. They nest, so a `[notes]` run inside a `do` screen is fine.
+COPY_ON = "<!--copy:on-->"
+COPY_OFF = "<!--copy:off-->"
+
+
 def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
                        skip_deck_h1: str, cite_no: dict | None = None,
                        skip_figure: bool = False,
                        toc: list | None = None, anchor: str = "",
-                       skip_section_title: str = "") -> str:
+                       skip_section_title: str = "", mark_print: bool = False) -> str:
+    """`mark_print` (the home page): a `[notes]` run is bracketed by COPY_ON / COPY_OFF, so the web
+    export knows its typed lines and code blocks are for the person to copy."""
     out = []
     cite_no = cite_no or {}
     headings = toc if toc is not None else []
@@ -5164,9 +5176,16 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         # lower/credits already rendered as the figure caption: don't repeat them
         consumed = {id(b) for b in screen.blocks if b.kind in ("lower", "credits")}
     flow = []
+    from_print = set()
     for b in screen.blocks:      # a `[handout]` run prints in place, in the flow
+        if b.kind == "print":
+            from_print.update(id(ib) for ib in b.inner)
         flow.extend(b.inner if b.kind == "print" else [b])
+    in_run = False
     for b in flow:
+        if mark_print and (id(b) in from_print) != in_run:
+            in_run = not in_run
+            out.append(COPY_ON if in_run else COPY_OFF)
         if id(b) in consumed:
             continue
         if b.kind == "vo":
@@ -5219,6 +5238,8 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
             for b in credits_entries_
         )
         out.append(f'<div class="doc-credits">{items}</div>')
+    if in_run:
+        out.append(COPY_OFF)
     return "".join(out)
 
 

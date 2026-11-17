@@ -1429,8 +1429,14 @@ page and in its foot. Every web export also gets a fixed **Top** button and a
   print. Room screens (`live`) stay out. Screens from a section whose frontmatter
   says `agent-export: skip` are left out of the home page and the agent export
   and still print in the plain reading copy.
-- Every `<pre>` (fenced code) and typed-line quote (a quote that is one code
-  span, the `type-in` class) is wrapped with a **Copy** button: a real
+- A `<pre>` (fenced code) or typed-line quote (a quote that is one code
+  span, the `type-in` class) gets a **Copy** button only in three places: on a
+  `do` screen, inside a `[notes]` run, and in the setup card. On any other
+  screen it stays plain, so an example to read (a prompt-injection sample, what
+  the agent replied) is not offered for copying. A line the person should type
+  belongs on a `do` screen. render.py brackets those parts with
+  `<!--copy:on-->` / `<!--copy:off-->` comments (nesting is fine) and
+  web-export.py removes them. The button is a real
   `<button>` after the text, inline script only (no files, no libraries),
   `navigator.clipboard.writeText` with a fallback (select the text,
   `document.execCommand("copy")` in a try), "Copied" for two seconds and the same

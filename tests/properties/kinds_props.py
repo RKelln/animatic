@@ -294,7 +294,8 @@ def _home(errors: list, tmp: Path, talk_md: Path, core: Path, agent_txt: str) ->
 
     src = talk_md.read_text()
     src = src.replace("Say the second idea.",
-                      "Say the second idea.\n\n> `Hi.`\n\n```\nprint(\"a < b\")\n```")
+                      "Say the second idea.\n\n> `Hi.`\n\n```\nprint(\"a < b\")\n```"
+                      "\n\n[notes]\n```\nnotes prompt\n```")
     src = src.replace("- write one line", "- write one line\n\n> `Hello there.`")
     src = src.replace("[Timer: 5:00]", "[Timer: 5:00]\n\n(Do: Run it on Dana, the made-up student.)")
     talk = tmp / "home.md"
@@ -347,12 +348,19 @@ def _home(errors: list, tmp: Path, talk_md: Path, core: Path, agent_txt: str) ->
         err(errors, "kinds: the do screen is not in place")
     if "Spend five minutes on this." not in page or "Room only" in page or "Ask the room" in page:
         err(errors, "kinds: do screen text, or a room screen leaked")
-    # copy buttons: every <pre> (code, setup box) and typed-line quote
+    # copy buttons: only the setup box, a `do` screen's typed line and a `[notes]` code block. A quote
+    # or code block on a content screen is for reading: no button (and the markers are gone)
     boxes = len(re.findall(r"<pre\b", page)) + page.count('<blockquote class="type-in">')
     wraps = page.count('<div class="copy-wrap">')
     btns = page.count('<button type="button" class="copy-btn">Copy</button>')
-    if not (boxes == wraps == btns >= 4):
-        err(errors, f"kinds: copy buttons: {boxes} boxes, {wraps} wraps, {btns} buttons")
+    if not (boxes == 5 and wraps == btns == 3):
+        err(errors, f"kinds: copy buttons: {boxes} boxes, {wraps} wraps, {btns} buttons (want 5, 3, 3)")
+    if "copy:on" in page or "copy:off" in page:
+        err(errors, "kinds: copy markers left in the page")
+    if re.search(r'<div class="copy-wrap"><blockquote class="type-in"><p><code>Hi\.</code>', page):
+        err(errors, "kinds: a quote on a content screen has a Copy button")
+    if not re.search(r'<div class="copy-wrap"><pre[^>]*>(?:<[^>]+>)*notes prompt', page):
+        err(errors, "kinds: a [notes] code block has no Copy button")
     if not re.search(r'<div class="copy-wrap"><blockquote class="type-in"><p><code>Hello there\.</code>', page):
         err(errors, "kinds: the do screen's typed prompt has no Copy button")
     for needle in ("navigator.clipboard.writeText", 'execCommand("copy")', 'aria-live="polite"',

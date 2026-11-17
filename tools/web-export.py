@@ -155,19 +155,35 @@ HOME_JS = """<div id="copy-status" class="sr-only" role="status" aria-live="poli
 
 
 def add_copy_buttons(html: str) -> str:
-    """Wrap every <pre> and typed-line quote with a Copy button that sits inside the box, at its right edge."""
+    """Wrap each <pre> and typed-line quote with a Copy button that sits inside the box, at its right edge.
+    Only inside the parts render.py marked as the person's to copy (a `do` screen, a `[notes]` run: the
+    COPY_ON/COPY_OFF comments) and the setup card. An example quote or a code block that is only to
+    read, on a content screen, stays plain. The markers come out."""
     btn = '<button type="button" class="copy-btn">Copy</button>'
-    html = re.sub(r"<pre\b[^>]*>.*?</pre>", lambda m: f'<div class="copy-wrap">{m.group(0)}{btn}</div>',
-                  html, flags=re.S)
-    return re.sub(r'<blockquote class="type-in">.*?</blockquote>',
-                  lambda m: f'<div class="copy-wrap">{m.group(0)}{btn}</div>', html, flags=re.S)
+
+    def wrap(seg: str) -> str:
+        seg = re.sub(r"<pre\b[^>]*>.*?</pre>", lambda m: f'<div class="copy-wrap">{m.group(0)}{btn}</div>',
+                     seg, flags=re.S)
+        return re.sub(r'<blockquote class="type-in">.*?</blockquote>',
+                      lambda m: f'<div class="copy-wrap">{m.group(0)}{btn}</div>', seg, flags=re.S)
+
+    parts = re.split(r"(<!--copy:(?:on|off)-->)", html)
+    depth, out = 0, []
+    for part in parts:
+        if part == "<!--copy:on-->":
+            depth += 1
+        elif part == "<!--copy:off-->":
+            depth = max(0, depth - 1)
+        else:
+            out.append(wrap(part) if depth else part)
+    return "".join(out)
 
 
 def setup_card(agent_url: str, coding_agent_url: str) -> str:
     paste = escape(SETUP_PASTE.format(url=agent_url), quote=False)
     more = (f'<p>No coding agent yet? <a href="{escape(coding_agent_url, quote=True)}">'
             f'Set one up first.</a></p>' if coding_agent_url else "")
-    return ('<aside class="ex-card" id="ex-setup" aria-label="Before you start: set up your agent">'
+    return ('<!--copy:on--><aside class="ex-card" id="ex-setup" aria-label="Before you start: set up your agent">'
             '<p class="ex-kicker">Before you start</p><h3 class="ex-title">Set up your agent</h3>'
             f'<p>{SETUP_LINE}</p>'
             '<div class="ex-paste">'
@@ -175,7 +191,7 @@ def setup_card(agent_url: str, coding_agent_url: str) -> str:
             '<details class="ex-agent"><summary title="Instructions for an AI agent helping a person do this workshop">Are you an AI agent?</summary>'
             '<p>If a person has asked you to do this workshop with them, read '
             f'<a href="{escape(agent_url, quote=True)}">workshop-with-your-agent.md</a> and set it up with them. '
-            'Ask them before you download, install or change anything.</p></details></aside>')
+            'Ask them before you download, install or change anything.</p></details></aside><!--copy:off-->')
 
 
 def web_videos(html: str, work: Path) -> tuple[str, dict]:
