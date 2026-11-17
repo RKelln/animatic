@@ -16,8 +16,10 @@ machine.  What belongs here:
 """
 from __future__ import annotations
 
+import getpass
 import io
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -169,6 +171,44 @@ def check(errors: list) -> None:
         if code != 1:
             err(errors, "find-talkfile must exit 1 when nothing matches")
 
+        # -- animatic token: stores 0600, never prints the value -----------------
+        token_path = tmp / "cfg" / "waypoint-token"
+        saved_env = {k: os.environ.get(k) for k in
+                     ("ANIMATIC_WAYPOINT_TOKEN", "ANIMATIC_WAYPOINT_TOKEN_FILE")}
+        saved_prompt = getpass.getpass
+        try:
+            os.environ.pop("ANIMATIC_WAYPOINT_TOKEN", None)
+            os.environ["ANIMATIC_WAYPOINT_TOKEN_FILE"] = str(token_path)
+            getpass.getpass = lambda prompt="": "TEST-TOKEN-not-real"
+            code, out = _run(["token"])
+            if code != 0:
+                err(errors, f"animatic token exited {code}")
+            if "TEST-TOKEN-not-real" in out:
+                err(errors, "animatic token printed the token value")
+            if not token_path.is_file():
+                err(errors, "animatic token wrote no key file")
+            else:
+                if (token_path.stat().st_mode & 0o777) != 0o600:
+                    err(errors, f"the key file must be 0600, got "
+                                f"{token_path.stat().st_mode & 0o777:04o}")
+                if token_path.read_text(encoding="utf-8").strip() != "TEST-TOKEN-not-real":
+                    err(errors, "the key file does not hold the token")
+            code, out = _run(["token", "--show"])
+            if code != 0 or "sha256:" not in out:
+                err(errors, f"animatic token --show: exit {code}, {out!r}")
+            if "TEST-TOKEN-not-real" in out:
+                err(errors, "animatic token --show printed the value")
+            getpass.getpass = lambda prompt="": ""
+            if _code(["token"]) == 0:
+                err(errors, "an empty entry must not overwrite the key file")
+        finally:
+            getpass.getpass = saved_prompt
+            for k, v in saved_env.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
         # -- pack --------------------------------------------------------------
         out_dir = tmp / "out-pack"
         code, _ = _run(["pack", str(one / "talk.md"), "--out", str(out_dir)])
@@ -202,6 +242,17 @@ def check(errors: list) -> None:
 
         if _code(["pack", "--verify", "--out", str(out_dir)]) != 0:
             err(errors, "verify rejected an untouched pack")
+
+        # --inert: a copy that cannot publish, safe to hand out
+        inert_dir = tmp / "out-inert"
+        code, _ = _run(["pack", str(one / "talk.md"), "--out", str(inert_dir),
+                        "--inert"])
+        if code != 0:
+            err(errors, f"pack --inert exited {code}")
+        else:
+            m = json.loads((inert_dir / cli.PACK_FILE).read_text(encoding="utf-8"))
+            if m.get("waypoints") is not False:
+                err(errors, "pack --inert must seal waypoints: false")
 
         target = out_dir / "present" / "index.html"
         target.write_bytes(target.read_bytes() + b"<!--tampered-->")

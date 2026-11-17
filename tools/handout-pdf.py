@@ -40,11 +40,9 @@ def main() -> int:
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work)]
                        + (["--handout-figures", a.figures] if a.figures else [])
                        + (["--no-handout-pools"] if a.no_pools else [])
-                       + (["--no-handout-placeholders"] if a.no_placeholders else []),
-                       # never publish: no token from the environment or the key file
-                       env={**{k: v for k, v in os.environ.items()
-                               if k != "ANIMATIC_WAYPOINT_TOKEN"},
-                            "ANIMATIC_WAYPOINT_TOKEN_FILE": os.devnull})
+                       + (["--no-handout-placeholders"] if a.no_placeholders else [])
+                       + ["--inert"])   # never publish, whatever the token sources say
+
     if r.returncode:
         return r.returncode
     pdf.parent.mkdir(parents=True, exist_ok=True)

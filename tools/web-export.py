@@ -256,11 +256,10 @@ def main() -> int:
         # a build dir this script made is scratch: never leave a ~1.2 GB copy behind
         atexit.register(shutil.rmtree, work, ignore_errors=True)
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work),
-                        "--no-handout-placeholders"] + (["--home-page"] if a.home else []), stdout=subprocess.DEVNULL,
-                       # never publish: no token from the environment or the key file
-                       env={**{k: v for k, v in os.environ.items()
-                               if k != "ANIMATIC_WAYPOINT_TOKEN"},
-                            "ANIMATIC_WAYPOINT_TOKEN_FILE": os.devnull})
+                        "--no-handout-placeholders"] + (["--home-page"] if a.home else [])
+                       + ["--inert"],   # never publish, whatever the token sources say
+                       stdout=subprocess.DEVNULL)
+
     if r.returncode:
         return r.returncode
     html = (work / "document" / "index.html").read_text(encoding="utf-8")

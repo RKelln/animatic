@@ -8,7 +8,8 @@ The commands behind the README's quick start: build, handout PDF, web page, audi
     animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]
     animatic serve [--port N] [--bind ADDR] [--quiet]   # serve-deck.py's own flags
     animatic decks [--json]
-    animatic pack  [DECK] [--out DIR] [--strict] [--verify]
+    animatic pack  [DECK] [--out DIR] [--strict] [--verify] [--inert]
+    animatic token [--show|--check]
 
 `DECK` is a talkfile or a folder holding one: its `talk.md`, or its only
 `*.talk.md`. Omitted, it is the current directory, so `cd decks/W04 && animatic
@@ -43,6 +44,22 @@ the venue.
 A packed folder needs no server. Open `present/index.html` from disk — that is
 the recommended way to present (`docs/live-capture.md`), and the only path where
 browser window capture is guaranteed to work without the loopback exception.
+
+`--inert` seals a copy with the waypoint publisher left out, whatever the token
+sources say: the folder cannot post anything, so it is safe to hand out. Without
+it, a pack made where a token is available records `waypoints: true` and says so
+at seal time.
+
+## Token
+
+    animatic token            # store or replace the waypoint token (prompt, no echo)
+    animatic token --show     # sha256 fingerprint of the token in use
+    animatic token --check    # where it comes from, and the key file's mode
+
+The token is read from `ANIMATIC_WAYPOINT_TOKEN` or from
+`~/.config/animatic/waypoint-token` (mode 0600; override the path with
+`ANIMATIC_WAYPOINT_TOKEN_FILE`), and never printed. `docs/waypoints.md` explains
+why the file matters: a `--watch` started over ssh inherits no environment.
 
 ## Build
 

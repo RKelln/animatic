@@ -140,7 +140,8 @@ The full grammar is `docs/format-spec-v1.md`.
 |---|---|
 | `animatic build [DECK] [--out DIR]` | render present view, document view and the JSON sidecars into `out-<slug>/` (same as `python3 build.py`) |
 | `animatic check [DECK ...] [--strict]` | the check suite; `--register` lists every check, `--json` gives findings as JSON |
-| `animatic pack [DECK] [--out DIR]` | a sealed, presentable copy: plain build + check + a hashed `BUILD.json`; `--verify` re-checks a copy any machine |
+| `animatic pack [DECK] [--out DIR] [--inert]` | a sealed, presentable copy: plain build + check + a hashed `BUILD.json`; `--verify` re-checks a copy on any machine, `--inert` leaves the waypoint publisher out |
+| `animatic token [--show\|--check]` | store the waypoint publishing token (prompt, no echo, mode 0600) or report a fingerprint of the one in use |
 | `animatic decks [--json]` | every deck the content roots hold, with the folder it builds into |
 | `animatic serve [--port N]` | serve built decks on localhost, with video Range support |
 | `python3 tools/handout-pdf.py <talkfile> <out.pdf>` | handout PDF (needs Chromium) |

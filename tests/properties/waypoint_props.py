@@ -348,6 +348,17 @@ def check(errors: list) -> None:
             got, _ = build_mod.waypoint_token()
             if got:
                 err(errors, "waypoint token: a blank key file must mean none")
+
+            # --inert is authoritative: a deck safe to hand out, whatever the
+            # token sources say (this is what the handout and web export use).
+            os.environ["ANIMATIC_WAYPOINT_TOKEN"] = TOKEN
+            out_inert = tmp / "out-inert"
+            _build(talk_md, out_inert, None, "--inert")
+            if build_mod.publishes_waypoints(out_inert / "present" / "index.html"):
+                err(errors, "waypoint: --inert still published (a token was set)")
+            inert_log = _build(talk_md, tmp / "out-inert2", None, "--inert")
+            if "publishing ON" in inert_log:
+                err(errors, "waypoint: the --inert build claims publishing is ON")
         finally:
             for k, v in saved.items():
                 if v is None:

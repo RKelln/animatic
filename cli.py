@@ -5,8 +5,9 @@
     animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]
     animatic serve [SERVE FLAGS]            serve built decks on localhost
     animatic decks [--json]                 the decks the corpus roots hold
-    animatic pack  [DECK] [--out DIR] [--strict] [--verify]
+    animatic pack  [DECK] [--out DIR] [--strict] [--verify] [--inert]
                                             a sealed, presentable copy
+    animatic token [--show|--check]         store or inspect the waypoint token
 
 DECK is a talkfile or a folder holding one (talk.md, or its only *.talk.md).
 Omitted, it is the current directory, so `cd decks/W04-ai-job-search && animatic
@@ -33,9 +34,11 @@ Exit: 0 ok · 1 the deck or the pack is not right · 2 usage.
 from __future__ import annotations
 
 import argparse
+import getpass
 import hashlib
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -309,6 +312,81 @@ def cmd_decks(argv: list) -> int:
 
 
 # ---------------------------------------------------------------------------
+# token (waypoint publishing)
+# ---------------------------------------------------------------------------
+
+def _fingerprint(token: str) -> str:
+    """Enough to recognise a token, never enough to use one."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
+
+
+def _token_path() -> Path:
+    return Path(os.environ.get(build_mod.TOKEN_FILE_ENV, "").strip()
+                or build_mod.TOKEN_FILE).expanduser()
+
+
+def cmd_token(argv: list) -> int:
+    ap = argparse.ArgumentParser(
+        prog="animatic token",
+        description="The waypoint publishing token: store it, or report on it. "
+                    "Never prints the token itself.")
+    group = ap.add_mutually_exclusive_group()
+    group.add_argument("--show", action="store_true",
+                       help="a fingerprint of the token in use")
+    group.add_argument("--check", action="store_true",
+                       help="where the token comes from, and whether the file is safe")
+    a = ap.parse_args(argv)
+
+    path = _token_path()
+    token, source = build_mod.waypoint_token()
+
+    if a.show or a.check:
+        if not token:
+            print("token    : none — store one with `animatic token` (it is kept "
+                  f"in {path})", file=sys.stderr)
+            return 1
+        print(f"token    : sha256:{_fingerprint(token)} ({len(token)} chars) "
+              f"from {source}")
+        if a.check:
+            if source == "ANIMATIC_WAYPOINT_TOKEN":
+                print(f"note     : the environment wins over {path}; unset "
+                      f"ANIMATIC_WAYPOINT_TOKEN to use the file")
+            else:
+                try:
+                    mode = path.stat().st_mode & 0o777
+                    safe = (mode & 0o077) == 0
+                    print(f"file     : {path} mode {mode:04o}"
+                          + ("" if safe else "  (group or others can read it: "
+                                             "chmod 600)"))
+                except OSError as exc:
+                    print(f"file     : {path} ({exc})", file=sys.stderr)
+        return 0
+
+    entered = getpass.getpass("waypoint token (not echoed): ").strip()
+    if not entered:
+        print("animatic token: nothing entered; the token is unchanged",
+              file=sys.stderr)
+        return 2
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # create with 0600 in one call: no window where the file is readable
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(entered + "\n")
+        os.chmod(path, 0o600)
+    except OSError as exc:
+        print(f"animatic token: cannot write {path}: {exc}", file=sys.stderr)
+        return 1
+    print(f"stored   : sha256:{_fingerprint(entered)} ({len(entered)} chars) "
+          f"in {path}")
+    if os.environ.get("ANIMATIC_WAYPOINT_TOKEN", "").strip():
+        print("note     : ANIMATIC_WAYPOINT_TOKEN is set in this shell and wins; "
+              "unset it to use the file", file=sys.stderr)
+    print("next     : every build reads it — a remote --watch included")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # pack
 # ---------------------------------------------------------------------------
 
@@ -408,6 +486,9 @@ def cmd_pack(argv: list) -> int:
                     help="warnings fail the pack, as pre-delivery")
     ap.add_argument("--verify", action="store_true",
                     help="do not build: re-hash an existing pack against BUILD.json")
+    ap.add_argument("--inert", action="store_true",
+                    help="seal a copy that cannot publish waypoints (safe to hand "
+                         "out), whatever the token sources say")
     a = ap.parse_args(rest)
 
     def _out_path(value: Optional[str], default_name: str) -> Path:
@@ -427,7 +508,8 @@ def cmd_pack(argv: list) -> int:
     talk = resolve_deck(deck)
     out = _out_path(a.out, deck_outdir(talk))
 
-    rc = build_mod.main([str(talk), "--out", str(out)])
+    rc = build_mod.main([str(talk), "--out", str(out)]
+                        + (["--inert"] if a.inert else []))
     if rc != 0:
         print(f"animatic pack: the build failed, so nothing was sealed ({out})",
               file=sys.stderr)
@@ -463,6 +545,8 @@ def cmd_pack(argv: list) -> int:
     if manifest["waypoints"]:
         print("publishing: this copy carries the waypoint token — leave it in "
               "the room, do not hand it out or publish the folder")
+    elif a.inert:
+        print("publishing: none (--inert: this copy cannot publish)")
     else:
         print("publishing: none (the deck posts no waypoints)")
     print("present  : open present/index.html (file:// is a supported way to "
@@ -481,6 +565,7 @@ VERBS = {
     "serve": cmd_serve,
     "decks": cmd_decks,
     "pack": cmd_pack,
+    "token": cmd_token,
 }
 
 USAGE = """animatic — decks, checks, builds and packs under one name
@@ -489,8 +574,10 @@ USAGE = """animatic — decks, checks, builds and packs under one name
   animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]
   animatic serve [SERVE FLAGS]          serve built decks on localhost
   animatic decks [--json]               the decks the content roots hold
-  animatic pack  [DECK] [--out DIR] [--strict] [--verify]
+  animatic pack  [DECK] [--out DIR] [--strict] [--verify] [--inert]
                                         a sealed, presentable copy
+  animatic token [--show|--check]       store or inspect the waypoint token
+                                        (kept in ~/.config/animatic/waypoint-token)
 
 DECK is a talkfile or a folder holding one; omitted, it is the current
 directory. Output defaults to out-<slug>. Exit: 0 ok, 1 not right, 2 usage.

@@ -40,6 +40,8 @@ missing browser exit 77 (skipped), they do not fail.
     animatic decks [--json]                        # deck identity: outdir, slug, theme, dur (--json for tools/scripts)
     animatic pack  [DECK] [--out DIR] [--strict]   # sealed release: plain build + check + BUILD.json; never a watch build
     animatic pack  --verify --out DIR              # re-hash a carried pack against its manifest (needs no source tree)
+    animatic pack  [DECK] --inert                  # a copy that cannot publish waypoints: safe to hand out
+    animatic token [--show|--check]                # store the waypoint token (no echo, 0600) or report its fingerprint
     animatic serve [--port N] [--bind ADDR]         # local deck server (video Range, request log; file:// is the recommended venue path)
     python3 build.py <talkfile> [--out OUTDIR]     # render present + document views (the CLI's plumbing; same output)
     ANIMATIC_WAYPOINT_TOKEN=... python3 build.py <talkfile>   # a deck that publishes waypoints; without a token, inert (docs/waypoints.md). Prefer the key file ~/.config/animatic/waypoint-token (chmod 600): a remote --watch inherits no environment

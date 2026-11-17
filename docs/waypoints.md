@@ -62,8 +62,18 @@ Prefer the file. The secret is then not typed into every build command, it stays
 out of shell history, and — the reason it exists — a `--watch` started on another
 machine over ssh (pull-deck.sh does exactly that) inherits no environment, so an
 env-only token would leave that watcher inert and refusing to replace the keyed
-deck. A file on the box is read by the watcher itself. Create it without echoing
-the value:
+deck. A file on the box is read by the watcher itself.
+
+Store it with the CLI, which prompts without echoing, writes mode 0600, and
+prints only a fingerprint:
+
+```sh
+animatic token            # store or replace it (prompt, no echo)
+animatic token --show     # sha256 fingerprint of the token in use
+animatic token --check    # where it comes from, and the file's mode
+```
+
+Doing it by hand works the same way:
 
 ```sh
 install -d -m 700 ~/.config/animatic
@@ -81,13 +91,15 @@ room. An inert build also **refuses to replace** an output that already publishe
 finds the publisher in the existing `present/index.html`), including a `--watch`
 rebuild, which keeps the keyed deck and prints `build FAILED (exit 2)`.
 `--allow-inert` replaces it on purpose. (This guards against a token-less rebuild
-silently replacing the keyed deck you then carry to the venue.) The handout PDF, the
-web export and the document view ship no present page, and both tools strip the token
-explicitly, so it can't reach a public page.
+silently replacing the keyed deck you then carry to the venue.) The handout PDF and
+the web export build with `--inert` and ship no present page, so the token cannot reach
+a public page.
 
 A packed copy (`animatic pack`) can carry the token — that is how it publishes from the
 room — so `BUILD.json` records `waypoints: true` and the pack says so when it seals.
-Treat such a folder as room equipment: don't publish it, don't hand it out.
+Treat such a folder as room equipment: don't publish it, don't hand it out. When the
+copy is for handing out, `animatic pack --inert` builds with the publisher left out
+whatever the token sources say, so the folder cannot post anything.
 
 ### When the deck publishes
 

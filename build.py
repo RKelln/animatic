@@ -88,9 +88,12 @@ def main(argv=None) -> int:
                          "`quick_sections:` line (relative to the working "
                          "directory); for trial builds without editing a talk")
     ap.add_argument("--allow-inert", action="store_true",
-                    help="let a build without ANIMATIC_WAYPOINT_TOKEN replace an "
+                    help="let a build without a waypoint token replace an "
                          "output that publishes waypoints (refused by default: it "
                          "would silently turn a live-room deck inert)")
+    ap.add_argument("--inert", action="store_true",
+                    help="publish no waypoints whatever the token sources say: a "
+                         "deck safe to hand out (implies --allow-inert)")
     ap.add_argument("--watch", action="store_true",
                     help="stay running and rebuild whenever the talkfile, a "
                          "file beside it, its media/ dir or the remap changes; "
@@ -204,9 +207,13 @@ def build(talk_path: Path, args) -> int:
     # A build without the token must not silently replace one that has it: the
     # deck carried to the venue would stop publishing and say nothing.  A
     # watcher builds beside the output and swaps it in, so it names the folder
-    # it will replace in args.replaces.
-    wp_token, wp_source = waypoint_token()
-    if not wp_token and not getattr(args, "allow_inert", False):
+    # it will replace in args.replaces.  --inert is the deliberate version.
+    if getattr(args, "inert", False):
+        wp_token, wp_source = "", ""
+    else:
+        wp_token, wp_source = waypoint_token()
+    if not wp_token and not (getattr(args, "allow_inert", False)
+                             or getattr(args, "inert", False)):
         prior = Path(getattr(args, "replaces", None) or args.out).expanduser().resolve() / "present" / "index.html"
         if publishes_waypoints(prior):
             print(f"error: {prior.parent.parent} holds a deck that publishes waypoints, "
@@ -282,11 +289,14 @@ def build(talk_path: Path, args) -> int:
               f"after the talk (quick select; not in the handout)")
     wp_marked = [s for s in talk.screens if s.waypoint]
     if wp_marked:
-        print(f"waypoints : {len(wp_marked)} marked; "
-              + (f"publishing ON in present/index.html (token from {wp_source})"
-                 if wp_token else
-                 "inert (no waypoint token: set ANIMATIC_WAYPOINT_TOKEN or "
-                 f"write {TOKEN_FILE})"))
+        if wp_token:
+            wp_state = f"publishing ON in present/index.html (token from {wp_source})"
+        elif getattr(args, "inert", False):
+            wp_state = "inert (--inert: this build never publishes)"
+        else:
+            wp_state = ("inert (no waypoint token: set ANIMATIC_WAYPOINT_TOKEN "
+                        f"or write {TOKEN_FILE})")
+        print(f"waypoints : {len(wp_marked)} marked; {wp_state}")
     roles = {r: 0 for r in ("stat", "lower", "credits")}
     for s in talk.screens:
         for b in s.blocks:

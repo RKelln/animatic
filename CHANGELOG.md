@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- The waypoint token can come from a machine key file
+  (`~/.config/animatic/waypoint-token`, or `ANIMATIC_WAYPOINT_TOKEN_FILE`) instead
+  of only the environment, and `animatic token` stores it without echoing it and
+  writes mode 0600. The env var still wins. The file is what makes a `--watch`
+  started over ssh (pull-deck.sh) publish: it inherits no environment.
+- `--inert` builds with the waypoint publisher left out whatever the token sources
+  say — a deck safe to hand out. The handout PDF and web export use it, and
+  `animatic pack --inert` seals such a copy; a normal pack records `waypoints` in
+  `BUILD.json` and warns when the folder carries the token.
 - `animatic` is now the one door: `build`, `check`, `serve`, `decks` and `pack`
   subcommands. `animatic-check` is folded into `animatic check` (`--register`,
   `--strict`, `--corpus` and the new `--json` all still work). A deck argument
