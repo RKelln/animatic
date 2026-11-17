@@ -21,7 +21,7 @@ The name is the *animatic*, the timed, moving pre-visual of a film.
 
 - **Agents can work with it.** A talk is a text file with a small, checked grammar,
   not a binary deck built for a mouse. An agent can write it, edit it, run
-  `animatic-check` and read the findings, and the format spec is written to be
+  `animatic check` and read the findings, and the format spec is written to be
   followed by one. Keynote and PowerPoint are designed for people clicking.
 - **Media is part of the format.** Pictures and video are named in the script and
   resolved from cards that record where each came from, its credit and licence, and
@@ -120,10 +120,13 @@ This slide shows a five-minute timer.
 ```
 
 ```sh
-uv run animatic-check talk.md     # 0 fatal means the file is well formed
-uv run animatic talk.md --out out    # render
-uv run animatic talk.md --out out --watch   # rebuild on every save
+uv run animatic check talk.md          # 0 fatal means the file is well formed
+uv run animatic build talk.md          # render into out-<slug>/
+uv run animatic build talk.md --watch  # rebuild on every save
 ```
+
+`animatic` with no arguments lists its commands; `animatic pack` seals a folder you
+can carry to a venue (see the Commands table).
 
 Each `<!-- shot -->` starts a screen. A shot can name a picture
 (`<!-- shot: river kb=in dim=0.4 text=light -->`), and the name is resolved from a
@@ -135,13 +138,16 @@ The full grammar is `docs/format-spec-v1.md`.
 
 | Command | What it does |
 |---|---|
-| `animatic <talkfile> [--out DIR]` | render present view, document view and the JSON sidecars (same as `python3 build.py`) |
-| `animatic-check <talkfile> [--strict]` | the check suite; `--register` lists every check |
+| `animatic build [DECK] [--out DIR]` | render present view, document view and the JSON sidecars into `out-<slug>/` (same as `python3 build.py`) |
+| `animatic check [DECK ...] [--strict]` | the check suite; `--register` lists every check, `--json` gives findings as JSON |
+| `animatic pack [DECK] [--out DIR]` | a sealed, presentable copy: plain build + check + a hashed `BUILD.json`; `--verify` re-checks a copy any machine |
+| `animatic decks [--json]` | every deck the content roots hold, with the folder it builds into |
+| `animatic serve [--port N]` | serve built decks on localhost, with video Range support |
 | `python3 tools/handout-pdf.py <talkfile> <out.pdf>` | handout PDF (needs Chromium) |
 | `python3 tools/web-export.py <talkfile> <out-dir>` | the document view as a self-contained web folder |
 | `python3 tools/timing-report.py <talkfile>` | how long the talk runs, by movement and screen |
 | `python3 tools/agent-export.py ...` | a plain-text file of the hands-on parts, for a coding agent |
-| `python3 tools/serve-deck.py` | serve a built deck locally, with video Range support |
+| `python3 tools/serve-deck.py` | the deck server behind `animatic serve` |
 | `python3 tests/run.py` | golden and property tests |
 
 Builds are deterministic: running one twice gives identical bytes.

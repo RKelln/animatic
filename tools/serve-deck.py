@@ -206,7 +206,7 @@ def decks_under(base):
         return []
 
 
-def main():
+def main(argv=None):
     here = os.path.dirname(os.path.abspath(__file__))
     default_dir = os.path.dirname(here)         # the animatic folder next to tools/
     ap = argparse.ArgumentParser(description="Serve a built deck with Range support "
@@ -215,9 +215,17 @@ def main():
     ap.add_argument("--bind", default="127.0.0.1")
     ap.add_argument("--directory", default=default_dir)
     ap.add_argument("--quiet", action="store_true", help="no request log")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     RangeHandler.quiet = a.quiet
     base = os.path.abspath(a.directory)
+    LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+    if a.bind not in LOOPBACK:
+        # getDisplayMedia (the live window capture) needs a secure context, and
+        # http on any other address is not one.  Slides and video still work.
+        print(f"note: {a.bind} is not a secure context — browser window capture "
+              f"(getDisplayMedia) is unavailable over it.\n"
+              f"      file:// and http://localhost are the two that work "
+              f"(docs/live-capture.md).", file=sys.stderr)
     try:
         srv = ThreadingHTTPServer((a.bind, a.port), partial(RangeHandler, directory=base))
     except OSError as err:

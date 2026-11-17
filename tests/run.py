@@ -47,7 +47,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(TESTS))
 
 import build as build_mod  # noqa: E402
-from properties import (check_props, code_props, corpus_props, cue_props, html_props,  # noqa: E402
+from properties import (check_props, cli_props, code_props, corpus_props, cue_props, html_props,  # noqa: E402
                         ingest_props, include_props, kinds_props, timer_props, manifest_props, nav_props, playback_props,
                         quick_props, shared_media_props, timing_props, waypoint_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
@@ -219,6 +219,20 @@ def main(argv=None) -> int:
     else:
         passed.append("corpus-harness")
         print("ok    corpus-harness")
+
+    # the CLI (one door): deck identity, decks --json, check --json, pack/verify
+    cli_errors: list = []
+    cli_props.check(cli_errors)
+    if cli_errors:
+        failed.append("cli")
+        print("FAIL  cli")
+        for e in cli_errors[:12]:
+            print(f"      {e}")
+        if len(cli_errors) > 12:
+            print(f"      ... and {len(cli_errors) - 12} more")
+    else:
+        passed.append("cli")
+        print("ok    cli")
 
     # video playback (check 29): a throwaway deck built from generated clips,
     # because once/pingpong only mean something against real video files

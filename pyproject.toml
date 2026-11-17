@@ -18,14 +18,13 @@ classifiers = [
 ]
 
 [project.scripts]
-animatic = "build:main"
-animatic-check = "check:main"
+animatic = "cli:main"
 
 # The builder is a set of flat modules that find themes/ and templates/ beside
 # themselves, so install it editable from a checkout (uv sync, or pip install -e .).
 [tool.setuptools]
 py-modules = [
-    "build", "check", "talkparse", "render", "mediaresolve", "timing",
+    "cli", "build", "check", "talkparse", "render", "mediaresolve", "timing",
     "exercises", "webvideo", "falrec", "ingest",
 ]
 

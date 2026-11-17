@@ -26,13 +26,22 @@ missing browser exit 77 (skipped), they do not fail.
 - `corpus.yaml` lists the content roots the corpus harness scans. It is **not tracked**
   (it names where your talks live); copy `corpus.example.yaml` to `corpus.yaml` and
   edit it. With none, the harness checks `examples/` and says so.
+- `cli.py`: the `animatic` dispatcher (`build`, `check`, `serve`, `decks`, `pack`).
+  The verbs own deck identity and exit codes; `build.py`/`check.py` stay the
+  importable plumbing they call.
 - `templates/`: `cards.yaml`, `gen-log.md`, `style.md` as new decks inherit them.
 - `docs/`: the format spec and feature docs (`format-spec-v1.md` is normative).
 - `themes/`: CSS tokens and the two themes. `tests/README.md` explains the test layers.
 
 ## Commands (verify, don't assume)
 
-    python3 build.py <talkfile> [--out OUTDIR]     # render present + document views
+    animatic build [DECK] [--out DIR] [--watch] [...]  # the CLI; DECK = talkfile or folder, omitted = CWD; default out-<slug>
+    animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]   # --json = findings as JSON
+    animatic decks [--json]                        # deck identity: outdir, slug, theme, dur (--json for tools/scripts)
+    animatic pack  [DECK] [--out DIR] [--strict]   # sealed release: plain build + check + BUILD.json; never a watch build
+    animatic pack  --verify --out DIR              # re-hash a carried pack against its manifest (needs no source tree)
+    animatic serve [--port N] [--bind ADDR]         # local deck server (video Range, request log; file:// is the recommended venue path)
+    python3 build.py <talkfile> [--out OUTDIR]     # render present + document views (the CLI's plumbing; same output)
     ANIMATIC_WAYPOINT_TOKEN=... python3 build.py <talkfile>   # a deck that publishes waypoints; without it, inert (docs/waypoints.md)
     python3 build.py <talkfile> --watch [...]      # rebuild on save, open pages reload (Ctrl-C stops); replaces any watcher already on that --out
     python3 build.py <talkfile> --quick-sections DIR   # trial-build with a quick-select shelf (docs/quick-select.md)
@@ -45,7 +54,7 @@ missing browser exit 77 (skipped), they do not fail.
     python3 check.py <talkfile> [--strict] [--cues out/cues.json]
     python3 check.py --register                    # the canonical check register (1-53)
     python3 check.py --corpus [ROOT] --strict      # warnings become deck failures
-    python3 tests/run.py                           # golden suite: expect "profiles: 65  passed: 73  failed: 0"
+    python3 tests/run.py                           # golden suite: expect "profiles: 65  passed: 74  failed: 0"
     python3 tests/browser_waypoint.py              # real-browser test for waypoints (exit 77: no chromium)
     python3 tests/browser_quick_select.py          # real-browser test for quick select (exit 77: no chromium)
 
@@ -59,6 +68,10 @@ a content root. Builds are deterministic — re-running rebuilds identical bytes
   `sources:` working receipts. Before pointing anyone at a handout or web page, check it
   for local paths, "verify" notes and internal comments (`tools/reading-audit.py`).
   Rebuild it with `tools/handout-pdf.py`; PDFs are build products and are not committed.
+- **A packed artifact is path-free and reproducible.** `BUILD.json` carries no host
+  paths (check 17's rule, and the artifact travels) and no timestamps, so re-packing
+  the same talkfile gives identical bytes and `animatic pack --verify` means something
+  on another machine.
 - **Zero install base.** There are no shipped users and no compatibility burden. Delete
   defects outright rather than grandfathering them behind deprecation shims.
 - `+<role>` is the only overlay syntax. Attribution is canonicalized to `~`.

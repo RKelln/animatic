@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+- `animatic` is now the one door: `build`, `check`, `serve`, `decks` and `pack`
+  subcommands. `animatic-check` is folded into `animatic check` (`--register`,
+  `--strict`, `--corpus` and the new `--json` all still work). A deck argument
+  may be a talkfile or a folder holding one, and is the current directory when
+  omitted; the output folder defaults to `out-<slug>`.
+- `animatic pack` seals a release artifact: a plain build (never a watch build),
+  a check, and a path-free `BUILD.json` with the hash of every file. It is
+  deterministic, so `animatic pack --verify --out DIR` re-checks a carried copy
+  on any machine without a source tree, and refuses one that carries
+  `_watch.js`.
+- `animatic decks [--json]` answers what the content roots hold, with the folder
+  each deck builds into — the fact `tools/find-talkfile.py` and pull-deck had
+  each been deriving for themselves.
+- `serve-deck.py` (and `animatic serve`) warns when bound to a non-loopback
+  address: `getDisplayMedia` needs a secure context, so a LAN bind silently
+  disables browser window capture.
+- `corpus.yaml` is no longer tracked — it names machine-local content roots.
+  `corpus.example.yaml` is the template; with no `corpus.yaml` the corpus check
+  scans the repo's `examples/` and says so, and relative roots now resolve
+  against the repo root rather than the current directory.
+
 ## 0.1.0 — first public release
 
 - The builder: one talkfile to a present view, presenter window, document view,

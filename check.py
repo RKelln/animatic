@@ -1379,9 +1379,12 @@ _MAX_COVERAGE_ROWS = 40
 _WORD_RE = re.compile(r"[a-z0-9]{3,}")
 
 
-def _frontmatter_meta(path: Path) -> tuple:
+def frontmatter_meta(path: Path) -> tuple:
     """(meta dict, text head).  meta is None when the file has no YAML
-    frontmatter (not an OKF concept).  Text head feeds tag suggestions."""
+    frontmatter (not an OKF concept).  Text head feeds tag suggestions.
+
+    Tolerant on purpose: a half-saved deck must still be listable, so bad YAML
+    is an empty mapping rather than an exception."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -1449,6 +1452,14 @@ def _walk_md(root: Path, *, skip_media: bool, skip_raw: bool) -> list:
     return found
 
 
+def discover_decks(root: Path) -> list:
+    """Every talkfile under one deck root, resolved and sorted.  media/_media
+    and stale build dirs are skipped: they hold cards, gen-logs and old
+    output, never deck sources."""
+    return sorted({p.resolve() for p in _walk_md(root, skip_media=True, skip_raw=False)
+                   if p.name == "talk.md" or p.name.endswith(".talk.md")})
+
+
 def discover_corpus(roots: dict) -> dict:
     """roots: {decks: [Path], concepts: [Path], banks: [Path]} -> found sets.
 
@@ -1465,9 +1476,7 @@ def discover_corpus(roots: dict) -> dict:
     decks: list = []
     deck_roots = [Path(p) for p in roots.get("decks", [])]
     for root in deck_roots:
-        for p in _walk_md(root, skip_media=True, skip_raw=False):
-            if p.name == "talk.md" or p.name.endswith(".talk.md"):
-                decks.append(p.resolve())
+        decks += discover_decks(root)
     decks = sorted(set(decks))
     deck_set = set(decks)
 
@@ -1476,7 +1485,7 @@ def discover_corpus(roots: dict) -> dict:
         for p in _walk_md(root, skip_media=True, skip_raw=True):
             if p.name in _TAG_FILE_SKIP or p.resolve() in deck_set:
                 continue
-            meta, _ = _frontmatter_meta(p)
+            meta, _ = frontmatter_meta(p)
             if meta is not None:
                 concepts.append(p.resolve())
     concepts = sorted(set(concepts))
@@ -1725,12 +1734,12 @@ def run_corpus(roots: dict, *, strict: bool = False,
     # -- tag drift + coverage (spec: Error and warning taxonomy, report taxonomy — never exit) ------
     tag_files = []          # (label, tags, meta, head)
     for p in decks:
-        meta, head = _frontmatter_meta(p)
+        meta, head = frontmatter_meta(p)
         if meta is not None:
             tag_files.append((_rel_label(_root_of(p, roots), p),
                               _meta_tags(meta), meta, head))
     for p in concepts:
-        meta, head = _frontmatter_meta(p)
+        meta, head = frontmatter_meta(p)
         if meta is not None:
             tag_files.append((_rel_label(_root_of(p, roots), p),
                               _meta_tags(meta), meta, head))

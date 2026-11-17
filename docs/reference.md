@@ -2,6 +2,48 @@
 
 The commands behind the README's quick start: build, handout PDF, web page, audit, check and corpus check.
 
+## The `animatic` CLI
+
+    animatic build [DECK] [--out DIR] [--watch] [...]   # build.py's own flags
+    animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]
+    animatic serve [--port N] [--bind ADDR] [--quiet]   # serve-deck.py's own flags
+    animatic decks [--json]
+    animatic pack  [DECK] [--out DIR] [--strict] [--verify]
+
+`DECK` is a talkfile or a folder holding one: its `talk.md`, or its only
+`*.talk.md`. Omitted, it is the current directory, so `cd decks/W04 && animatic
+build` does the obvious thing; two talkfiles in one folder is an error, never a
+guess.
+
+The output folder defaults to `out-<first dash segment of the slug>` (`out-w04`
+for `W04-ai-job-search`) — the rule `tools/find-talkfile.py` and pull-deck
+already use, kept in one place in `cli.py`. `build.py`'s own default stays
+`out/`; the CLI's convention is the deck-named folder.
+
+The verbs own the deck question and the exit codes (0 ok, 1 not right, 2 usage)
+and never re-implement what a module already knows: `build` and `check` call
+`build.main`/`check.main`, and `serve` loads `tools/serve-deck.py` by path.
+
+## Pack: the release artifact
+
+    animatic pack talk.md [--out DIR] [--strict]
+    animatic pack --verify --out DIR
+
+A pack is a plain build (never a watch build), a check, and `BUILD.json` in the
+output folder: the slug, title, theme, declared `dur`, the tool version, the
+talkfile's SHA-256, and the SHA-256 and size of every file in the tree. It is
+path-free on purpose (check 17 and the nav/html property tests forbid
+machine-local paths in an artifact) and it carries no timestamps, so packing the
+same talkfile twice produces byte-identical `BUILD.json`. That is what makes
+`--verify` mean something on the far machine: it re-hashes the tree against the
+manifest and reports missing, changed and unlisted files, and it refuses a copy
+that carries `_watch.js`. It needs no source tree, so it runs on the laptop at
+the venue.
+
+A packed folder needs no server. Open `present/index.html` from disk — that is
+the recommended way to present (`docs/live-capture.md`), and the only path where
+browser window capture is guaranteed to work without the loopback exception.
+
 ## Build
 
     python3 build.py <talkfile> [--out OUTDIR]
@@ -90,7 +132,7 @@ written to run on one talk per subagent.
 
 `check` exits 0 on a clean deck, 1 on any fatal (or, under `--strict`, any
 warning), 2 on usage errors. Importable: `from check import check_file` is the
-per-deck seam the `animatic-check` command and the corpus harness drive.
+per-deck seam `animatic check` (and the corpus harness) drive.
 
 ## Corpus check (register 21)
 
