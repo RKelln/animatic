@@ -1039,16 +1039,24 @@ PAGER_JS = """
   // in (so the colour never dips to the ground), then is dropped. Quick paging
   // is safe: each held slide has its own timer, and a slide you return to is
   // released at once and fades up from where it was.
+  // Held slides stack by when they were left (newest on top), not by their
+  // place in the deck: with one shared z-index the later slide in the DOM wins,
+  // which going BACK put the slide left two presses ago over the one just left.
   var HOLD_MS = 700;
+  var holdSeq = 0, holding = 0;
   function dropHold(el) {
     if (el._holdT) { clearTimeout(el._holdT); el._holdT = null; }
+    if (el.classList.contains("leaving") && --holding === 0) holdSeq = 0;
     el.classList.remove("leaving");
     el.style.opacity = "";
+    el.style.zIndex = "";
   }
   function hold(el) {
     if (el.classList.contains("leaving")) return;
     var o = getComputedStyle(el).opacity;
     el.style.opacity = o;
+    el.style.zIndex = String(++holdSeq);
+    holding++;
     el.classList.add("leaving");
     el._holdT = setTimeout(function () { dropHold(el); }, HOLD_MS);
   }
@@ -1057,7 +1065,12 @@ PAGER_JS = """
     if (cur !== lastCur && slides[lastCur]) {
       hold(slides[lastCur]);
     }
+    // a slide you come back to while it is still held fades up from the
+    // opacity it was left at (not a jump to full): pin that opacity inline
+    // while it turns active, then release it so the transition runs.
+    var resume = slides[cur].classList.contains("leaving") ? slides[cur].style.opacity : null;
     dropHold(slides[cur]);
+    if (resume !== null) slides[cur].style.opacity = resume;
     for (var i = 0; i < slides.length; i++) {
       if (i === cur) { slides[i].classList.add("active"); }
       else { slides[i].classList.remove("active"); }
@@ -1065,6 +1078,10 @@ PAGER_JS = """
       // next-up preview shows it as it will open)
       if (i !== cur) delete stepAt[i];
       applyStep(i);
+    }
+    if (resume !== null) {
+      void slides[cur].offsetWidth;   // commit the pinned opacity, then let it fade up
+      slides[cur].style.opacity = "";
     }
     if (cur !== lastCur) {
       var carried = carryChain(slides[lastCur], slides[cur]);
