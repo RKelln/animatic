@@ -1367,6 +1367,7 @@ def check_file(path, *, strict=False, extra_files=(), cues_path=None) -> Report:
 # ---------------------------------------------------------------------------
 
 CORPUS_CONFIG = "corpus.yaml"            # repo-root content-root declaration
+CORPUS_EXAMPLE = "corpus.example.yaml"   # tracked template for the above
 BANK_STATUSES = frozenset({"brief", "to-find", "file", "url", "prompting",
                            "candidate", "shortlist", "approved", "rejected"})
 BANK_REQUIRED = ("slug", "status", "type")
@@ -1802,10 +1803,24 @@ def corpus_config_path() -> Path:
     return Path(__file__).resolve().parent / CORPUS_CONFIG
 
 
-def load_corpus_config() -> Optional[dict]:
-    """{decks: [Path], concepts: [Path], banks: [Path]} from corpus.yaml.
-    None when the file is absent (the --corpus ROOT form needs no config)."""
-    p = corpus_config_path()
+def builtin_corpus_config() -> dict:
+    """The roots used when no corpus.yaml exists: the repo's own examples/.
+
+    A fresh clone runs `check.py --corpus` with no setup and checks the
+    specimens; anything more is the machine-local corpus.yaml's business."""
+    root = Path(__file__).resolve().parent
+    return {"decks": [root / "examples"], "concepts": [], "banks": []}
+
+
+def load_corpus_config(path: Optional[Path] = None) -> Optional[dict]:
+    """{decks: [Path], concepts: [Path], banks: [Path]} from corpus.yaml
+    (or PATH).  None when the file is absent.
+
+    Relative roots resolve against the config file's own directory — the repo
+    root — not the process CWD, so the same corpus.yaml means the same thing
+    from any directory."""
+    p = Path(path) if path is not None else corpus_config_path()
+    p = p.expanduser()
     if not p.is_file():
         return None
     try:
@@ -1814,12 +1829,17 @@ def load_corpus_config() -> Optional[dict]:
         data = {}
     if not isinstance(data, dict):
         data = {}
+    base = p.resolve().parent
     roots = {}
     for key in ("decks", "concepts", "banks"):
         vals = data.get(key) or []
-        roots[key] = [Path(str(v)).expanduser().resolve()
-                      for v in vals
-                      if isinstance(v, str) and str(v).strip()]
+        found = []
+        for v in vals:
+            if not isinstance(v, str) or not v.strip():
+                continue
+            q = Path(v.strip()).expanduser()
+            found.append((q if q.is_absolute() else base / q).resolve())
+        roots[key] = found
     return roots
 
 
@@ -1838,12 +1858,15 @@ def corpus_main(root: Optional[str] = None, *, strict: bool = False) -> int:
     else:
         cfg = load_corpus_config()
         if cfg is None:
-            print(f"check.py: error: no {CORPUS_CONFIG} beside check.py "
-                  f"({corpus_config_path()}) — create it from the template or "
-                  f"pass --corpus ROOT", file=sys.stderr)
-            return 2
+            cfg = builtin_corpus_config()
+            print(f"warn      : no {CORPUS_CONFIG} beside check.py — checking the "
+                  f"built-in examples/ root only.  Copy {CORPUS_EXAMPLE} to "
+                  f"{CORPUS_CONFIG} and list your own decks to check them.",
+                  file=sys.stderr)
+            label = f"built-in examples/ (no {CORPUS_CONFIG})"
+        else:
+            label = f"{CORPUS_CONFIG} ({corpus_config_path()})"
         roots = cfg
-        label = f"{CORPUS_CONFIG} ({corpus_config_path()})"
     missing = sorted({str(x) for key in ("decks", "concepts", "banks")
                       for x in roots[key] if not x.exists()})
     usable = {}

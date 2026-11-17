@@ -1,0 +1,34 @@
+# corpus.example.yaml — template for corpus.yaml, the content roots the corpus
+# harness scans (`python3 build.py --corpus`, `python3 check.py --corpus`).
+#
+# corpus.yaml is NOT tracked: it names where your own talks live, which is a
+# fact about one machine, not about this repo. Copy this file and edit it:
+#
+#     cp corpus.example.yaml corpus.yaml
+#
+# With no corpus.yaml beside check.py, the corpus check scans this repo's own
+# examples/ root and says so.  With one, these roots replace that default.
+#
+# Each root is scanned for decks (talk.md or *.talk.md). Every deck gets the full
+# per-deck check plus a fresh cues.json build, then cross-deck slug collisions are
+# reported once. The corpus check only reads; it never writes into a root.
+#
+# Relative paths resolve against the repo root (where this file lives), never
+# against your shell's working directory; ~ expands to your home.  A root that
+# is not there is reported and skipped, not fatal.
+#
+#   decks     roots scanned for deck directories.
+#   concepts  extra roots (notes, a wiki) whose frontmatter `tags:` feed the tag-drift
+#             and coverage reports. Deck roots contribute their own tags too.
+#   banks     shared media banks (library.yaml) outside the deck roots. A library.yaml
+#             under a deck root is included automatically.
+
+decks:
+  - examples
+  # - ~/talks/decks                     # your own decks, wherever they live
+
+concepts: []
+  # - ~/Documents/notes
+
+banks: []
+  # - ~/talks/decks/_media/library.yaml

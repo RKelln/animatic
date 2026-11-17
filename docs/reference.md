@@ -97,6 +97,12 @@ per-deck seam the `animatic-check` command and the corpus harness drive.
     python3 build.py --corpus              # roots declared in corpus.yaml
     python3 build.py --corpus <root>       # scan one directory as a corpus
 
+With no `corpus.yaml` beside `check.py` (it is machine-local and not tracked;
+`corpus.example.yaml` is the template), the corpus form checks this repo's own
+`examples/` root and warns that it is doing so.  Relative roots are resolved
+against the repo root, so the declaration means the same thing from any
+directory.
+
 Runs the full check over every deck under the declared content roots —
 per-deck PASS/FAIL with finding counts, cross-deck slug collisions (check 5)
 once, a shared-bank health sweep, and the tag drift / coverage reports

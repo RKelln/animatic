@@ -192,5 +192,29 @@ def check(errors: list) -> None:
             err(errors, "numbered family phase-1/phase-2 must not drift")
         if ("ai", "api") in got:
             err(errors, "3-char acronym pair ai/api must not drift")
+
+        # corpus.yaml is machine-local: relative roots mean repo-root-relative,
+        # a missing file is None (not an error), and the tracked template is
+        # the thing a machine copies.
+        cfgdir = tmp / "cfg"
+        _write(cfgdir / "corpus.yaml",
+               "decks:\n  - corpus\nconcepts: []\nbanks: []\n")
+        loaded = check_mod.load_corpus_config(cfgdir / "corpus.yaml")
+        want_abs = (cfgdir / "corpus").resolve()
+        if not loaded or loaded["decks"] != [want_abs]:
+            err(errors, f"a relative corpus root must resolve against the "
+                        f"config file's directory, got {loaded and loaded['decks']}")
+        if check_mod.load_corpus_config(cfgdir / "absent.yaml") is not None:
+            err(errors, "a missing corpus config must load as None")
+        builtin = check_mod.builtin_corpus_config()
+        if [p.name for p in builtin["decks"]] != ["examples"]:
+            err(errors, "the built-in fallback must be the repo examples/ root")
+        example = check_mod.corpus_config_path().with_name(check_mod.CORPUS_EXAMPLE)
+        if not example.is_file():
+            err(errors, f"{check_mod.CORPUS_EXAMPLE} is missing from the repo root")
+        else:
+            tmpl = check_mod.load_corpus_config(example)
+            if not tmpl or not tmpl["decks"]:
+                err(errors, f"{check_mod.CORPUS_EXAMPLE} must declare a deck root")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

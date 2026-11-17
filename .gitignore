@@ -1,6 +1,9 @@
 # generated build output (local previews, media-absolute, machine-made)
 out/
 
+# machine-local content roots: copy corpus.example.yaml -> corpus.yaml
+corpus.yaml
+
 # python
 __pycache__/
 *.pyc

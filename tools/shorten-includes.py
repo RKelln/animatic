@@ -185,7 +185,9 @@ def main(argv=None) -> int:
         cfg = check_mod.load_corpus_config() or {}
         roots = [Path(p) for p in cfg.get("decks", [])]
         if not roots:
-            print("shorten-includes: no paths given and corpus.yaml lists no deck roots",
+            print("shorten-includes: no paths given and corpus.yaml lists no "
+                  f"deck roots (copy {check_mod.CORPUS_EXAMPLE} to "
+                  f"{check_mod.CORPUS_CONFIG}, or pass paths)",
                   file=sys.stderr)
             return 2
 

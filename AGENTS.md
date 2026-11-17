@@ -23,7 +23,9 @@ missing browser exit 77 (skipped), they do not fail.
 - A deck is a folder holding `talk.md`, plus `media/` (pictures, `cards.yaml`,
   `gen-log.md`, `style.md`) beside it. Decks usually live **outside** this repo; the
   specimens here are in `examples/`.
-- `corpus.yaml` lists the content roots the corpus harness scans. Edit it for your machine.
+- `corpus.yaml` lists the content roots the corpus harness scans. It is **not tracked**
+  (it names where your talks live); copy `corpus.example.yaml` to `corpus.yaml` and
+  edit it. With none, the harness checks `examples/` and says so.
 - `templates/`: `cards.yaml`, `gen-log.md`, `style.md` as new decks inherit them.
 - `docs/`: the format spec and feature docs (`format-spec-v1.md` is normative).
 - `themes/`: CSS tokens and the two themes. `tests/README.md` explains the test layers.

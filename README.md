@@ -191,7 +191,7 @@ verifies a code change.
 - `examples/`: small specimens, not real talks.
 - `tests/`: golden and property suites, and browser tests.
 - `timing.yaml`: an optional file beside a talkfile with timing overrides (`animatic.timing.v1`), read and never written.
-- `corpus.yaml`: content roots for the corpus check (`python3 build.py --corpus`).
+- `corpus.example.yaml`: template for `corpus.yaml`, the machine-local content roots the corpus check scans (`python3 build.py --corpus`). `corpus.yaml` is not tracked; with none, the check scans `examples/`.
 
 ## Status and roadmap
 
