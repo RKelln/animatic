@@ -185,6 +185,8 @@ def check(errors: list) -> None:
             err(errors, "the manifest must say watch is false")
         if manifest.get("format") != cli.PACK_FORMAT:
             err(errors, f"manifest format is {manifest.get('format')!r}")
+        if manifest.get("waypoints") is not False:
+            err(errors, "a deck with no waypoints must seal waypoints: false")
         files = manifest.get("files") or {}
         if "present/index.html" not in files:
             err(errors, "the manifest must hash present/index.html")

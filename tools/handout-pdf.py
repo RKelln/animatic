@@ -41,7 +41,10 @@ def main() -> int:
                        + (["--handout-figures", a.figures] if a.figures else [])
                        + (["--no-handout-pools"] if a.no_pools else [])
                        + (["--no-handout-placeholders"] if a.no_placeholders else []),
-                       env={k: v for k, v in os.environ.items() if k != "ANIMATIC_WAYPOINT_TOKEN"})
+                       # never publish: no token from the environment or the key file
+                       env={**{k: v for k, v in os.environ.items()
+                               if k != "ANIMATIC_WAYPOINT_TOKEN"},
+                            "ANIMATIC_WAYPOINT_TOKEN_FILE": os.devnull})
     if r.returncode:
         return r.returncode
     pdf.parent.mkdir(parents=True, exist_ok=True)

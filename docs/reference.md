@@ -54,7 +54,7 @@ One watcher per `--out`: starting `--watch` on an `--out` that already has one s
 watcher first (it prints `replacing the watcher already running…`), so the newest wins. The
 owner is recorded in `.<out>.watch.pid` beside the folder (git-ignored); only a pid that is
 still a `build.py --watch` is signalled, and plain builds never are. This is how a watcher
-started without `ANIMATIC_WAYPOINT_TOKEN` is swapped for one with it. Linux only (`/proc`).
+started without a waypoint token is swapped for one with it. Linux only (`/proc`).
 
 ## Handout PDF
 

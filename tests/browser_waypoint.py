@@ -524,6 +524,7 @@ def build_scratch(tmp: Path, port: int, token: str | None) -> Path:
     out = tmp / "out"
     env = dict(os.environ)
     env.pop("ANIMATIC_WAYPOINT_TOKEN", None)
+    env["ANIMATIC_WAYPOINT_TOKEN_FILE"] = os.devnull   # hermetic: no machine key file
     if token:
         env["ANIMATIC_WAYPOINT_TOKEN"] = token
     r = subprocess.run([sys.executable, str(REPO / "build.py"), str(talk), "--out", str(out)],

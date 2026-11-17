@@ -257,7 +257,10 @@ def main() -> int:
         atexit.register(shutil.rmtree, work, ignore_errors=True)
     r = subprocess.run([sys.executable, str(ROOT / "build.py"), str(talk), "--out", str(work),
                         "--no-handout-placeholders"] + (["--home-page"] if a.home else []), stdout=subprocess.DEVNULL,
-                       env={k: v for k, v in os.environ.items() if k != "ANIMATIC_WAYPOINT_TOKEN"})
+                       # never publish: no token from the environment or the key file
+                       env={**{k: v for k, v in os.environ.items()
+                               if k != "ANIMATIC_WAYPOINT_TOKEN"},
+                            "ANIMATIC_WAYPOINT_TOKEN_FILE": os.devnull})
     if r.returncode:
         return r.returncode
     html = (work / "document" / "index.html").read_text(encoding="utf-8")

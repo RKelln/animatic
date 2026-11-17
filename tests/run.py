@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import os
 import shutil
 import sys
 import tempfile
@@ -45,6 +46,10 @@ TESTS = Path(__file__).resolve().parent
 REPO = TESTS.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(TESTS))
+
+# The suite must never read this machine's waypoint key file: publishing is opted
+# into per test (ANIMATIC_WAYPOINT_TOKEN), never inherited from ~/.config.
+os.environ["ANIMATIC_WAYPOINT_TOKEN_FILE"] = os.devnull
 
 import build as build_mod  # noqa: E402
 from properties import (check_props, cli_props, code_props, corpus_props, cue_props, html_props,  # noqa: E402

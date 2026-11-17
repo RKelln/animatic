@@ -52,10 +52,42 @@ waypoints:
 
 ### Token
 
-The token comes from `ANIMATIC_WAYPOINT_TOKEN` at build time, and goes only into
-`present/index.html`. A build without it is inert: nothing is published and no
-status appears, so ordinary and rehearsal builds can't touch a live room. An inert build also **refuses to replace** an output that already publishes (it finds the publisher in the existing `present/index.html`), including a `--watch` rebuild, which keeps the keyed deck and prints `build FAILED (exit 2)`. `--allow-inert` replaces it on purpose. (This guards against a token-less rebuild silently replacing the keyed deck you then carry to the venue.) Web
-export ships no present view, so the token can't reach a public page.
+The token reaches the build two ways, and the environment wins when both are set:
+
+- `ANIMATIC_WAYPOINT_TOKEN=...` for one command, or
+- the machine's key file, `~/.config/animatic/waypoint-token` (the path can be
+  overridden with `ANIMATIC_WAYPOINT_TOKEN_FILE`).
+
+Prefer the file. The secret is then not typed into every build command, it stays
+out of shell history, and — the reason it exists — a `--watch` started on another
+machine over ssh (pull-deck.sh does exactly that) inherits no environment, so an
+env-only token would leave that watcher inert and refusing to replace the keyed
+deck. A file on the box is read by the watcher itself. Create it without echoing
+the value:
+
+```sh
+install -d -m 700 ~/.config/animatic
+(umask 077; read -rs -p 'waypoint token: ' T && printf '%s' "$T" > ~/.config/animatic/waypoint-token && echo)
+```
+
+One line, the token only; the build trims it, treats blank as none, and warns if
+group or others can read the file (`chmod 600` it). The build log names the
+source (`token from /home/you/.config/animatic/waypoint-token`) and never prints
+the value.
+
+The token goes only into `present/index.html`. A build without one is inert: nothing is
+published and no status appears, so ordinary and rehearsal builds can't touch a live
+room. An inert build also **refuses to replace** an output that already publishes (it
+finds the publisher in the existing `present/index.html`), including a `--watch`
+rebuild, which keeps the keyed deck and prints `build FAILED (exit 2)`.
+`--allow-inert` replaces it on purpose. (This guards against a token-less rebuild
+silently replacing the keyed deck you then carry to the venue.) The handout PDF, the
+web export and the document view ship no present page, and both tools strip the token
+explicitly, so it can't reach a public page.
+
+A packed copy (`animatic pack`) can carry the token — that is how it publishes from the
+room — so `BUILD.json` records `waypoints: true` and the pack says so when it seals.
+Treat such a folder as room equipment: don't publish it, don't hand it out.
 
 ### When the deck publishes
 

@@ -124,6 +124,39 @@ def main(argv=None) -> int:
     return build(talk_path, args)
 
 
+TOKEN_FILE_ENV = "ANIMATIC_WAYPOINT_TOKEN_FILE"
+TOKEN_FILE = "~/.config/animatic/waypoint-token"
+
+
+def waypoint_token() -> tuple:
+    """(token, where it came from); ("", "") when there is none.
+
+    ANIMATIC_WAYPOINT_TOKEN wins.  Otherwise the machine's key file
+    (`~/.config/animatic/waypoint-token`, or the path in
+    ANIMATIC_WAYPOINT_TOKEN_FILE).  The file is why the secret is not typed into
+    every build command and never travels inside the ssh command that starts a
+    remote `--watch`.  Trimmed; blank is none.  Never print what this returns:
+    the caller may print the source, which is not a secret.
+    """
+    env = os.environ.get("ANIMATIC_WAYPOINT_TOKEN", "").strip()
+    if env:
+        return env, "ANIMATIC_WAYPOINT_TOKEN"
+    path = Path(os.environ.get(TOKEN_FILE_ENV, "").strip() or TOKEN_FILE).expanduser()
+    try:
+        token = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "", ""
+    if not token:
+        return "", ""
+    try:
+        if path.stat().st_mode & 0o077:
+            print(f"warn      : {path} is readable by group or others; "
+                  f"chmod 600 {path}", file=sys.stderr)
+    except OSError:
+        pass
+    return token, str(path)
+
+
 def publishes_waypoints(present_index: Path) -> bool:
     """True if this built present page carries the waypoint publisher (a build
     with the token has the Authorization header in it; an inert one has not)."""
@@ -169,16 +202,18 @@ def build(talk_path: Path, args) -> int:
         return 1
 
     # A build without the token must not silently replace one that has it: the
-    # deck that was carried to the venue would stop publishing and say nothing
-    #.  A watcher builds beside the output and swaps it in,
-    # so it names the folder it will replace in args.replaces.
-    if not os.environ.get("ANIMATIC_WAYPOINT_TOKEN", "").strip() and not getattr(args, "allow_inert", False):
+    # deck carried to the venue would stop publishing and say nothing.  A
+    # watcher builds beside the output and swaps it in, so it names the folder
+    # it will replace in args.replaces.
+    wp_token, wp_source = waypoint_token()
+    if not wp_token and not getattr(args, "allow_inert", False):
         prior = Path(getattr(args, "replaces", None) or args.out).expanduser().resolve() / "present" / "index.html"
         if publishes_waypoints(prior):
             print(f"error: {prior.parent.parent} holds a deck that publishes waypoints, "
-                  f"and this build has no ANIMATIC_WAYPOINT_TOKEN, so it would replace it "
-                  f"with one that publishes nothing.  Set the token, or pass --allow-inert "
-                  f"to replace it on purpose.", file=sys.stderr)
+                  f"and this build has no waypoint token, so it would replace it "
+                  f"with one that publishes nothing.  Set ANIMATIC_WAYPOINT_TOKEN "
+                  f"or put the token in {TOKEN_FILE} (chmod 600), or pass "
+                  f"--allow-inert to replace it on purpose.", file=sys.stderr)
             return 2
 
     out = Path(args.out).expanduser().resolve()
@@ -218,8 +253,7 @@ def build(talk_path: Path, args) -> int:
               f"for a draft copy)")
 
     # waypoints (docs/waypoints.md): the token goes into present/index.html only,
-    # and a build without it publishes nothing.  It is never printed.
-    wp_token = os.environ.get("ANIMATIC_WAYPOINT_TOKEN", "").strip()
+    # and a build without one publishes nothing.  It is never printed.
     present = render_present(talk, resolver, out / "present",
                              waypoint_token=wp_token)
     presenter = render_presenter(talk, resolver, out / "present",
@@ -249,9 +283,10 @@ def build(talk_path: Path, args) -> int:
     wp_marked = [s for s in talk.screens if s.waypoint]
     if wp_marked:
         print(f"waypoints : {len(wp_marked)} marked; "
-              + ("publishing ON in present/index.html (token from "
-                 "ANIMATIC_WAYPOINT_TOKEN)" if wp_token else
-                 "inert (ANIMATIC_WAYPOINT_TOKEN not set)"))
+              + (f"publishing ON in present/index.html (token from {wp_source})"
+                 if wp_token else
+                 "inert (no waypoint token: set ANIMATIC_WAYPOINT_TOKEN or "
+                 f"write {TOKEN_FILE})"))
     roles = {r: 0 for r in ("stat", "lower", "credits")}
     for s in talk.screens:
         for b in s.blocks:

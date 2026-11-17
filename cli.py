@@ -328,6 +328,11 @@ def _manifest(talk: Path, out: Path, *, strict: bool) -> dict:
         "theme": str(meta.get("theme") or ""),
         "dur": str(meta.get("dur") or ""),
         "watch": False,
+        # Publishing state, read off the built page rather than assumed: a packed
+        # copy can carry the waypoint token (it posts from the room), and that
+        # should be visible in the manifest, not discovered later.
+        "waypoints": bool(build_mod.publishes_waypoints(
+            out / "present" / "index.html")),
         "strict": bool(strict),
         "source": {"talkfile_sha256": _sha256(talk), "bytes": talk_bytes},
         "total_bytes": sum((out / rel).stat().st_size for rel in files),
@@ -455,6 +460,11 @@ def cmd_pack(argv: list) -> int:
     print(f"sealed   : {out}")
     print(f"           {manifest['slug']} · {len(manifest['files'])} file(s) · "
           f"{manifest['total_bytes'] / (1 << 20):.1f} MB · {PACK_FILE} written")
+    if manifest["waypoints"]:
+        print("publishing: this copy carries the waypoint token — leave it in "
+              "the room, do not hand it out or publish the folder")
+    else:
+        print("publishing: none (the deck posts no waypoints)")
     print("present  : open present/index.html (file:// is a supported way to "
           "present — docs/live-capture.md)")
     print("verify   : animatic pack --verify --out " + str(out))

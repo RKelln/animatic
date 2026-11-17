@@ -81,10 +81,13 @@ this is the deck's half).
   alongside other tokens: `<!-- shot: reveal=timer live waypoint=expanding -->`), and give the talk `waypoints: { url: https://example.com/event/waypoint/demo }` in its
   frontmatter. A word is lowercase letters, digits and hyphens, up to 24, used once. Put
   `start` on the first screen. It belongs in the talkfile, never in a section.
-- `ANIMATIC_WAYPOINT_TOKEN=... python3 build.py <talk>` builds a deck that publishes. The
-  token goes into `present/index.html` and nowhere else, and is never printed. Without it
-  the build is **inert**: nothing is sent and there is no status line or `w` key, so a
-  rehearsal build cannot touch a live room.
+- `ANIMATIC_WAYPOINT_TOKEN=... python3 build.py <talk>` builds a deck that publishes.
+  The token can also come from the machine key file
+  (`~/.config/animatic/waypoint-token`, chmod 600), which is the easier path: no
+  secret in shell history, and a `--watch` started over ssh still publishes. The
+  token goes into `present/index.html` and nowhere else, and is never printed.
+  Without one the build is **inert**: nothing is sent and there is no status line
+  or `w` key, so a rehearsal build cannot touch a live room.
 - A publishing deck POSTs the bare word with `Authorization: Bearer <token>` (async, 3 s
   timeout, one retry, never blocks paging) when `next()` arrives at a marked slide later
   than the last word sent, and on load at screen 1 with no `#` in the address (`start`).

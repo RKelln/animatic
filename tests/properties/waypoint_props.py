@@ -317,5 +317,42 @@ def check(errors: list) -> None:
             err(errors, "waypoint: an inert waypoint build's presenter page differs from the same deck with none")
         if "presenter-waypoint" in re.sub(r"<script>.*?</script>", "", pres_b, flags=re.DOTALL):
             err(errors, "waypoint: a deck with no waypoints has a status line")
+
+        # --- where the token comes from -------------------------------------------
+        # The env var wins; otherwise the machine key file (so the secret is not
+        # typed per build and never rides in a remote watch's ssh command).
+        token_file = tmp / "waypoint-token"
+        token_file.write_text("  FIXTURE-TOKEN\n", encoding="utf-8")
+        token_file.chmod(0o600)
+        saved = {k: os.environ.get(k) for k in
+                 ("ANIMATIC_WAYPOINT_TOKEN", "ANIMATIC_WAYPOINT_TOKEN_FILE")}
+        try:
+            os.environ.pop("ANIMATIC_WAYPOINT_TOKEN", None)
+            os.environ["ANIMATIC_WAYPOINT_TOKEN_FILE"] = str(token_file)
+            got, src = build_mod.waypoint_token()
+            if got != "FIXTURE-TOKEN" or src != str(token_file):
+                err(errors, f"waypoint token: the key file is not read/trimmed, "
+                            f"got {(got, src)!r}")
+            os.environ["ANIMATIC_WAYPOINT_TOKEN"] = "ENV-WINS"
+            got, src = build_mod.waypoint_token()
+            if got != "ENV-WINS" or src != "ANIMATIC_WAYPOINT_TOKEN":
+                err(errors, f"waypoint token: the env var must win, got {(got, src)!r}")
+            os.environ.pop("ANIMATIC_WAYPOINT_TOKEN", None)
+            os.environ["ANIMATIC_WAYPOINT_TOKEN_FILE"] = str(tmp / "absent-token")
+            got, src = build_mod.waypoint_token()
+            if got or src:
+                err(errors, f"waypoint token: a missing key file must mean none, "
+                            f"got {(got, src)!r}")
+            token_file.write_text("   \n", encoding="utf-8")
+            os.environ["ANIMATIC_WAYPOINT_TOKEN_FILE"] = str(token_file)
+            got, _ = build_mod.waypoint_token()
+            if got:
+                err(errors, "waypoint token: a blank key file must mean none")
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
