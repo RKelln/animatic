@@ -59,6 +59,14 @@ def _run(argv: list) -> tuple:
     return code, buf.getvalue()
 
 
+def _call(main_fn, argv: list) -> tuple:
+    """(exit code, stdout, stderr) for a tools/*.py main(), both streams captured."""
+    out, errbuf = io.StringIO(), io.StringIO()
+    with redirect_stdout(out), redirect_stderr(errbuf):
+        code = main_fn(argv)
+    return code, out.getvalue(), errbuf.getvalue()
+
+
 def _code(argv: list) -> int:
     """Exit code only: every word the CLI says is swallowed, both streams."""
     with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
@@ -95,6 +103,9 @@ def check(errors: list) -> None:
             err(errors, "a folder with no talkfile must be an error")
         except cli.DeckError:
             pass
+
+        dup = tmp / "dup"
+        _write(dup / "a.talk.md", TALK.format(slug="a-three", title="A three"))
 
         # -- the out-folder rule ----------------------------------------------
         w04 = tmp / "W04-ai-job-search"
@@ -139,6 +150,24 @@ def check(errors: list) -> None:
             err(errors, f"clean deck reported {row.get('fatal')} fatals")
         if code == 0 and row and row.get("exit_code") != 0:
             err(errors, "check --json disagrees with its own exit code")
+
+        # -- find-talkfile.py: the reverse lookup, over the same table --------
+        finder = cli.load_tool("find-talkfile")
+        code, out, _ = _call(finder.main, ["--outdir", "out-solo",
+                                           "--corpus", str(corpus)])
+        want = str((one / "talk.md").resolve())
+        if code != 0 or out.strip() != want:
+            err(errors, f"find-talkfile mapped out-solo to {out.strip()!r} "
+                        f"(exit {code}), wanted {want}")
+        code, _, _ = _call(finder.main, ["--outdir", "out-a", "--corpus",
+                                         str(corpus)])
+        if code != 2:
+            err(errors, f"find-talkfile must refuse an ambiguous outdir (exit 2), "
+                        f"got {code}")
+        code, _, _ = _call(finder.main, ["--outdir", "out-nope", "--corpus",
+                                         str(corpus)])
+        if code != 1:
+            err(errors, "find-talkfile must exit 1 when nothing matches")
 
         # -- pack --------------------------------------------------------------
         out_dir = tmp / "out-pack"

@@ -62,7 +62,7 @@ Media is part of the format. Each picture is a card that records its credit and 
 > The format is the contract. The code behind it can change.
 ~ AGENTS.md
 
-A talkfile is text with a small checked grammar, so a coding agent can write one, run the check, read the findings and fix them. The `animatic-check` command is deterministic, and so is the build: the same file gives the same bytes.
+A talkfile is text with a small checked grammar, so a coding agent can write one, run the check, read the findings and fix them. The `animatic check` command is deterministic, and so is the build: the same file gives the same bytes.
 
 <!-- shot: lamp text=light -->
 ### Timing is part of the script

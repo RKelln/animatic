@@ -1,80 +1,49 @@
 #!/usr/bin/env python3
-"""find-talkfile.py — which talk.md built out-<slug>? Runs on the content box.
+"""find-talkfile.py — which talkfile built out-<slug>? Runs on the content box.
 
     python3 tools/find-talkfile.py --outdir out-demo [--corpus corpus.yaml]
 
-Maps an output folder back to the talkfile that produced it, so pull-deck.sh can
-start a watch without being told where the deck lives. The rule is the one
-pull-deck.sh already uses for the folder name: out- + the first dash-separated
-segment of the deck's frontmatter slug, lowercased.
+Answers the reverse of the build: given an output folder, the talkfile that
+produced it. pull-deck.sh uses it to start a watch without being told where the
+deck lives.
 
-Reads the frontmatter with a regex, not talkparse, on purpose: discovery must not
-fail because a deck is half-saved while you are watching it.
+It is a READER of the CLI's identity table, not a second copy of it: `animatic
+decks` owns the rule ("out- + the first dash-separated segment of the frontmatter
+slug, lowercased") and the corpus question, so this asks it instead of parsing
+corpus.yaml and the frontmatter again.  That duplicate is what went stale when
+corpus.yaml stopped naming the decks.
 
 Exit: 0 and one path on stdout; 1 nothing matched; 2 more than one matched
 (candidates on stderr, listed, never guessed).
 """
 import argparse
-import pathlib
-import re
 import sys
+from pathlib import Path
 
-
-def deck_roots(corpus: pathlib.Path) -> list:
-    """The `decks:` list from corpus.yaml, without a yaml dependency."""
-    try:
-        text = corpus.read_text(encoding="utf-8")
-    except OSError:
-        return []
-    roots, inside = [], False
-    for line in text.splitlines():
-        if re.match(r"^decks:\s*$", line):
-            inside = True
-            continue
-        if inside:
-            if re.match(r"^\S", line):      # the next top-level key ends the list
-                inside = False
-                continue
-            m = re.match(r"^\s*-\s*(\S.*?)\s*$", line)
-            if m:
-                roots.append(pathlib.Path(m.group(1)).expanduser())
-    return roots
-
-
-def slug_of(talk: pathlib.Path) -> str:
-    try:
-        head = talk.read_text(encoding="utf-8", errors="replace")[:4000]
-    except OSError:
-        return ""
-    m = re.search(r"^---\n(.*?)\n---", head, re.S)
-    block = m.group(1) if m else ""
-    m = re.search(r"^slug:\s*['\"]?([^'\"\n]+)", block, re.M)
-    return (m.group(1).strip() if m else talk.parent.name).lower()
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import cli  # noqa: E402  (the identity table)
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        description="Which talkfile built an out-* folder (reads `animatic "
+                    "decks`).")
     ap.add_argument("--outdir", required=True, help="e.g. out-demo")
-    ap.add_argument("--corpus", default=str(pathlib.Path(__file__).resolve().parent.parent
-                                            / "corpus.yaml"))
+    ap.add_argument("--corpus", default=None, metavar="PATH",
+                    help="a corpus file other than the repo's corpus.yaml")
     a = ap.parse_args(argv)
-    hits = []
-    for root in deck_roots(pathlib.Path(a.corpus).expanduser()):
-        if not root.is_dir():
-            continue
-        for d in sorted(root.iterdir()):
-            talks = ([d / "talk.md"] if (d / "talk.md").is_file() else []) + \
-                    sorted(d.glob("*.talk.md"))
-            for t in talks:
-                if "out-" + slug_of(t).split("-")[0] == a.outdir:
-                    hits.append(str(t))
+
+    hits = [r["talkfile"] for r in cli.deck_rows(corpus=a.corpus)
+            if r["outdir"] == a.outdir]
     if len(hits) == 1:
         print(hits[0])
         return 0
     if not hits:
-        print(f"no talkfile maps to {a.outdir} under the corpus roots", file=sys.stderr)
+        print(f"no talkfile maps to {a.outdir} under the corpus roots",
+              file=sys.stderr)
         return 1
-    print(f"{a.outdir} is ambiguous, {len(hits)} talkfiles map to it:", file=sys.stderr)
+    print(f"{a.outdir} is ambiguous, {len(hits)} talkfiles map to it:",
+          file=sys.stderr)
     for h in hits:
         print(f"  {h}", file=sys.stderr)
     return 2

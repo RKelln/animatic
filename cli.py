@@ -116,7 +116,7 @@ def _has_out_flag(argv: list) -> bool:
     return any(t == "--out" or t.startswith("--out=") for t in argv)
 
 
-def _load_tool(name: str):
+def load_tool(name: str):
     """Import a hyphenated script in tools/ by path: a filename with a dash is
     not importable, and renaming it would move a documented command."""
     path = ROOT / "tools" / f"{name}.py"
@@ -227,7 +227,7 @@ def cmd_check(argv: list) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_serve(argv: list) -> int:
-    mod = _load_tool("serve-deck")
+    mod = load_tool("serve-deck")
     return int(mod.main(argv) or 0)
 
 
@@ -253,20 +253,18 @@ def _corpus_roots(corpus: Optional[str]) -> dict:
     return cfg
 
 
-def cmd_decks(argv: list) -> int:
-    ap = argparse.ArgumentParser(prog="animatic decks",
-                                 description="Every deck the content roots hold, "
-                                             "with the folder it builds into.")
-    ap.add_argument("--json", action="store_true", help="machine-readable rows")
-    ap.add_argument("--corpus", metavar="PATH",
-                    help="a corpus file other than the repo's corpus.yaml")
-    a = ap.parse_args(argv)
+def deck_rows(corpus: Optional[str] = None, cfg: Optional[dict] = None) -> list:
+    """The identity table: one row per deck under the content roots.
 
-    cfg = _corpus_roots(a.corpus)
+    `outdir`, `slug`, `title`, `theme`, `dur`, `talkfile`.  Shared by
+    `animatic decks` and `tools/find-talkfile.py`, so the out-folder rule and the
+    corpus question exist in exactly one place."""
+    cfg = cfg if cfg is not None else _corpus_roots(corpus)
     rows = []
     for root in cfg.get("decks", []):
         if not root.is_dir():
-            print(f"animatic decks: skipping missing root {root}", file=sys.stderr)
+            print(f"animatic: skipping missing content root {root}",
+                  file=sys.stderr)
             continue
         for talk in check_mod.discover_decks(root):
             meta = deck_meta(talk)
@@ -279,6 +277,20 @@ def cmd_decks(argv: list) -> int:
                 "talkfile": str(talk),
             })
     rows.sort(key=lambda r: (r["outdir"], r["talkfile"]))
+    return rows
+
+
+def cmd_decks(argv: list) -> int:
+    ap = argparse.ArgumentParser(prog="animatic decks",
+                                 description="Every deck the content roots hold, "
+                                             "with the folder it builds into.")
+    ap.add_argument("--json", action="store_true", help="machine-readable rows")
+    ap.add_argument("--corpus", metavar="PATH",
+                    help="a corpus file other than the repo's corpus.yaml")
+    a = ap.parse_args(argv)
+
+    cfg = _corpus_roots(a.corpus)
+    rows = deck_rows(cfg=cfg)
 
     if a.json:
         print(json.dumps({"decks": rows}, indent=2, sort_keys=True,
