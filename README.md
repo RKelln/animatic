@@ -44,9 +44,21 @@ Requires Python 3.10 or newer. Python 3.12 is what it is developed on.
 
 ```sh
 git clone https://github.com/RKelln/animatic.git && cd animatic
-uv sync                      # or: python3 -m venv .venv && .venv/bin/pip install -e .
-uv run animatic examples/tour/talk.md --out /tmp/demo
+uv sync                                   # or: python3 -m venv .venv && .venv/bin/pip install -e .
+uv run animatic build examples/tour/talk.md --out /tmp/demo
 ```
+
+To have `animatic` on your PATH instead, install it from the checkout:
+
+```sh
+uv tool install --editable .              # `animatic` lands in ~/.local/bin
+animatic build examples/tour/talk.md --out /tmp/demo
+```
+
+Install it **editable**, the same way `uv sync` does: `themes/` and `templates/`
+sit beside the code and are not packaged, so a normal (non-editable) install
+builds with no themes, and the checkout you edit stops mattering. Editable means
+`git pull` is the upgrade, and `uv tool uninstall animatic` removes it.
 
 Then open `/tmp/demo/present/index.html` in a browser. Arrow keys page through the
 slides; `s` opens the presenter window (below). `/tmp/demo/document/index.html` is the
