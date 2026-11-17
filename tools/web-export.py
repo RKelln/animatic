@@ -86,6 +86,9 @@ pre.paste-box { margin: 0; padding: 0.8em 1em; font-family: var(--font-mono, mon
   border-radius: 0.4em; }
 .copy-wrap { position: relative; margin: 1.2em 0; }
 .ex-card .copy-wrap { margin: 0; }
+.ex-agent { margin: 0.8em 0 0; font-size: 0.92rem; }
+.ex-agent summary { cursor: pointer; color: var(--doc-link, inherit); }
+.ex-agent p { margin: 0.5em 0 0; }
 .copy-wrap > pre, .copy-wrap > blockquote { margin: 0; }
 /* The button sits inside the box, at its right edge; the text keeps clear of it. */
 .js .copy-wrap > pre, .js .copy-wrap > blockquote { padding-right: 6.2em; }
@@ -168,7 +171,11 @@ def setup_card(agent_url: str, coding_agent_url: str) -> str:
             '<p class="ex-kicker">Before you start</p><h3 class="ex-title">Set up your agent</h3>'
             f'<p>{SETUP_LINE}</p>'
             '<div class="ex-paste">'
-            f'<pre class="paste-box">{paste}</pre></div>{more}</aside>')
+            f'<pre class="paste-box">{paste}</pre></div>{more}'
+            '<details class="ex-agent"><summary title="Instructions for an AI agent helping a person do this workshop">Are you an AI agent?</summary>'
+            '<p>If a person has asked you to do this workshop with them, read '
+            f'<a href="{escape(agent_url, quote=True)}">workshop-with-your-agent.md</a> and set it up with them. '
+            'Ask them before you download, install or change anything.</p></details></aside>')
 
 
 def web_videos(html: str, work: Path) -> tuple[str, dict]:
@@ -257,7 +264,14 @@ def main() -> int:
     html = re.sub(r"(</title>\n?)", r"\1" + head.replace("\\", "\\\\"), html, count=1)
 
     if a.home:
-        html = html.replace("</head>", HOME_CSS + "</head>", 1)
+        agent_links = ""
+        if meta.get("agent") and a.agent_url:
+            llms = a.agent_url.rsplit("/", 1)[0] + "/llms.txt"
+            agent_links = (f'<link rel="alternate" type="text/markdown" title="Run this workshop with your agent" '
+                           f'href="{escape(a.agent_url, quote=True)}">\n'
+                           f'<link rel="alternate" type="text/plain" title="llms.txt: start here if you are an AI agent" '
+                           f'href="{escape(llms, quote=True)}">\n')
+        html = html.replace("</head>", agent_links + HOME_CSS + "</head>", 1)
         if meta.get("agent") and a.agent_url:
             html = re.sub(r'<section class="(?:opening|movement)"',
                           lambda m: setup_card(a.agent_url, a.coding_agent_url or "") + m.group(0),
