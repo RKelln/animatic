@@ -106,6 +106,10 @@ class RangeHandler(SimpleHTTPRequestHandler):
             print(line, flush=True)
 
     def _report(self):
+        # The reload poll asks for ../_watch.js once a second per open page.  It
+        # is not news, and logged it buries the requests that are.
+        if self._name() == RELOAD_POLL:
+            return
         if self.quiet or self.command not in ("GET", "HEAD") or self._status == "-":
             return
         dt = time.time() - self._t0
@@ -211,6 +215,7 @@ def decks_under(base):
 
 
 LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+RELOAD_POLL = "_watch.js"
 ANY_ADDR = {"0.0.0.0", "::", ""}
 
 
@@ -261,7 +266,8 @@ def banner(directory, bind, port, quiet=False, deck=None):
     if not decks:
         print("  no built deck found under it (expected <dir>/out-*/present/index.html)")
     if not quiet:
-        print("log: time  status  file  range  sent of total  duration  flags\n", flush=True)
+        print("log: time  status  file  range  sent of total  duration  flags"
+              "   (the _watch.js reload poll is not logged)\n", flush=True)
 
 
 def main(argv=None):

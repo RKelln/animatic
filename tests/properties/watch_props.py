@@ -2,17 +2,15 @@
 
 `_watch.js` says "a watcher is building here" — `animatic pack` and the
 transport scripts read that.  The `<script>` injected into each page is what
-actually refreshes an open tab, and it is opt-in (`--reload`), because a reload
-while you are typing loses your place.  Turning reload off must not turn the
-marker off, or a watch build starts looking like a sealed one.
+actually refreshes an open tab, and it is the default (`--no-reload` opts out).
+Turning reload off must not turn the marker off, or a watch build starts looking
+like a sealed one.
 """
 
 from __future__ import annotations
 
-import io
 import shutil
 import tempfile
-from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import build as build_mod
@@ -52,12 +50,11 @@ def check(fx, errors: list) -> None:
     if "stamp-two" not in marker.read_text(encoding="utf-8"):
         err(errors, "the stamp goes last, so it carries the newest build")
 
-    # A flag that does nothing without its partner is a usage error, not a no-op.
-    code = 0
-    try:
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            build_mod.main([str(fx.talkfile), "--out", str(tmp / "plain"), "--reload"])
-    except SystemExit as exc:
-        code = exc.code
-    if code != 2:
-        err(errors, f"--reload without --watch must exit 2 (got {code})")
+    # Reload is what --watch is for, so it is the default; --no-reload opts out.
+    ap = build_mod.parser()
+    if not ap.parse_args(["x.md", "--watch"]).reload:
+        err(errors, "--watch must reload open pages by default")
+    if ap.parse_args(["x.md", "--watch", "--no-reload"]).reload:
+        err(errors, "--no-reload must turn the snippet off")
+    if not ap.parse_args(["x.md", "--watch", "--reload"]).reload:
+        err(errors, "--reload must still read as an explicit yes")

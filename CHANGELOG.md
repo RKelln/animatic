@@ -2,11 +2,11 @@
 
 ## Unreleased
 
-- Watch builds no longer reload open pages by default: `_watch.js` stays (it is
-  the "a watcher is building here" marker that `pack` and the transport scripts
-  read) but the reload snippet is opt-in with `--reload`. A reload that fires
-  mid-typing throws away your place, and the one-line `build ok in 1.2s` already
-  tells you the save landed.
+- The deck server no longer logs the reload poll: a watched page asks for
+  `_watch.js` once a second, and those lines were burying the requests that
+  matter. The poll still happens; the log just says so once, in its header.
+- `--no-reload` turns the watch build's page refresh off, for when a reload
+  would lose your place. Reload is otherwise what `--watch` does.
 - `-q/--quiet` and `-v/--verbose` on `build` (and through `serve`): the summary
   prints once, then one line per rebuild; `-v` keeps the essay every time, `-q`
   keeps only problems.

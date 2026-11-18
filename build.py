@@ -46,7 +46,9 @@ from render import (cited_sources, render_cues, render_document, render_manifest
                     render_present, render_presenter)
 
 
-def main(argv=None) -> int:
+def parser() -> argparse.ArgumentParser:
+    """The command line.  A function so tests can ask what a flag
+    defaults to without building a deck."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("talkfile", nargs="?", help="path to the talkfile "
                     "(markdown); omit when --corpus is used")
@@ -99,10 +101,12 @@ def main(argv=None) -> int:
                          "file beside it, its media/ dir or the remap changes; "
                          "one line per rebuild (--verbose for the full summary, "
                          "--reload to have open pages refresh themselves)")
-    ap.add_argument("--reload", action="store_true",
-                    help="with --watch: open pages reload themselves after each "
-                         "build.  Off by default: a reload mid-typing loses your "
-                         "place, so refresh when you want to see the change")
+    ap.add_argument("--reload", dest="reload", action="store_true", default=True,
+                    help="with --watch (the default): open pages reload themselves "
+                         "after each build")
+    ap.add_argument("--no-reload", dest="reload", action="store_false",
+                    help="with --watch: inject no reload snippet; refresh the page "
+                         "yourself when you want to see the change")
     ap.add_argument("-q", "--quiet", action="store_true",
                     help="print problems and the one-line result, never the "
                          "build summary")
@@ -115,12 +119,15 @@ def main(argv=None) -> int:
                          "process that started it (pull-deck.sh heartbeats this)")
     ap.add_argument("--lease-timeout", type=float, default=60.0, metavar="SECS",
                     help="how stale the --lease heartbeat may get (default 60)")
+    return ap
+
+
+def main(argv=None) -> int:
+    ap = parser()
     args = ap.parse_args(argv)
 
     if args.lease and not args.watch:
         ap.error("--lease only means something with --watch")
-    if args.reload and not args.watch:
-        ap.error("--reload only means something with --watch")
 
     global SUMMARY
     SUMMARY = not args.quiet
@@ -538,7 +545,7 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
             rc = build(talk_path, args)
             if rc == 0:
                 stamp = f"{time.time_ns()}"
-                if getattr(args, "reload", False):
+                if getattr(args, "reload", True):
                     inject_reload(stage or final, stamp)
                 else:
                     stamp_watch(stage or final, stamp)

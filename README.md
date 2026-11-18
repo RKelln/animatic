@@ -135,7 +135,7 @@ This slide shows a five-minute timer.
 uv run animatic check talk.md          # 0 fatal means the file is well formed
 uv run animatic build talk.md          # render into out-<slug>/
 uv run animatic build talk.md --watch          # rebuild on every save (one line per rebuild)
-uv run animatic build talk.md --watch --reload # ...and open pages refresh themselves
+uv run animatic build talk.md --watch --no-reload # ...without the page refreshing itself
 ```
 
 `animatic` with no arguments lists its commands; `animatic pack` seals a folder you
@@ -156,7 +156,7 @@ The full grammar is `docs/format-spec-v1.md`.
 | `animatic pack [DECK] [--out DIR] [--inert]` | a sealed, presentable copy: plain build + check + a hashed `BUILD.json`; `--verify` re-checks a copy on any machine, `--inert` leaves the waypoint publisher out |
 | `animatic token [--show\|--check]` | store the waypoint publishing token (prompt, no echo, mode 0600) or report a fingerprint of the one in use |
 | `animatic decks [--json]` | every deck the content roots hold, with the folder it builds into |
-| `animatic build [--watch [--reload] [-q\|-v]]` | render present + document views; `--reload` opts into page self-refresh (off by default — a reload mid-typing loses your place), `-q` keeps only problems and the one-line result, `-v` repeats the full summary on every rebuild |
+| `animatic build [--watch [--no-reload] [-q\|-v]]` | render present + document views; `--watch` rebuilds on every save and refreshes open pages (`--no-reload` when a reload would lose your place), `-q` keeps only problems and the one-line result, `-v` repeats the full summary on every rebuild |
 | `animatic serve [DECK] [--watch]` | serve built decks with video Range support; `--watch` also keeps DECK building, in the same process, so one terminal and one command do both — `--bind tailscale` listens on this box's tailnet address |
 | `python3 tools/handout-pdf.py <talkfile> <out.pdf>` | handout PDF (needs Chromium) |
 | `python3 tools/web-export.py <talkfile> <out-dir>` | the document view as a self-contained web folder |

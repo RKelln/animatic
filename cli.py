@@ -288,10 +288,11 @@ def cmd_serve(argv: list) -> int:
                     help="the deck to point at (and, with --watch, to rebuild)")
     ap.add_argument("--watch", action="store_true",
                     help="rebuild DECK on every save, in this same process")
-    ap.add_argument("--reload", action="store_true",
-                    help="with --watch: open pages reload themselves after each "
-                         "build (default: they do not — refresh when you want to "
-                         "see the change)")
+    ap.add_argument("--reload", dest="reload", action="store_true", default=True,
+                    help="with --watch (the default): open pages reload themselves "
+                         "after each build")
+    ap.add_argument("--no-reload", dest="reload", action="store_false",
+                    help="with --watch: inject no reload snippet; refresh yourself")
     ap.add_argument("--verbose", action="store_true",
                     help="with --watch: the full build summary on every rebuild, "
                          "not just one line")
@@ -340,8 +341,8 @@ def cmd_serve(argv: list) -> int:
     print(f"watching {talk.parent} — Ctrl-C stops the watch and the server",
           flush=True)
     build_argv = [str(talk), "--out", out, "--watch"]
-    for flag, on in (("--reload", a.reload), ("--verbose", a.verbose),
-                     ("--quiet", a.quiet)):
+    for flag, on in (("--reload", a.reload), ("--no-reload", not a.reload),
+                     ("--verbose", a.verbose), ("--quiet", a.quiet)):
         if on:
             build_argv.append(flag)
     try:
