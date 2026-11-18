@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The log is one grid: rows, the `starting` notice for big transfers and the
+  header are built from the same format string, so the file column always lines
+  up — `starting` sits in the time slot and the size in the size column. The
+  header prints with the first row, after the build's report, instead of
+  floating above it. A 206 row shows what went over the wire, not a
+  "sent of total" that only a hand-made range request ever produced.
 - The build report and the request log are readable again: one summary line per
   fact instead of an essay (pool slots, step lists and the six written paths are
   `-v`), paths shown with `~`, warnings gathered into one block above `written`,

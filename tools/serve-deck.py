@@ -50,6 +50,7 @@ def human(n):
 class RangeHandler(SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     quiet = False
+    _header_done = False    # the log header prints with the first row
 
     # -- request bookkeeping -------------------------------------------------
 
@@ -58,7 +59,6 @@ class RangeHandler(SimpleHTTPRequestHandler):
         self._status = "-"
         self._sent = 0
         self._expect = None
-        self._total = None      # the whole file, when a Range asks for a slice
         self._aborted = False
         self._announced = False
 
@@ -81,8 +81,9 @@ class RangeHandler(SimpleHTTPRequestHandler):
         if (self.command == "GET" and self._expect and self._expect >= BIG
                 and not self.quiet):
             self._announced = True
-            self._say(f"{paint('2', '        ...')}  {'':>18}  {self._name():<32}"
-                      f"{'':>6}  {human(self._expect)} starting")
+            self._say(LOG_ROW.format(stamp="starting", code="   ",
+                                     size=human(self._expect), file=self._name(),
+                                     took=""))
 
     def _has_header(self, name):
         return any(name in h for h in getattr(self, "_headers_buffer", []))
@@ -106,6 +107,14 @@ class RangeHandler(SimpleHTTPRequestHandler):
         if self.quiet:
             return
         with _lock:
+            if not RangeHandler._header_done:
+                # The build's report comes first and owns the top of the output;
+                # the log's header belongs above its own first row, not above the
+                # build's last one.
+                RangeHandler._header_done = True
+                print("")
+                print(paint("2", LOG_NOTE))
+                print(LOG_HEADER, flush=True)
             print(line, flush=True)
 
     def _report(self):
@@ -133,14 +142,15 @@ class RangeHandler(SimpleHTTPRequestHandler):
               else paint("31;1", str(code)))
         # The total on its own when the transfer was whole; "sent of total" only
         # when it was partial, which is the case worth reading.
+        # What went over the wire. A 206 says the rest by itself: the row is a
+        # slice, and the flag column is where a partial transfer earns a word.
         size = ""
-        if code in (200, 206) and self._expect is not None and self.command == "GET":
-            total = self._expect if self._total is None else self._total
-            size = (human(total) if self._sent >= total
-                    else f"{human(self._sent)} of {human(total)}")
+        if code in (200, 206) and self.command == "GET":
+            size = human(self._sent)
         took = "" if dt < 0.05 else f"{dt:.1f}s"
-        self._say(f"{time.strftime('%H:%M:%S')}  {cs}  {size:>18}  {name:<32}"
-                  f"{took:>6}" + ("  " + " ".join(notes) if notes else ""))
+        self._say(LOG_ROW.format(stamp=time.strftime("%H:%M:%S"), code=cs,
+                                 size=size, file=name, took=took)
+                  + ("  " + " ".join(notes) if notes else ""))
 
     # -- the handlers ----------------------------------------------------------
 
@@ -181,7 +191,6 @@ class RangeHandler(SimpleHTTPRequestHandler):
             start = max(0, size - int(m.group(2)))
             end = size - 1
         end = min(end, size - 1)
-        self._total = size
         if start >= size or start > end:
             self.send_response(416)
             self.send_header("Content-Range", f"bytes */{size}")
@@ -212,6 +221,15 @@ class RangeHandler(SimpleHTTPRequestHandler):
                     n -= len(buf)
         except (BrokenPipeError, ConnectionResetError):
             self._aborted = True   # the browser hung up mid-transfer
+
+
+# Every logged line is built here, so the columns cannot drift apart: stamp,
+# code, size, file, took, then whatever flags apply.  "starting" goes in the
+# stamp slot, because that is the one thing a row like it has to say.
+LOG_ROW = "{stamp:<8}  {code}  {size:>10}  {file:<32}{took:>6}"
+LOG_HEADER = LOG_ROW.format(stamp="time", code="code", size="size", file="file",
+                            took="took")
+LOG_NOTE = "  (the reload poll and favicon are not logged)"
 
 
 def decks_under(base):
@@ -274,10 +292,7 @@ def banner(directory, bind, port, quiet=False, deck=None):
             print(f"  {d}: http://{host}:{port}/{d}/present/index.html")
     if not decks:
         print("  no built deck found under it (expected <dir>/out-*/present/index.html)")
-    if not quiet:
-        print("")
-        print("log: time  status  size  file  took   (the reload poll and "
-              "favicon are not logged)", flush=True)
+
 
 
 def main(argv=None):
