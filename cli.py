@@ -3,7 +3,9 @@
 
     animatic build [DECK] [BUILD FLAGS]     render present + document views
     animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]
-    animatic serve [SERVE FLAGS]            serve built decks on localhost
+    animatic serve [DECK] [--watch]         serve built decks; with DECK and
+                                            --watch, keep that deck building in
+                                            the same process (one terminal)
     animatic decks [--json]                 the decks the corpus roots hold
     animatic pack  [DECK] [--out DIR] [--strict] [--verify] [--inert]
                                             a sealed, presentable copy
@@ -23,6 +25,11 @@ Flags after the deck are the module's own — `animatic build` takes build.py's
 and --bind.  The verbs own the deck question and the exit codes; they never
 re-implement what the module already knows.
 
+`animatic serve DECK --watch` is the one exception to "one verb, one module": it
+runs the server in a thread beside build.py's watcher, in this process, because
+keeping a deck building and reachable is one task.  `--bind tailscale` saves
+looking up the address a laptop has to open.
+
 `pack` is the release artifact: a plain build (never a watch build), a check, and
 a path-free BUILD.json holding the hash of every file.  It is deterministic — pack
 the same talkfile twice and BUILD.json is byte-identical — so `--verify` on another
@@ -39,7 +46,9 @@ import hashlib
 import importlib.util
 import json
 import os
+import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -257,9 +266,75 @@ def cmd_check(argv: list) -> int:
 # serve
 # ---------------------------------------------------------------------------
 
+def _tailscale_ip() -> Optional[str]:
+    """The box's tailnet IPv4, for `--bind tailscale`.  None if there is none:
+    a missing client and a logged-out one both mean "no address to give"."""
+    try:
+        proc = subprocess.run(["tailscale", "ip", "-4"], capture_output=True,
+                              text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    words = proc.stdout.split()
+    return words[0] if proc.returncode == 0 and words else None
+
+
 def cmd_serve(argv: list) -> int:
+    ap = argparse.ArgumentParser(
+        prog="animatic serve",
+        description="Serve built decks over HTTP (Range, request log).  With "
+                    "DECK and --watch it also keeps that deck building, so one "
+                    "terminal and one command do both.")
+    ap.add_argument("deck", nargs="?", metavar="DECK",
+                    help="the deck to point at (and, with --watch, to rebuild)")
+    ap.add_argument("--watch", action="store_true",
+                    help="rebuild DECK on every save, in this same process")
+    ap.add_argument("--port", type=int, default=8787)
+    ap.add_argument("--bind", default="127.0.0.1", metavar="ADDR",
+                    help='address to listen on: an IP, or "tailscale" for this '
+                         "box's tailnet address (default 127.0.0.1)")
+    ap.add_argument("--directory", default=None, metavar="DIR",
+                    help="folder to serve (default: the current directory)")
+    ap.add_argument("--quiet", action="store_true", help="no request log")
+    a = ap.parse_args(argv)
+
+    bind = a.bind
+    if bind == "tailscale":
+        ip = _tailscale_ip()
+        if not ip:
+            raise DeckError('--bind tailscale: `tailscale ip -4` returned no '
+                            'address (is tailscaled up?)')
+        bind = ip
+
+    talk = resolve_deck(a.deck) if a.deck else None
+    if a.watch and talk is None:
+        raise DeckError("--watch needs a deck: animatic serve W14 --watch")
+    out = deck_outdir(talk) if talk else None
+    directory = a.directory or str(Path.cwd())
+
     mod = load_tool("serve-deck")
-    return int(mod.main(argv) or 0)
+    try:
+        srv = mod.make_server(bind, a.port, directory, quiet=a.quiet)
+    except OSError as err:
+        mod.bind_failure(err, bind, a.port)
+        return 2
+    mod.banner(directory, bind, a.port, quiet=a.quiet, deck=out)
+
+    if talk is None:
+        try:
+            srv.serve_forever()
+        except KeyboardInterrupt:
+            print("\nstopped")
+        return 0
+
+    # The build does the blocking work on the main thread (its own Ctrl-C, its
+    # own watcher lease); the server answers in a thread until that returns.
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    print(f"watching {talk.parent} — Ctrl-C stops the watch and the server",
+          flush=True)
+    try:
+        return build_mod.main([str(talk), "--out", out, "--watch"])
+    finally:
+        srv.shutdown()
 
 
 # ---------------------------------------------------------------------------
@@ -600,7 +675,10 @@ USAGE = """animatic — decks, checks, builds and packs under one name
 
   animatic build [DECK] [BUILD FLAGS]   render present + document views
   animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]
-  animatic serve [SERVE FLAGS]          serve built decks on localhost
+  animatic serve [DECK] [--watch] [--port N] [--bind ADDR|tailscale]
+                                        serve built decks; with DECK and --watch,
+                                        keep that deck building in this process
+                                        (one command, one terminal)
   animatic decks [--json]               the decks the content roots hold
   animatic pack  [DECK] [--out DIR] [--strict] [--verify] [--inert]
                                         a sealed, presentable copy

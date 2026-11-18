@@ -6,7 +6,8 @@ The commands behind the README's quick start: build, handout PDF, web page, audi
 
     animatic build [DECK] [--out DIR] [--watch] [...]   # build.py's own flags
     animatic check [DECK ...] [--corpus [ROOT]] [--strict] [--json]
-    animatic serve [--port N] [--bind ADDR] [--quiet]   # serve-deck.py's own flags
+    animatic serve [DECK] [--watch] [--port N] [--bind ADDR|tailscale] [--quiet]
+                                        # serve-deck.py's flags, plus DECK and --watch
     animatic decks [--json]
     animatic pack  [DECK] [--out DIR] [--strict] [--verify] [--inert]
     animatic token [--show|--check]
@@ -27,6 +28,19 @@ already use, kept in one place in `cli.py`. `build.py`'s own default stays
 The verbs own the deck question and the exit codes (0 ok, 1 not right, 2 usage)
 and never re-implement what a module already knows: `build` and `check` call
 `build.main`/`check.main`, and `serve` loads `tools/serve-deck.py` by path.
+
+## Serve and watch, in one terminal
+
+    animatic serve W14 --watch --bind tailscale
+
+Builds W14, serves it, and rebuilds it on every save — one process, one Ctrl-C.
+The server runs in a thread beside build.py's watcher, so the request log and the
+build log share the terminal, which is exactly what you want when a page is stale:
+you see whether the build ran. `--bind tailscale` binds this box's tailnet address
+(a laptop on the tailnet can then open the printed URL); without it the server
+listens on loopback only. Browsers get the deck over plain http there, which is a
+secure context only for loopback — so window capture (`getDisplayMedia`) will not
+work over a tailnet URL. Slides, video and the presenter view do.
 
 ## Pack: the release artifact
 

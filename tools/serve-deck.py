@@ -5,6 +5,10 @@ you can read while presenting. No pull, no network beyond localhost.
     python3 tools/serve-deck.py                  # serves the animatic folder on :8787
     python3 tools/serve-deck.py --port 8788 --directory DIR --bind 127.0.0.1 --quiet
 
+`animatic serve DECK --watch` imports this module's make_server() and runs the
+same server beside the build watcher in one process, so one command and one
+terminal keep a deck building and reachable over the network.
+
 Why not `python3 -m http.server`: it ignores Range, so every video request is the
 whole file as a 200 that a browser cannot seek or stop early, and a cancelled
 preload shows up as ConnectionResetError / NS_BINDING_ABORTED while the next
@@ -206,6 +210,60 @@ def decks_under(base):
         return []
 
 
+LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+ANY_ADDR = {"0.0.0.0", "::", ""}
+
+
+def make_server(bind, port, directory, quiet=False):
+    """The threaded Range server for DIRECTORY.  Raises OSError when the address
+    is taken, so a caller in the same process can explain it instead of dying.
+
+    Notes the secure-context limit once: getDisplayMedia (window capture) needs
+    one, and http on any address but loopback is not one. Slides and video work
+    either way."""
+    RangeHandler.quiet = quiet
+    if bind not in LOOPBACK:
+        print(f"note: {bind} is not a secure context — browser window capture "
+              f"(getDisplayMedia) is unavailable over it.\n"
+              f"      file:// and http://localhost are the two that work "
+              f"(docs/live-capture.md).", file=sys.stderr)
+    srv = ThreadingHTTPServer((bind, port),
+                              partial(RangeHandler, directory=os.path.abspath(directory)))
+    srv.daemon_threads = True
+    return srv
+
+
+def bind_failure(err, bind, port):
+    print(f"cannot listen on {bind}:{port}: {err}", file=sys.stderr)
+    pid = os.path.expanduser("~/.cache/pull-deck.pid")
+    if os.path.exists(pid):
+        print(f"a server from pull-deck.sh may hold it: kill $(cat {pid})", file=sys.stderr)
+
+
+def host_for(bind):
+    """The address to put in a URL someone else will open."""
+    return "localhost" if bind in LOOPBACK or bind in ANY_ADDR else bind
+
+
+def banner(directory, bind, port, quiet=False, deck=None):
+    host = host_for(bind)
+    print(f"serving {os.path.abspath(directory)} on http://{host}:{port}   "
+          f"(Ctrl-C stops it)")
+    decks = decks_under(directory)
+    if deck and deck in decks:
+        print(f"  {deck}: http://{host}:{port}/{deck}/present/index.html")
+        others = [d for d in decks if d != deck]
+        if others:
+            print(f"  (+{len(others)} other built deck(s) under it)")
+    else:
+        for d in decks:
+            print(f"  {d}: http://{host}:{port}/{d}/present/index.html")
+    if not decks:
+        print("  no built deck found under it (expected <dir>/out-*/present/index.html)")
+    if not quiet:
+        print("log: time  status  file  range  sent of total  duration  flags\n", flush=True)
+
+
 def main(argv=None):
     here = os.path.dirname(os.path.abspath(__file__))
     default_dir = os.path.dirname(here)         # the animatic folder next to tools/
@@ -216,32 +274,12 @@ def main(argv=None):
     ap.add_argument("--directory", default=default_dir)
     ap.add_argument("--quiet", action="store_true", help="no request log")
     a = ap.parse_args(argv)
-    RangeHandler.quiet = a.quiet
-    base = os.path.abspath(a.directory)
-    LOOPBACK = {"127.0.0.1", "::1", "localhost"}
-    if a.bind not in LOOPBACK:
-        # getDisplayMedia (the live window capture) needs a secure context, and
-        # http on any other address is not one.  Slides and video still work.
-        print(f"note: {a.bind} is not a secure context — browser window capture "
-              f"(getDisplayMedia) is unavailable over it.\n"
-              f"      file:// and http://localhost are the two that work "
-              f"(docs/live-capture.md).", file=sys.stderr)
     try:
-        srv = ThreadingHTTPServer((a.bind, a.port), partial(RangeHandler, directory=base))
+        srv = make_server(a.bind, a.port, a.directory, quiet=a.quiet)
     except OSError as err:
-        print(f"cannot listen on {a.bind}:{a.port}: {err}", file=sys.stderr)
-        pid = os.path.expanduser("~/.cache/pull-deck.pid")
-        if os.path.exists(pid):
-            print(f"a server from pull-deck.sh may hold it: kill $(cat {pid})", file=sys.stderr)
+        bind_failure(err, a.bind, a.port)
         sys.exit(2)
-    srv.daemon_threads = True
-    print(f"serving {base} on http://{a.bind}:{a.port}   (Ctrl-C stops it)")
-    for d in decks_under(base):
-        print(f"  {d}: http://localhost:{a.port}/{d}/present/index.html")
-    if not decks_under(base):
-        print("  no built deck found under it (expected <dir>/out-*/present/index.html)")
-    if not a.quiet:
-        print("log: time  status  file  range  sent of total  duration  flags\n", flush=True)
+    banner(a.directory, a.bind, a.port, quiet=a.quiet)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

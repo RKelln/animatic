@@ -109,6 +109,12 @@ def check(errors: list) -> None:
         dup = tmp / "dup"
         _write(dup / "a.talk.md", TALK.format(slug="a-three", title="A three"))
 
+        # -- serve: one command for build + serve ------------------------------
+        if _code(["serve", "--watch"]) != 2:
+            err(errors, "serve --watch without a deck must be a usage error")
+        # the live pair (server + watcher in one process) cannot be a property
+        # test: serve without a deck is a server that never returns.
+
         # -- the out-folder rule ----------------------------------------------
         w04 = tmp / "W04-ai-job-search"
         _write(w04 / "talk.md", TALK.format(slug="w04-ai-job-search", title="W04"))

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `animatic serve DECK --watch` builds, serves and rebuilds in one process, so
+  keeping a deck live over the network is one command and one terminal. The
+  server runs in a thread beside build.py's watcher; `--bind tailscale` binds the
+  box's tailnet address so a laptop knows what to open, and the banner now prints
+  URLs against the address actually bound (it used to say localhost while
+  listening elsewhere).
 - The waypoint token can come from a machine key file
   (`~/.config/animatic/waypoint-token`, or `ANIMATIC_WAYPOINT_TOKEN_FILE`) instead
   of only the environment, and `animatic token` stores it without echoing it and
