@@ -288,13 +288,21 @@ def cmd_serve(argv: list) -> int:
                     help="the deck to point at (and, with --watch, to rebuild)")
     ap.add_argument("--watch", action="store_true",
                     help="rebuild DECK on every save, in this same process")
+    ap.add_argument("--reload", action="store_true",
+                    help="with --watch: open pages reload themselves after each "
+                         "build (default: they do not — refresh when you want to "
+                         "see the change)")
+    ap.add_argument("--verbose", action="store_true",
+                    help="with --watch: the full build summary on every rebuild, "
+                         "not just one line")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--bind", default="127.0.0.1", metavar="ADDR",
                     help='address to listen on: an IP, or "tailscale" for this '
                          "box's tailnet address (default 127.0.0.1)")
     ap.add_argument("--directory", default=None, metavar="DIR",
                     help="folder to serve (default: the current directory)")
-    ap.add_argument("--quiet", action="store_true", help="no request log")
+    ap.add_argument("--quiet", action="store_true",
+                    help="no request log, and no per-build summary")
     a = ap.parse_args(argv)
 
     bind = a.bind
@@ -331,8 +339,13 @@ def cmd_serve(argv: list) -> int:
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     print(f"watching {talk.parent} — Ctrl-C stops the watch and the server",
           flush=True)
+    build_argv = [str(talk), "--out", out, "--watch"]
+    for flag, on in (("--reload", a.reload), ("--verbose", a.verbose),
+                     ("--quiet", a.quiet)):
+        if on:
+            build_argv.append(flag)
     try:
-        return build_mod.main([str(talk), "--out", out, "--watch"])
+        return build_mod.main(build_argv)
     finally:
         srv.shutdown()
 

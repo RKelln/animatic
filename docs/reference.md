@@ -32,6 +32,7 @@ and never re-implement what a module already knows: `build` and `check` call
 ## Serve and watch, in one terminal
 
     animatic serve W14 --watch --bind tailscale
+    animatic serve W14 --watch --reload          # pages refresh themselves
 
 Builds W14, serves it, and rebuilds it on every save — one process, one Ctrl-C.
 The server runs in a thread beside build.py's watcher, so the request log and the
@@ -41,6 +42,14 @@ you see whether the build ran. `--bind tailscale` binds this box's tailnet addre
 listens on loopback only. Browsers get the deck over plain http there, which is a
 secure context only for loopback — so window capture (`getDisplayMedia`) will not
 work over a tailnet URL. Slides, video and the presenter view do.
+
+A watch build writes `_watch.js` (the stamp; `animatic pack` and the transport
+scripts read it as "a watcher is building here") but only injects the reload
+snippet into the pages under `--reload`. Off by default on purpose: a reload that
+fires while you are typing throws away your place, and the one-line `build ok in
+1.2s` in the terminal already tells you the save landed. Verbosity is the same
+trade: the first build prints the whole summary, later rebuilds print one line,
+`-v` keeps the essay every time and `-q` keeps only problems.
 
 ## Pack: the release artifact
 
@@ -81,7 +90,10 @@ why the file matters: a `--watch` started over ssh inherits no environment.
 ## Build
 
     python3 build.py <talkfile> [--out OUTDIR]
-    python3 build.py <talkfile> [--out OUTDIR] --watch   # rebuild on every save; open pages reload
+    python3 build.py <talkfile> [--out OUTDIR] --watch   # rebuild on every save; one line per rebuild
+    python3 build.py <talkfile> --watch --reload         # ...and open pages reload themselves
+    python3 build.py <talkfile> --watch -v               # ...with the full summary every time
+    python3 build.py <talkfile> --watch -q               # ...with no summary at all
     python3 build.py <talkfile> --watch --lease <path>   # ...and stop when that heartbeat file goes stale
 
 One watcher per `--out`: starting `--watch` on an `--out` that already has one stops the old

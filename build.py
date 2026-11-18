@@ -97,7 +97,18 @@ def main(argv=None) -> int:
     ap.add_argument("--watch", action="store_true",
                     help="stay running and rebuild whenever the talkfile, a "
                          "file beside it, its media/ dir or the remap changes; "
-                         "open pages reload themselves after each build")
+                         "one line per rebuild (--verbose for the full summary, "
+                         "--reload to have open pages refresh themselves)")
+    ap.add_argument("--reload", action="store_true",
+                    help="with --watch: open pages reload themselves after each "
+                         "build.  Off by default: a reload mid-typing loses your "
+                         "place, so refresh when you want to see the change")
+    ap.add_argument("-q", "--quiet", action="store_true",
+                    help="print problems and the one-line result, never the "
+                         "build summary")
+    ap.add_argument("-v", "--verbose", action="store_true",
+                    help="with --watch: repeat the full summary on every rebuild "
+                         "(default: the summary once, then one line each time)")
     ap.add_argument("--lease", default=None, metavar="PATH",
                     help="with --watch: stop once PATH's mtime is older than "
                          "--lease-timeout. A watcher must not outlive the "
@@ -108,6 +119,11 @@ def main(argv=None) -> int:
 
     if args.lease and not args.watch:
         ap.error("--lease only means something with --watch")
+    if args.reload and not args.watch:
+        ap.error("--reload only means something with --watch")
+
+    global SUMMARY
+    SUMMARY = not args.quiet
 
     if args.corpus is not None:
         if args.talkfile:
@@ -167,6 +183,17 @@ def publishes_waypoints(present_index: Path) -> bool:
         return b"Bearer " in present_index.read_bytes()
     except OSError:
         return False
+
+
+# The build summary is the essay: helpful once, noise on every save.  --quiet
+# turns it off, and a watcher prints it for the first build only unless
+# --verbose.  Warnings and errors never go through here: they always print.
+SUMMARY = True
+
+
+def say(*parts, **kw) -> None:
+    if SUMMARY:
+        print(*parts, **kw)
 
 
 def build(talk_path: Path, args) -> int:
@@ -275,16 +302,16 @@ def build(talk_path: Path, args) -> int:
     nav = render_nav(talk, out)
     manifest = render_manifest(talk, resolver, out)
 
-    print(f"talk      : {talk.source}")
-    print(f"title     : {talk.meta.get('title', '')}")
-    print(f"movements : {len(talk.movements)} "
+    say(f"talk      : {talk.source}")
+    say(f"title     : {talk.meta.get('title', '')}")
+    say(f"movements : {len(talk.movements)} "
           f"({', '.join(str(m.index) for m in talk.movements)})")
     for virtual, fname, line in resolver.pool_log:
-        print(f"pool      : {virtual} <- {fname or 'NO FILE'} (line {line})")
-    print(f"screens   : {len(talk.main_screens)} (cues); "
+        say(f"pool      : {virtual} <- {fname or 'NO FILE'} (line {line})")
+    say(f"screens   : {len(talk.main_screens)} (cues); "
           f"opening={sum(1 for s in talk.main_screens if s.movement == 0)}")
     if talk.shelf_screens:
-        print(f"shelf     : {len(talk.shelf_screens)} screen(s) in "
+        say(f"shelf     : {len(talk.shelf_screens)} screen(s) in "
               f"{len({s.section[0] for s in talk.shelf_screens})} section(s), "
               f"after the talk (quick select; not in the handout)")
     wp_marked = [s for s in talk.screens if s.waypoint]
@@ -296,7 +323,7 @@ def build(talk_path: Path, args) -> int:
         else:
             wp_state = ("inert (no waypoint token: set ANIMATIC_WAYPOINT_TOKEN "
                         f"or write {TOKEN_FILE})")
-        print(f"waypoints : {len(wp_marked)} marked; {wp_state}")
+        say(f"waypoints : {len(wp_marked)} marked; {wp_state}")
     roles = {r: 0 for r in ("stat", "lower", "credits")}
     for s in talk.screens:
         for b in s.blocks:
@@ -310,31 +337,31 @@ def build(talk_path: Path, args) -> int:
         if not has_script:
             empty_script += 1
         said_lists += sum(1 for b in s.blocks if b.kind == "list" and b.spoken)
-    print(f"roles     : stat={roles['stat']} lower={roles['lower']} "
+    say(f"roles     : stat={roles['stat']} lower={roles['lower']} "
           f"credits={roles['credits']} (payloads)")
-    print(f"lists     : {said_lists} list(s) read aloud (spoken voice-over "
+    say(f"lists     : {said_lists} list(s) read aloud (spoken voice-over "
           f"before them — spec: Text, Spoken lists)")
-    print(f"beats     : {empty_script} screen(s) carry no script (card/media "
+    say(f"beats     : {empty_script} screen(s) carry no script (card/media "
           f"beat with no VO — see cues.json)")
     found = [r for r in media_refs if r.found]
     missing = [r for r in media_refs if not r.found]
-    print(f"media     : {len(media_refs)} referenced slugs; "
+    say(f"media     : {len(media_refs)} referenced slugs; "
           f"found={len(found)} placeholder={len(missing)}")
     for scr in talk.screens:
         sref = render.screen_steps(scr, resolver)
         if sref is not None:
-            print(f"steps     : {sref.slug}: {len(sref.steps)} steps "
+            say(f"steps     : {sref.slug}: {len(sref.steps)} steps "
                   f"(handout: {render.handout_label(sref)}) [{render.deck_slug(talk)}-{scr.idx:03d}]")
     if talk.warnings:
-        print("warnings  :")
+        say("warnings  :")
         for w in talk.warnings:
-            print(f"  - {w}")
-    print(f"written   : {present}")
-    print(f"           : {presenter}")
-    print(f"           : {document}")
-    print(f"           : {cues}")
-    print(f"           : {nav}")
-    print(f"           : {manifest}")
+            say(f"  - {w}")
+    say(f"written   : {present}")
+    say(f"           : {presenter}")
+    say(f"           : {document}")
+    say(f"           : {cues}")
+    say(f"           : {nav}")
+    say(f"           : {manifest}")
     return 0
 
 
@@ -390,6 +417,15 @@ RELOAD_SNIPPET = """<script>/* animatic --watch: auto-reload */
 """
 
 
+def stamp_watch(out: Path, stamp: str) -> None:
+    """Record a build stamp in `_watch.js`.  Written on every watch build, with
+    or without the reload snippet, because that file is also how `animatic pack`
+    and the transport scripts tell a watch build from a plain one."""
+    (out / "_watch.js").write_text(
+        f"window.__animaticWatch && window.__animaticWatch({stamp!r});\n",
+        encoding="utf-8")
+
+
 def inject_reload(out: Path, stamp: str) -> None:
     """Add RELOAD_SNIPPET to every page in OUTDIR, then write the stamp.  The
     stamp goes last, so an open page only reloads once the build is whole."""
@@ -399,9 +435,7 @@ def inject_reload(out: Path, stamp: str) -> None:
         if i < 0:
             continue
         page.write_text(html[:i] + RELOAD_SNIPPET + html[i:], encoding="utf-8")
-    (out / "_watch.js").write_text(
-        f"window.__animaticWatch && window.__animaticWatch({stamp!r});\n",
-        encoding="utf-8")
+    stamp_watch(out, stamp)
 
 
 def _is_watcher(pid: int) -> bool:
@@ -478,7 +512,13 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
             return (time.monotonic() - started) > args.lease_timeout
         return age > args.lease_timeout
 
+    first = [True]
+
     def run(changed):
+        # The first build earns the summary; later ones are the one-line result
+        # unless --verbose.  --quiet silences it every time.
+        global SUMMARY
+        SUMMARY = not args.quiet and (first[0] or args.verbose)
         stamp = time.strftime("%H:%M:%S")
         if changed:
             names = ", ".join(sorted(p.name for p in changed)[:5])
@@ -497,7 +537,11 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
         try:
             rc = build(talk_path, args)
             if rc == 0:
-                inject_reload(stage or final, f"{time.time_ns()}")
+                stamp = f"{time.time_ns()}"
+                if getattr(args, "reload", False):
+                    inject_reload(stage or final, stamp)
+                else:
+                    stamp_watch(stage or final, stamp)
                 if stage is not None:
                     old = final.with_name(f".{final.name}.old")
                     shutil.rmtree(old, ignore_errors=True)
@@ -510,6 +554,7 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
             rc = 1
         finally:
             args.out = str(final)
+            first[0] = False
         status = "ok" if rc == 0 else f"FAILED (exit {rc})"
         print(f"[{time.strftime('%H:%M:%S')}] build {status} in "
               f"{time.monotonic() - t0:.1f}s; watching {talk_path.parent} "

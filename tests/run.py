@@ -54,7 +54,8 @@ os.environ["ANIMATIC_WAYPOINT_TOKEN_FILE"] = os.devnull
 import build as build_mod  # noqa: E402
 from properties import (check_props, cli_props, code_props, corpus_props, cue_props, html_props,  # noqa: E402
                         ingest_props, include_props, kinds_props, timer_props, manifest_props, nav_props, playback_props,
-                        quick_props, shared_media_props, timing_props, waypoint_props)
+                        quick_props, shared_media_props, timing_props, watch_props,
+                        waypoint_props)
 from properties.common import Fixture, load_meta_source  # noqa: E402
 
 GOLDEN_FILES = ("cues.json", "media-manifest.json")
@@ -185,7 +186,8 @@ def main(argv=None) -> int:
 
                     diff_goldens(fx, errors, args.update_goldens)
                     for mod in (cue_props, manifest_props, nav_props,
-                                html_props, check_props, timing_props, code_props, timer_props):
+                                html_props, check_props, timing_props, code_props, timer_props,
+                                watch_props):
                         mod.check(fx, errors)
                 except Exception as exc:  # noqa: BLE001 — suite must not die
                     err(errors, f"suite error: {type(exc).__name__}: {exc}")

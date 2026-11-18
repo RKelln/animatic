@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Watch builds no longer reload open pages by default: `_watch.js` stays (it is
+  the "a watcher is building here" marker that `pack` and the transport scripts
+  read) but the reload snippet is opt-in with `--reload`. A reload that fires
+  mid-typing throws away your place, and the one-line `build ok in 1.2s` already
+  tells you the save landed.
+- `-q/--quiet` and `-v/--verbose` on `build` (and through `serve`): the summary
+  prints once, then one line per rebuild; `-v` keeps the essay every time, `-q`
+  keeps only problems.
 - `animatic serve DECK --watch` builds, serves and rebuilds in one process, so
   keeping a deck live over the network is one command and one terminal. The
   server runs in a thread beside build.py's watcher; `--bind tailscale` binds the
