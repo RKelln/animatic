@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The build report and the request log are readable again: one summary line per
+  fact instead of an essay (pool slots, step lists and the six written paths are
+  `-v`), paths shown with `~`, warnings gathered into one block above `written`,
+  and the log is time / status / size / file / took with no `(no range)` column
+  and no stdlib "code 404, message File not found" echo under every 404 row.
 - The deck server no longer logs the reload poll: a watched page asks for
   `_watch.js` once a second, and those lines were burying the requests that
   matter. The poll still happens; the log just says so once, in its header.

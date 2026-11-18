@@ -58,6 +58,7 @@ class RangeHandler(SimpleHTTPRequestHandler):
         self._status = "-"
         self._sent = 0
         self._expect = None
+        self._total = None      # the whole file, when a Range asks for a slice
         self._aborted = False
         self._announced = False
 
@@ -80,8 +81,8 @@ class RangeHandler(SimpleHTTPRequestHandler):
         if (self.command == "GET" and self._expect and self._expect >= BIG
                 and not self.quiet):
             self._announced = True
-            self._say(f"{paint('2', '        ...')}  {self._name():<34} "
-                      f"{self._range_label():<14} {human(self._expect)} starting")
+            self._say(f"{paint('2', '        ...')}  {'':>18}  {self._name():<32}"
+                      f"{'':>6}  {human(self._expect)} starting")
 
     def _has_header(self, name):
         return any(name in h for h in getattr(self, "_headers_buffer", []))
@@ -90,14 +91,16 @@ class RangeHandler(SimpleHTTPRequestHandler):
         pass   # reported by _report() when the transfer has actually finished
 
     def log_message(self, fmt, *args):
+        # Every request that reached a handler already has a row in the table
+        # below; this is the stdlib's duplicate copy of the bad news ("code 404,
+        # message File not found").  Keep it only for what never got that far,
+        # like a malformed request line.
+        if self._name() in NOT_LOGGED or getattr(self, "_t0", None) is not None:
+            return
         sys.stderr.write("%s %s\n" % (self.log_date_time_string(), fmt % args))
 
     def _name(self):
         return os.path.basename(self.path.split("?")[0]) or self.path
-
-    def _range_label(self):
-        r = self.headers.get("Range")
-        return r.replace("bytes=", "bytes=") if r else "(no range)"
 
     def _say(self, line):
         if self.quiet:
@@ -108,7 +111,7 @@ class RangeHandler(SimpleHTTPRequestHandler):
     def _report(self):
         # The reload poll asks for ../_watch.js once a second per open page.  It
         # is not news, and logged it buries the requests that are.
-        if self._name() == RELOAD_POLL:
+        if self._name() in NOT_LOGGED:
             return
         if self.quiet or self.command not in ("GET", "HEAD") or self._status == "-":
             return
@@ -128,12 +131,16 @@ class RangeHandler(SimpleHTTPRequestHandler):
             notes.append(paint("31;1", "SERVER ERROR"))
         cs = (paint("32", str(code)) if code in (200, 206, 304)
               else paint("31;1", str(code)))
-        if self._expect is not None and self.command == "GET" and code != 304:
-            size = f"{human(self._sent)} of {human(self._expect)}"
-        else:
-            size = ""
-        self._say(f"{time.strftime('%H:%M:%S')}  {cs}  {name:<34} "
-                  f"{self._range_label():<14} {size:<18} {dt:4.1f}s  {' '.join(notes)}")
+        # The total on its own when the transfer was whole; "sent of total" only
+        # when it was partial, which is the case worth reading.
+        size = ""
+        if code in (200, 206) and self._expect is not None and self.command == "GET":
+            total = self._expect if self._total is None else self._total
+            size = (human(total) if self._sent >= total
+                    else f"{human(self._sent)} of {human(total)}")
+        took = "" if dt < 0.05 else f"{dt:.1f}s"
+        self._say(f"{time.strftime('%H:%M:%S')}  {cs}  {size:>18}  {name:<32}"
+                  f"{took:>6}" + ("  " + " ".join(notes) if notes else ""))
 
     # -- the handlers ----------------------------------------------------------
 
@@ -174,6 +181,7 @@ class RangeHandler(SimpleHTTPRequestHandler):
             start = max(0, size - int(m.group(2)))
             end = size - 1
         end = min(end, size - 1)
+        self._total = size
         if start >= size or start > end:
             self.send_response(416)
             self.send_header("Content-Range", f"bytes */{size}")
@@ -216,6 +224,7 @@ def decks_under(base):
 
 LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 RELOAD_POLL = "_watch.js"
+NOT_LOGGED = {RELOAD_POLL, "favicon.ico"}   # poll + browser furniture
 ANY_ADDR = {"0.0.0.0", "::", ""}
 
 
@@ -266,8 +275,9 @@ def banner(directory, bind, port, quiet=False, deck=None):
     if not decks:
         print("  no built deck found under it (expected <dir>/out-*/present/index.html)")
     if not quiet:
-        print("log: time  status  file  range  sent of total  duration  flags"
-              "   (the _watch.js reload poll is not logged)\n", flush=True)
+        print("")
+        print("log: time  status  size  file  took   (the reload poll and "
+              "favicon are not logged)", flush=True)
 
 
 def main(argv=None):

@@ -129,8 +129,9 @@ def main(argv=None) -> int:
     if args.lease and not args.watch:
         ap.error("--lease only means something with --watch")
 
-    global SUMMARY
+    global SUMMARY, DETAIL
     SUMMARY = not args.quiet
+    DETAIL = args.verbose
 
     if args.corpus is not None:
         if args.talkfile:
@@ -196,6 +197,7 @@ def publishes_waypoints(present_index: Path) -> bool:
 # turns it off, and a watcher prints it for the first build only unless
 # --verbose.  Warnings and errors never go through here: they always print.
 SUMMARY = True
+DETAIL = False          # --verbose: the per-slot, per-screen, per-file lists
 
 
 def say(*parts, **kw) -> None:
@@ -203,7 +205,15 @@ def say(*parts, **kw) -> None:
         print(*parts, **kw)
 
 
+def tilde(path) -> str:
+    """A path a person reads: ~ for home, since every deck lives under one."""
+    text = str(path)
+    home = str(Path.home())
+    return "~" + text[len(home):] if text.startswith(home) else text
+
+
 def build(talk_path: Path, args) -> int:
+    warns: list[str] = []   # collected, then printed together in the report
     talk = talkparse.build_talk(talk_path,
                                 quick_sections=getattr(args, "quick_sections", None))
     if args.theme:
@@ -229,8 +239,7 @@ def build(talk_path: Path, args) -> int:
         for k in gone:
             del resolver.remap[k]
         if gone:
-            print(f"warn      : media-remap file(s) missing, ignored: "
-                  f"{', '.join(gone)}")
+            warns.append(f"media-remap file(s) missing, ignored: {', '.join(gone)}")
 
     shelf_errors = shelf_media_errors(talk, resolver)
     if shelf_errors:
@@ -267,31 +276,31 @@ def build(talk_path: Path, args) -> int:
     resolver.validate_steps()
     resolver.publish(out, [r.slug for r in media_refs])
     for _slug, msg in resolver.playback_issues:
-        print(f"warn      : check 29: {msg}")
+        warns.append(f"check 29: {msg}")
     for _slug, msg in resolver.steps_issues:
-        print(f"warn      : check 33: {msg}")
+        warns.append(f"check 33: {msg}")
     for _slug, msg in resolver.pool_issues:
-        print(f"warn      : check 41: {msg}")
+        warns.append(f"check 41: {msg}")
     for msg in dict.fromkeys(m for _slug, m in resolver.shared_issues):
-        print(f"warn      : check 50: {msg}")
+        warns.append(f"check 50: {msg}")
     for label in uncredited_shared(talk, resolver):
-        print(f"warn      : check 51: {UNCREDITED.format(label)}")
+        warns.append(f"check 51: {UNCREDITED.format(label)}")
     for scr, _line, msg in render.step_count_notes(talk, resolver):
-        print(f"warn      : check 34: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
+        warns.append(f"check 34: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
     for scr, _line, msg in render.next_mark_notes(talk, resolver):
-        print(f"warn      : check 40: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
+        warns.append(f"check 40: {render.deck_slug(talk)}-{scr.idx:03d}: {msg}")
 
     cites = talk.meta.get("cites")
     if isinstance(cites, dict):
         bare = [c["id"] for c in cited_sources(talk) if not str(cites.get(c["id"], "")).strip()]
         if bare:
-            print(f"warn      : handout Sources omits {len(bare)} cited id(s) "
-                  f"with no `cites:` entry: {', '.join(bare)}")
+            warns.append(f"handout Sources omits {len(bare)} cited id(s) "
+                         f"with no `cites:` entry: {', '.join(bare)}")
 
     elif cited_sources(talk) and str(talk.meta.get("handout-sources", "")).strip().lower() != "working":
-        print(f"warn      : handout prints no Sources list: {len(cited_sources(talk))} cited id(s) "
-              f"but no `cites:` map (working receipts never print; `handout-sources: working` "
-              f"for a draft copy)")
+        warns.append(f"handout prints no Sources list: {len(cited_sources(talk))} "
+                     f"cited id(s) but no `cites:` map (working receipts never print; "
+                     f"`handout-sources: working` for a draft copy)")
 
     # waypoints (docs/waypoints.md): the token goes into present/index.html only,
     # and a build without one publishes nothing.  It is never printed.
@@ -309,22 +318,26 @@ def build(talk_path: Path, args) -> int:
     nav = render_nav(talk, out)
     manifest = render_manifest(talk, resolver, out)
 
-    say(f"talk      : {talk.source}")
+    say("")
+    say(f"deck      : {tilde(talk.source)}")
     say(f"title     : {talk.meta.get('title', '')}")
-    say(f"movements : {len(talk.movements)} "
-          f"({', '.join(str(m.index) for m in talk.movements)})")
-    for virtual, fname, line in resolver.pool_log:
-        say(f"pool      : {virtual} <- {fname or 'NO FILE'} (line {line})")
-    say(f"screens   : {len(talk.main_screens)} (cues); "
-          f"opening={sum(1 for s in talk.main_screens if s.movement == 0)}")
+    say(f"shape     : {len(talk.movements)} movements, {len(talk.main_screens)} screens "
+          f"({sum(1 for s in talk.main_screens if s.movement == 0)} opening)")
     if talk.shelf_screens:
-        say(f"shelf     : {len(talk.shelf_screens)} screen(s) in "
-              f"{len({s.section[0] for s in talk.shelf_screens})} section(s), "
-              f"after the talk (quick select; not in the handout)")
+        say(f"shelf     : {len(talk.shelf_screens)} quick-select screens in "
+              f"{len({s.section[0] for s in talk.shelf_screens})} sections "
+              f"(after the talk; not in the handout)")
+    if resolver.pool_log:
+        pool = f"{len(resolver.pool_log)} slot(s)"
+        if DETAIL:
+            for virtual, fname, line in resolver.pool_log:
+                say(f"pool      : {virtual} <- {fname or 'NO FILE'} (line {line})")
+        else:
+            say(f"pool      : {pool} filled from the deck's media library (-v lists them)")
     wp_marked = [s for s in talk.screens if s.waypoint]
     if wp_marked:
         if wp_token:
-            wp_state = f"publishing ON in present/index.html (token from {wp_source})"
+            wp_state = f"publishing ON in present/index.html (token from {tilde(wp_source)})"
         elif getattr(args, "inert", False):
             wp_state = "inert (--inert: this build never publishes)"
         else:
@@ -346,29 +359,36 @@ def build(talk_path: Path, args) -> int:
         said_lists += sum(1 for b in s.blocks if b.kind == "list" and b.spoken)
     say(f"roles     : stat={roles['stat']} lower={roles['lower']} "
           f"credits={roles['credits']} (payloads)")
-    say(f"lists     : {said_lists} list(s) read aloud (spoken voice-over "
-          f"before them — spec: Text, Spoken lists)")
-    say(f"beats     : {empty_script} screen(s) carry no script (card/media "
-          f"beat with no VO — see cues.json)")
     found = [r for r in media_refs if r.found]
     missing = [r for r in media_refs if not r.found]
-    say(f"media     : {len(media_refs)} referenced slugs; "
-          f"found={len(found)} placeholder={len(missing)}")
-    for scr in talk.screens:
-        sref = render.screen_steps(scr, resolver)
-        if sref is not None:
-            say(f"steps     : {sref.slug}: {len(sref.steps)} steps "
-                  f"(handout: {render.handout_label(sref)}) [{render.deck_slug(talk)}-{scr.idx:03d}]")
-    if talk.warnings:
-        say("warnings  :")
-        for w in talk.warnings:
-            say(f"  - {w}")
-    say(f"written   : {present}")
-    say(f"           : {presenter}")
-    say(f"           : {document}")
-    say(f"           : {cues}")
-    say(f"           : {nav}")
-    say(f"           : {manifest}")
+    media_line = (f"{len(media_refs)} referenced slugs, all found" if not missing
+                  else f"{len(media_refs)} referenced slugs, {len(found)} found, "
+                       f"{len(missing)} placeholder")
+    say(f"media     : {media_line}")
+    say(f"voice     : {said_lists} list(s) read aloud; {empty_script} screen(s) "
+          f"carry no script (card/media beat with no VO — see cues.json)")
+    steppers = [(scr, render.screen_steps(scr, resolver)) for scr in talk.screens]
+    steppers = [(scr, ref) for scr, ref in steppers if ref is not None]
+    if steppers:
+        if DETAIL:
+            for scr, ref in steppers:
+                say(f"steps     : {ref.slug}: {len(ref.steps)} steps "
+                      f"(handout: {render.handout_label(ref)}) "
+                      f"[{render.deck_slug(talk)}-{scr.idx:03d}]")
+        else:
+            total = sum(len(ref.steps) for _, ref in steppers)
+            say(f"steps     : {len(steppers)} stepper screen(s), {total} step(s) "
+                  f"(-v names them)")
+    for w in warns + list(talk.warnings):
+        print(f"warn      : {w}")   # warnings are never quiet: they are problems
+    final = Path(args.replaces).expanduser() if getattr(args, "replaces", None) \
+        else Path(args.out).expanduser()
+    if DETAIL:
+        for path in (present, presenter, document, cues, nav, manifest):
+            say(f"written   : {tilde(path)}")
+    else:
+        say(f"written   : {tilde(final)}/ — present/ document/ presenter.html "
+              f"cues.json nav.json media-manifest.json")
     return 0
 
 
@@ -524,8 +544,9 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
     def run(changed):
         # The first build earns the summary; later ones are the one-line result
         # unless --verbose.  --quiet silences it every time.
-        global SUMMARY
+        global SUMMARY, DETAIL
         SUMMARY = not args.quiet and (first[0] or args.verbose)
+        DETAIL = args.verbose
         stamp = time.strftime("%H:%M:%S")
         if changed:
             names = ", ".join(sorted(p.name for p in changed)[:5])
@@ -561,11 +582,15 @@ def watch(talk_path: Path, args, interval: float = 0.5) -> int:
             rc = 1
         finally:
             args.out = str(final)
-            first[0] = False
         status = "ok" if rc == 0 else f"FAILED (exit {rc})"
-        print(f"[{time.strftime('%H:%M:%S')}] build {status} in "
-              f"{time.monotonic() - t0:.1f}s; watching {talk_path.parent} "
-              f"(Ctrl-C to stop)", flush=True)
+        took = time.monotonic() - t0
+        # The first build says what is being watched; later ones are a heartbeat,
+        # so they do not repeat the path on every save.
+        where = (f"; watching {tilde(talk_path.parent)} (Ctrl-C to stop)"
+                 if first[0] else "")
+        print(f"[{time.strftime('%H:%M:%S')}] build {status} in {took:.1f}s{where}",
+              flush=True)
+        first[0] = False
 
     snap = watched_files(talk_path, args)
     run(None)

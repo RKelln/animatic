@@ -338,8 +338,9 @@ def cmd_serve(argv: list) -> int:
     # The build does the blocking work on the main thread (its own Ctrl-C, its
     # own watcher lease); the server answers in a thread until that returns.
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    print(f"watching {talk.parent} — Ctrl-C stops the watch and the server",
-          flush=True)
+    # No "watching…" line of our own: the build's first line says which deck it
+    # is watching and that Ctrl-C stops it, and the banner already said the
+    # server is up.  One statement each, not three.
     build_argv = [str(talk), "--out", out, "--watch"]
     for flag, on in (("--reload", a.reload), ("--no-reload", not a.reload),
                      ("--verbose", a.verbose), ("--quiet", a.quiet)):
