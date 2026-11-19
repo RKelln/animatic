@@ -85,6 +85,28 @@ to full-bleed atmosphere here too (atmosphere is the default in every theme); th
   media sit on a warm paper plate (`--quote-panel-bg` 0.55 alpha; the blur
   carries the legibility)
 
+## Checking a change: specimens and sheets
+
+`examples/specimens/` holds decks that are not talks: one screen per combination of
+on-screen features, each headed with what it shows. `hero/` is every screen as
+`fit=hero`; `plain/` is the same screens without it, plus the features that only exist
+off hero (lower thirds, credits, black beats, drift, dim, text and ground colour,
+`under`, heading levels, a list that has to shrink).
+
+    python3 tools/contact-sheet.py examples/specimens/hero/talk.md hero.png
+    python3 tools/contact-sheet.py examples/specimens/plain/talk.md plain.png --theme workshop
+    python3 tests/browser_specimens.py
+
+The sheet is every slide as a thumbnail, labelled with its number, heading, flags and
+the pager's fit scale, with a red frame on a slide clipped at the fit floor. The test is
+the automated half: each specimen deck in both themes at 1920x1080, 1280x720, 1280x800
+and 1024x768 fails on a slide at the fit floor, a line of text within 1.5% of the
+frame, or a bullet hanging out of the safe area. Given deck paths it checks those
+decks instead, in their own theme.
+
+**A new slide feature gets its screens here first**, in every specimen deck where it
+can appear, so the next styling change is checked against it too.
+
 ## Add a theme
 
 1. Copy `themes/theme-lecture.css` to `themes/theme-<slug>.css`; retitle.

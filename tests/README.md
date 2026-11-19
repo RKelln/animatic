@@ -52,6 +52,11 @@ One command, one exit code:
   showing, then one item per press, Back past the timer's press resets it) (run it directly; it
   exits 77 when no chromium is installed, and needs the scratch directory inside
   the repo because a snap chromium cannot read /tmp).
+  `browser_specimens.py` is the clip check over `examples/specimens/` (the hero and
+  plain specimen decks, docs/styling.md): each deck in both themes at four window
+  shapes, one page load each, failing on a slide at the fit floor or text and bullets
+  within 1.5% of the frame. Run it after touching `themes/` or the pager's fitting;
+  with deck paths it checks those decks in their own theme (exit 77 without chromium).
   `fixtures/quick/` is the quick-select deck (not a golden: the runner does not
   build it): `quick/deck/` is the deck and `quick/_media/` its shared library, because
   shelf media comes from `_media/` beside the deck, never from the deck's own cards (the

@@ -60,6 +60,7 @@ missing browser exit 77 (skipped), they do not fail.
     python3 tests/run.py                           # golden suite: expect "profiles: 65  passed: 74  failed: 0"
     python3 tests/browser_waypoint.py              # real-browser test for waypoints (exit 77: no chromium)
     python3 tests/browser_quick_select.py          # real-browser test for quick select (exit 77: no chromium)
+    python3 tests/browser_specimens.py [DECK ...]  # clip check: every specimen deck, both themes, four window sizes; no slide clipped or on the edge (exit 77: no chromium)
 
 `check.py` exits 0 on a clean deck, 1 on a fatal (or, under `--strict`, a warning),
 2 on usage errors. Corpus mode is read-only: it parses and checks, never writes into
@@ -67,6 +68,14 @@ a content root. Builds are deterministic — re-running rebuilds identical bytes
 
 ## Rules
 
+- **A feature that shows on a slide gets a specimen screen.** The specimen decks in
+  `examples/specimens/` (`hero/` for `fit=hero`, `plain/` for everything else) hold one
+  screen per combination of on-screen features. Adding or changing a slide feature
+  (a block kind, a flag, a layout, a role, a theme rule) means adding the screens that
+  show it, in each deck where it can appear, then running
+  `python3 tests/browser_specimens.py` (must pass) and looking at
+  `tools/contact-sheet.py` sheets in both themes (`--theme workshop`). The clip check
+  only sees text that does not fit; the sheet is where a wrong look shows.
 - **The handout is public.** It prints `cites:` (public citations), never the
   `sources:` working receipts. Before pointing anyone at a handout or web page, check it
   for local paths, "verify" notes and internal comments (`tools/reading-audit.py`).

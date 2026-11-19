@@ -1252,11 +1252,22 @@ PAGER_JS = """
       if (cells[c].scrollWidth > cells[c].clientWidth + 1) return true;
     }
     if (hitsTimer(sl, body)) return true;
-    if (!pad && !codeBlocks(sl).length) return false;
+    // The content must also stay off the slide's edge. A centred column
+    // overflows into its top and bottom padding before scrollHeight trips (the
+    // title ends up against the frame), so this holds on every slide. A slide
+    // with a fence or a hero block (`pad`) keeps the whole padding clear; any
+    // other may use half of it (a timer's line box can graze the line with no
+    // glyph near the edge, and its digits do not shrink with the text).
+    // Floating things (a corner timer's plate) are not in the flow, and a
+    // hidden one (a private timer) has no box: both are left out.
     var r = body.getBoundingClientRect(), cs = getComputedStyle(body);
-    var top = r.top + parseFloat(cs.paddingTop), bot = r.bottom - parseFloat(cs.paddingBottom);
+    var give = (pad || codeBlocks(sl).length) ? 1 : 0.5;
+    var top = r.top + parseFloat(cs.paddingTop) * give, bot = r.bottom - parseFloat(cs.paddingBottom) * give;
     for (var k = 0; k < body.children.length; k++) {
+      var ccs = getComputedStyle(body.children[k]);
+      if (ccs.position === "absolute" || ccs.position === "fixed" || ccs.display === "none") continue;
       var c = body.children[k].getBoundingClientRect();
+      if (!c.width && !c.height) continue;   // not rendered: a box at 0,0 is not text
       if (c.top < top - 1 || c.bottom > bot + 1) return true;
     }
     return false;

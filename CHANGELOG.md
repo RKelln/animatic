@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- A slide whose text shrinks to fit now keeps it off the frame's edge: the fitter
+  used to stop once nothing scrolled, which on a centred slide left the title
+  against the top edge and the last line against the bottom. Text may now use
+  at most half of the slide's padding (hero and code slides keep all of it, as
+  before). A specimen deck for the rest of the features
+  (`examples/specimens/plain/`) and `tests/browser_specimens.py`, a clip check
+  over every specimen deck in both themes at four window sizes (or over the decks
+  you name, in their own theme). Over the applied-AI decks it found 398 slide
+  sizes clipped or on the edge before this change and 166 after.
+  `tools/check-fit.py` is gone: the clip check covers it, and its "slightly
+  tall" list had stopped fitting at the themes' current sizes.
 - `fit=hero` styling fixes, found with a new specimen deck
   (`examples/specimens/hero/`, one hero screen per combination of features) and
   `tools/contact-sheet.py`, which renders every slide of a deck into one
