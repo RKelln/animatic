@@ -147,6 +147,25 @@ Inline marks inside a hero title.
 - Waypoint
 - Shelf
 
+<!-- shot: layout=cols -->
+### Columns, long items
+
+- The talkfile is the stable contract
+- Builds give identical bytes every time
+- One file holds the voice-over and the slides
+- The handout prints citations, never receipts
+- Checks run over every deck you have
+- A packed release carries no host paths
+
+<!-- shot: layout=cols bullets=check -->
+### Columns, checked
+
+- Install
+- Build
+- Rehearse
+- Present
+- Pack
+
 <!-- shot: bullets=dot -->
 ### Dot bullets
 

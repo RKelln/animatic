@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `layout=cols` spaces its two columns by their text: each column is as wide as
+  its longest item, and the room left over goes evenly before, between and after
+  them, so short items sit together in the middle instead of at the left of two
+  half-slide columns. Specimen screens for long items and for check marks in
+  columns.
 - Bulleted lists on slides have no marker by default: items are set apart by
   space, and sub-points get a quiet dash. `bullets=` on a shot (or `bullets:` in
   the frontmatter, for the deck) picks one: `dot` (the old round bullet), `check`

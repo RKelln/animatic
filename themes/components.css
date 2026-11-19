@@ -481,15 +481,22 @@
      then the right. Each cell wraps its own text, markers hang in a wide gutter,
      and a word wider than its cell shrinks the list (fitHeroCode checks the
      cells' width as well as the height). Spacing sits below each item so both
-     columns start on one line. */
+     columns start on one line.
+     Each column is as wide as its longest item (up to an even share of the
+     room), and the room left over is shared evenly: before the left column,
+     between the two and after the right one. The gap between them also holds
+     the body's side padding (7vw), so the space from the slide's edge to the
+     text and from one column to the other come out about equal, whether the
+     items are short words or wrap. */
   .animatic-slide.cols .screen-body > [data-cols] {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, max-content));
     grid-template-rows: repeat(var(--cols-rows, 1), auto);
     grid-auto-flow: column;
-    column-gap: max(8vw, 2.2em);
+    justify-content: space-evenly;
+    column-gap: max(7vw, 2.2em);
     padding-left: 1.2em; text-align: left;
-    width: min(100%, 90vw);
+    width: 100%;
   }
   .animatic-slide.cols .screen-body > [data-cols] > li { margin: 0 0 0.6em; }
   /* reveal=timer: the countdown keeps its space but is hidden and stopped until its press */
