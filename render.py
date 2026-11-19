@@ -42,6 +42,7 @@ import timing
 
 from talkparse import (
     BLUR_MAX,
+    BULLETS_VALUES,
     BLACK_ROLE,
     Block,
     Screen,
@@ -4470,8 +4471,19 @@ def timer_sub(text_html: str, b, mode: str = "present") -> str:
     return text_html
 
 
+def list_marker(talk: Talk, screen: Screen) -> str:
+    """The marker this screen's bulleted lists show (spec: Flags, `bullets`):
+    the shot's `bullets=`, else the frontmatter `bullets:`, else `none`."""
+    flags = screen.shots[0].flags if screen.shots else {}
+    v = flags.get("bullets")
+    if v in BULLETS_VALUES:
+        return v
+    deck = str(talk.meta.get("bullets", "") or "").strip().lower()
+    return deck if deck in BULLETS_VALUES else "none"
+
+
 def list_html(b, reveal: bool = False, start: Optional[int] = 0, cols: bool = False,
-              offset: int = 0) -> str:
+              offset: int = 0, marker: str = "") -> str:
     """A list block: `<ol>` for numbered items, `<ul>` otherwise.  Sub-points
     (`b.depths`) nest as `<ul>` inside the item above.
 
@@ -4486,11 +4498,16 @@ def list_html(b, reveal: bool = False, start: Optional[int] = 0, cols: bool = Fa
     `cols` (shot flag `layout=cols`) sets the list as a two-column grid: the
     top-level items fill the left column first, so `--cols-rows` is half of
     them, rounded up (the stylesheet does the rest).
+
+    `marker` (list_marker) classes a bulleted list `bullets-<marker>` for the
+    slide and the reading copy; a numbered list keeps its numbers. Speaker
+    notes pass none and keep plain bullets.
     """
     tag = "ol" if b.ordered else "ul"
+    mcls = f' class="bullets-{marker}"' if marker and not b.ordered else ""
     depths = list(b.depths) or [0] * len(b.items)
     top = sum(1 for dp in depths if dp == 0) or 1
-    out = [f"<{tag}" + (f' data-reveal="{start}"' if reveal and start is not None else "")
+    out = [f"<{tag}" + mcls + (f' data-reveal="{start}"' if reveal and start is not None else "")
            + (f' data-cols style="--cols-rows:{-(-top // 2)}"' if cols else "") + ">"]
     d = 0
     for n, (text, depth) in enumerate(zip(b.items, depths), 1):
@@ -4675,12 +4692,13 @@ def _present_section(talk: Talk, screen: Screen, resolver: MediaResolver,
                 cols_done = cols_done or as_cols   # only the first list takes the columns
                 if step_list:
                     start = (0 if (body or timer_first(screen)) else 1) if first_step else None
-                    body.append(timer_sub(list_html(b, True, start, as_cols, offset=step_n), b))
+                    body.append(timer_sub(list_html(b, True, start, as_cols, offset=step_n,
+                                                    marker=list_marker(talk, screen)), b))
                     step_n += len(b.items)
                     first_step = False
                     step_list = False   # only the first list reveals
                 else:
-                    body.append(timer_sub(list_html(b, cols=as_cols), b))
+                    body.append(timer_sub(list_html(b, cols=as_cols, marker=list_marker(talk, screen)), b))
             elif b.kind == "table":
                 body.append(table_html(b))
             elif b.kind == "code":
@@ -5272,7 +5290,7 @@ def _doc_screen_blocks(talk: Talk, screen: Screen, resolver: MediaResolver,
         elif b.kind == "quote-source":
             out.append(f'<p class="doc-quote-source">{inline_md(b.text)}</p>')
         elif b.kind == "list":
-            out.append(timer_sub(list_html(b), b, "doc"))
+            out.append(timer_sub(list_html(b, marker=list_marker(talk, screen)), b, "doc"))
         elif b.kind == "table":
             out.append(table_html(b))
         elif b.kind == "code":

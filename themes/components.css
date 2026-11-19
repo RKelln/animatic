@@ -498,6 +498,37 @@
   /* sub-points: indented, a touch smaller and tighter */
   .animatic-slide li > ul, .animatic-slide li > ol { padding-left: 1.4em; font-size: 0.85em; margin: 0.15em 0; }
   .animatic-slide ol > li::marker { font-variant-numeric: tabular-nums; }
+
+  /* list markers (shot flag `bullets=`, frontmatter `bullets:`). The default is
+     none: a bulleted list on a slide has no marker, and its items are set apart
+     by space instead (a wrapped item still reads as one: the space is between
+     items, never inside one). A sub-point under a bare item gets a quiet dash,
+     or it would read as the item's second line. `dot` is the round bullet;
+     `check`, `arrow` and `dash` are marks in the accent colour. The reading
+     copy keeps a bullet for none and dot, and prints the others (below). */
+  .animatic-slide .screen-body ul.bullets-none { list-style: none; padding-left: 0; }
+  .animatic-slide .screen-body ul.bullets-none > li { margin: 0.45em 0; }
+  /* sub-points: a quiet dash under none, arrow and dash; smaller boxes under
+     check (sub-tasks are ticked too); dot keeps the browser's circle */
+  .animatic-slide .screen-body ul:is(.bullets-none, .bullets-arrow, .bullets-dash) li > ul {
+    list-style-type: "\2013\00a0"; padding-left: 1.1em;
+  }
+  .animatic-slide .screen-body ul.bullets-check li > ul {
+    list-style-type: "\2610\00a0\00a0"; padding-left: 1.5em;
+  }
+  .animatic-slide .screen-body ul:is(.bullets-none, .bullets-check, .bullets-arrow, .bullets-dash) li > ul > li::marker {
+    color: var(--stage-muted);
+  }
+  .animatic-slide .screen-body ul.bullets-dot { list-style-type: disc; padding-left: 1.1em; }
+  .animatic-slide .screen-body ul.bullets-check { list-style-type: "\2610\00a0\00a0"; padding-left: 1.5em; }
+  .animatic-slide .screen-body ul.bullets-arrow { list-style-type: "\2192\00a0\00a0"; padding-left: 1.5em; }
+  .animatic-slide .screen-body ul.bullets-dash { list-style-type: "\2013\00a0\00a0"; padding-left: 1.3em; }
+  .animatic-slide .screen-body ul:is(.bullets-check, .bullets-arrow, .bullets-dash) > li::marker {
+    color: var(--stage-accent);
+  }
+  /* a bare list under layout=cols needs no marker gutter */
+  .animatic-slide.cols .screen-body > ul.bullets-none[data-cols] { padding-left: 0; }
+  .animatic-slide.cols .screen-body > ul.bullets-none[data-cols] > li { margin: 0 0 0.6em; }
   .animatic-slide .md-table { border-collapse: collapse; font-size: 1em; }
   .animatic-slide .md-table :is(th, td) {
     padding: 0.3em 0.9em; text-align: left;
@@ -1458,6 +1489,14 @@
     border-radius: 2px;
   }
   body.view-document ul { margin: 1em 0; padding-left: 1.4em; }
+  body.view-document li > :is(ul, ol) { margin: 0.2em 0; }   /* a sub-list stays with its item */
+  /* list markers in print: none and dot keep the bullet (a reader needs one);
+     check is a box to tick on paper, arrow and dash print as they show */
+  body.view-document ul.bullets-check { list-style-type: "\2610\00a0\00a0"; padding-left: 1.6em; }
+  body.view-document ul.bullets-arrow { list-style-type: "\2192\00a0\00a0"; padding-left: 1.6em; }
+  body.view-document ul.bullets-dash { list-style-type: "\2013\00a0\00a0"; padding-left: 1.4em; }
+  body.view-document ul.bullets-check li > ul { list-style-type: "\2610\00a0\00a0"; }
+  body.view-document ul:is(.bullets-arrow, .bullets-dash) li > ul { list-style-type: "\2013\00a0"; }
   body.view-document ol:not(.doc-sources) { margin: 1em 0; padding-left: 1.4em; }
   body.view-document .md-table { margin: 1.2em 0; border-collapse: collapse; }
   body.view-document .md-table :is(th, td) {

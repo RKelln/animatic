@@ -147,6 +147,50 @@ Inline marks inside a hero title.
 - Waypoint
 - Shelf
 
+<!-- shot: bullets=dot -->
+### Dot bullets
+
+- The round bullet
+- As lists used to look
+- Asked for with bullets=dot
+
+<!-- shot: bullets=check -->
+### Check boxes
+
+- Install the tool
+- Open the deck
+- Press s for the presenter
+
+<!-- shot: bullets=arrow -->
+### Arrows
+
+- A prompt goes in
+- The model predicts
+- Text comes out
+
+<!-- shot: bullets=dash -->
+### Dashes
+
+- Quiet marks
+- For a list that needs a little help
+- But not a bullet
+
+<!-- shot: bullets=check -->
+### Check boxes with sub-points
+
+- Before the session
+  - charge the laptop
+  - test the projector
+- After it
+  - send the handout
+
+<!-- shot -->
+### Bare items that wrap
+
+- A bare item long enough that it has to wrap onto a second line of the slide
+- A second item, also long enough to wrap when the window is narrow
+- A third, short
+
 <!-- shot: reveal=list -->
 ### Revealed list, on arrival
 

@@ -104,7 +104,8 @@ CONTINUE_WORDS = ("continue", "cont")
 LAYOUTS = ("piece", "duo", "titled", "split")
 # Known flags (spec: The shot directive Tier B table — per-shot flags; role/layout now config flags).
 KNOWN_FLAGS = ("kb", "dim", "fit", "text", "advance", "playback", "sound", "silent",
-               "under", "blur", "anchor", "still", "reveal", "live", "do", "waypoint", "bg")
+               "under", "blur", "anchor", "still", "reveal", "live", "do", "waypoint", "bg",
+               "bullets")
 # `bg=#rrggbb` / `#rgb` / `auto`: the ground behind slide media (the letterbox).
 # `auto` takes the media's own top-left pixel at build time.
 # A CSS named colour (`bg=black`, `bg=navy`) is also accepted, case-insensitively.
@@ -299,6 +300,11 @@ SOUND_VALUES = ("true", "false")
 BLUR_MAX = 100
 # `anchor=` places an `under=` media that is smaller than the frame
 ANCHOR_VALUES = ("top", "center", "bottom")
+# `bullets=` (and the frontmatter `bullets:` default): the marker a bulleted
+# list shows on the slide. `none` is the default: items without a marker, set
+# apart by space. Print keeps a bullet for `none` and `dot` and prints the
+# chosen mark for the others (`check` is a box to tick on paper).
+BULLETS_VALUES = ("none", "dot", "check", "arrow", "dash")
 # `silent` is `sound=false`: mutes a card's `sound: true` on this screen
 # Movement recognition is case-insensitive (the frozen rule is the *shape*,
 # `Movement <integer> [separator] [title]`, not the typography — report Media).
@@ -1533,6 +1539,12 @@ def _apply_flag(shot: Shot, name: str, value: str, token: str) -> None:
             f"reveal={', reveal='.join(REVEAL_VALUES[:-1])}, {REVEAL_VALUES[-1]} — token ignored"
         )
         return
+    if name == "bullets" and value not in BULLETS_VALUES:
+        shot.warnings.append(
+            f"check 25: {token!r}: bullets is the marker a list shows on the slide, "
+            f"bullets={', bullets='.join(BULLETS_VALUES)} — token ignored"
+        )
+        return
     if name == "anchor" and value not in ANCHOR_VALUES:
         shot.warnings.append(
             f"check 25: {token!r}: anchor places the media on the frame, "
@@ -1912,6 +1924,19 @@ def _expand_includes(raw_blocks: list, host: "Path", source: str, role_vocab,
     return out
 
 
+def _check_bullets(talk: "Talk") -> None:
+    """The frontmatter `bullets:` default takes the shot flag's values; any
+    other is check 25's warning and the deck keeps the built-in `none`."""
+    raw = talk.meta.get("bullets")
+    if raw is None:
+        return
+    if str(raw).strip().lower() not in BULLETS_VALUES:
+        talk.warnings.append(
+            f"check 25: frontmatter bullets: {raw!r} is not a list marker; "
+            f"bullets: {', '.join(BULLETS_VALUES)} — using none"
+        )
+
+
 def _check_waypoints(talk: "Talk", source: str) -> None:
     """Check 49 once the screens exist: a talk that marks anything has a
     frontmatter `waypoints: {url: http(s)://...}`, and a `waypoints:` that is
@@ -2091,6 +2116,7 @@ def build_talk(path, source: Optional[str] = None,
     talk.includes = includes
     talk.section_cite_ids = section_cite_ids
     _check_waypoints(talk, source)
+    _check_bullets(talk)
     if qdir is not None:
         _append_shelf(talk, path, qdir, qline, role_vocab, layout_vocab,
                       role_bundles, source, sdir)

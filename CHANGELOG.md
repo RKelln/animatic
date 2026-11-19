@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Bulleted lists on slides have no marker by default: items are set apart by
+  space, and sub-points get a quiet dash. `bullets=` on a shot (or `bullets:` in
+  the frontmatter, for the deck) picks one: `dot` (the old round bullet), `check`
+  (a box: things to do; prints as a box to tick in the handout), `arrow` and
+  `dash`, in the accent colour. Print keeps a bullet for bare and dot lists.
+  Numbered lists, reveal steps, columns, notes and the agent export are
+  unchanged. The source marker (`-`, `*`, `+`) still means nothing, since
+  formatters rewrite it. Specimen screens for each marker in both decks.
 - A slide whose text shrinks to fit now keeps it off the frame's edge: the fitter
   used to stop once nothing scrolled, which on a centred slide left the title
   against the top edge and the last line against the bottom. Text may now use
