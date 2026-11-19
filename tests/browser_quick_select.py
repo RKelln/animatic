@@ -304,6 +304,13 @@ POPUP_DRIVER = r"""
       pkey("/", D.body);
       await wait(150);
       ok("/ opens the search", q("quick").hidden === false && D.activeElement === q("quick-input"));
+      // the previews' cloned slides keep the stage's z-index: they must not
+      // paint over the dialog (each preview is its own stacking context)
+      (function () {
+        var r = D.querySelector(".presenter-pane-current .preview").getBoundingClientRect();
+        var top = D.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        ok("the dialog sits above the slide previews", !!top && !!top.closest("#quick"), top ? top.className : "nothing");
+      })();
       ok("empty query lists the shelf sections by title, in filename order",
          JSON.stringify(rows()) === JSON.stringify(["What's an agent? | shelf", "Live demo | shelf", "Which model? | shelf"]), rows().join(" ; "));
 

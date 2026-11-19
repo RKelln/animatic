@@ -1201,6 +1201,9 @@
     aspect-ratio: 16 / 9;
     align-self: center;             /* so width can follow height */
     container-type: inline-size;    /* the clone scales to THIS box */
+    /* its own stacking context: the clone keeps the stage's z-index (99999 on
+       .active), which would otherwise paint over the quick-select dialog */
+    isolation: isolate;
     overflow: hidden;
     background: var(--stage-bg);
     border: 1px solid color-mix(in srgb, var(--stage-ink) 16%, transparent);
