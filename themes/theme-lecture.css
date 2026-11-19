@@ -107,14 +107,16 @@
   /* fit=hero with a list, stat or table: the block is the hero and scales to
      the slide (fitHeroCode), so the title steps down to leave it room */
   .animatic-slide.text-fit:has(.screen-body > :is(ul, ol, .stat, .md-table, .paraphrase-block)) .slide-title,
-  .animatic-slide.text-fit:has(.screen-body > .quote-block + .quote-block) .slide-title {
+  .animatic-slide.text-fit:has(.screen-body > .quote-block + .quote-block) .slide-title,
+  .animatic-slide.text-fit:has(.screen-body > .quote-block.quote-long) .slide-title,
+  .animatic-slide.text-fit.hero-title-down .slide-title {
     font-size: 2em;
     font-weight: 700;
     line-height: 1.15;
   }
   /* fit=hero with a quote: centred like the title, no left rule */
   .animatic-slide.text-fit .quote-block { align-self: center; }
-  .animatic-slide.text-fit .quote-block blockquote { border-left: 0; padding-left: 0; }
+  .animatic-slide.text-fit .quote-block blockquote:not(.type-in) { border-left: 0; padding-left: 0; }
   /* fit=hero with a fenced block: the block is the hero, so the title steps
      down to a heading size and leaves the slide to the text */
   .animatic-slide.has-code.text-fit .slide-title {
@@ -135,6 +137,8 @@
   }
   .animatic-slide.text-fit:has(.screen-body > :is(ul, ol, .stat, .md-table, .paraphrase-block)) .slide-title.subtitle,
   .animatic-slide.text-fit:has(.screen-body > .quote-block + .quote-block) .slide-title.subtitle,
+  .animatic-slide.text-fit:has(.screen-body > .quote-block.quote-long) .slide-title.subtitle,
+  .animatic-slide.text-fit.hero-title-down .slide-title.subtitle,
   .animatic-slide.has-code.text-fit .slide-title.subtitle {
     font-size: 2em; font-weight: 400;
   }

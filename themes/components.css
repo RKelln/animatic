@@ -397,6 +397,22 @@
   .animatic-slide.text-fit .screen-body:has(> .quote-block + .quote-block) > .quote-block blockquote {
     font-size: 1em; line-height: 1.3; max-width: 100%;
   }
+  /* fit=hero with one quote that is not short: a wider column than the 28em
+     reading column, so the quote takes fewer, longer lines and can grow */
+  .animatic-slide.text-fit .quote-block:not(.quote-short) { max-width: min(36em, 100%); }
+  .animatic-slide.text-fit .quote-block:not(.quote-short) > blockquote { max-width: 100%; }
+  /* fit=hero with a list: the indent is in em, so it grows with the list. The
+     UA's 40px indent holds a bullet at normal size; at 2-3x the marker hangs
+     past it into the slide's margin. */
+  .animatic-slide.text-fit .screen-body > ul { padding-left: 1.1em; }
+  .animatic-slide.text-fit .screen-body > ol { padding-left: 1.6em; }
+  /* fit=hero keeps a short code span on one line (`--strict` never parts from
+     its command) as long as the block can stay at its normal size or bigger;
+     fitHeroCode() drops the class when it cannot, and the span wraps again */
+  .animatic-slide.text-fit.hero-nowrap :is(li, blockquote) code { white-space: nowrap; }
+  /* duo and split zero the text column's top and bottom padding; under hero the
+     text grows to the padding edge, so it needs some to stop at */
+  .animatic-slide.text-fit:is(.duo, .split) .screen-body { padding-top: 6vh; padding-bottom: 6vh; }
 
   /* stat cards — the number is the whole slide */
   .animatic-slide .stat {

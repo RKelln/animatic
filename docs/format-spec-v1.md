@@ -961,7 +961,8 @@ stays at the floor, is marked `data-fit="floor"`, and logs a console warning:
 its top and bottom are clipped by the slide edge, so shorten or split the block
 (a `continue` screen carries on). Under `fit=hero` (on a fence, a quote, a list, a
 table or a stat) the title steps down to a
-heading size (the block is the hero), and the block takes the **largest size at
+heading size (the block is the hero; beside a single quote it steps down only when
+the hero title would leave the quote under 1.5x its normal size), and the block takes the **largest size at
 which the wrapped block fits the available height, from the 75% floor up to 300%
 of its normal size**; a short block grows to fill the slide, and a long line
 wraps instead of holding the size down. Beyond the floor under hero the

@@ -50,6 +50,7 @@ missing browser exit 77 (skipped), they do not fail.
     python3 tools/handout-pdf.py <talkfile> <out.pdf> [--figures full|80%]   # handout PDF (see docs/reference.md)
     python3 tools/agent-export.py <talkfile> <out.md> --core <core.md> --page-url URL --home-url URL   # plain-text file: the hands-on parts, for a coding agent beside the home page
     python3 tools/web-export.py --home <talkfile> <out-dir> --agent-url URL --coding-agent-url URL    # home page: do screens in place, Copy buttons, setup card
+    python3 tools/contact-sheet.py <talkfile> <sheet.png> [--theme T] [--only 5-9]   # every slide as one thumbnail sheet, for styling review (examples/specimens/)
     python3 tools/timing-report.py <talkfile> [--dur 2h] [--wpm N] [--screens] [--json]   # how long it runs, by movement, timer and screen
     python3 tools/shorten-includes.py [PATH ...] [--write]   # rewrite `../_sections/x.section.md` includes to the bare section name (proves each rewrite; no PATH = corpus roots)
     python3 build.py --corpus                      # every deck under corpus.yaml roots

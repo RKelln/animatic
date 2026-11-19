@@ -1300,7 +1300,7 @@ PAGER_JS = """
   // wrap). The title sizes itself (hero text, stepping down beside a list or
   // table, see the themes), and only the block scales. A slide still too tall at the floor is
   // marked data-fit="floor", as above.
-  var HERO_CODE_MAX = 3;
+  var HERO_CODE_MAX = 3, HERO_TITLE_ROOM = 1.5;
   var HERO_BLOCKS = ".code-block, .quote-block, :scope > ul, :scope > ol, " +
     ":scope > .stat, :scope > .md-table, :scope > .paraphrase-block";
   function fitHeroCode() {
@@ -1310,55 +1310,95 @@ PAGER_JS = """
       var blocks = body && sl.classList.contains("text-fit") ?
         Array.prototype.slice.call(body.querySelectorAll(HERO_BLOCKS)) : [];
       if (!blocks.length) continue;
-      // every hero block on the slide scales by the same factor, so stacked
-      // quotes (or a list beside a quote) keep their sizes relative to each other
-      var bases = [], parents = [];
-      blocks.forEach(function (pre) {
-        var bq = pre.querySelector("blockquote");
-        if (bq) bq.style.fontSize = "";   // fitQuotes may have shrunk it
-        pre.style.fontSize = "";
-      });
-      blocks.forEach(function (pre) {
-        bases.push(parseFloat(getComputedStyle(pre).fontSize));
-        parents.push(parseFloat(getComputedStyle(pre.parentNode).fontSize) || 1);
-      });
-      sl.removeAttribute("data-fit");
-      body.style.paddingBottom = "";
-      var set = function (sc) {
-        blocks.forEach(function (pre, k) {
-          pre.style.fontSize = (bases[k] * sc / parents[k]).toFixed(3) + "em";
-        });
-      };
-      var fits = function () { return !overflows(sl, body, true); };
-      var scale = 1;
-      if (fits()) {
-        var lo = 1, hi = HERO_CODE_MAX;
-        set(hi);
-        if (fits()) { lo = hi; }
-        else {
-          for (var n = 0; n < 12; n++) {
-            var mid = (lo + hi) / 2;
-            set(mid);
-            if (fits()) lo = mid; else hi = mid;
-          }
-        }
-        scale = lo;
-        set(scale);
+      // short code spans stay whole (hero-nowrap) while the block can keep
+      // its normal size or grow; if that would shrink it, they wrap again
+      var nowrap = !!body.querySelector("li code, blockquote code");
+      sl.classList.toggle("hero-nowrap", nowrap);
+      sl.classList.remove("hero-title-down");   // a refit starts from the hero title
+      var got = fitHeroSlide(sl, body, blocks, nowrap);
+      if (nowrap && (got === "floor" || got < 1)) {
+        sl.classList.remove("hero-nowrap");
+        got = fitHeroSlide(sl, body, blocks, false);
+      }
+      // a hero title that leaves the block under HERO_TITLE_ROOM of its
+      // normal size steps down to a heading (as it always does beside a list):
+      // the block is the hero. Kept only if the block comes out bigger.
+      if (sl.querySelector(".slide-title") && (got === "floor" || got < HERO_TITLE_ROOM)) {
+        sl.classList.add("hero-title-down");
+        var wide = sl.classList.contains("hero-nowrap");
+        var down = fitHeroSlide(sl, body, blocks, wide);
+        if (down !== "floor" && (got === "floor" || down > got + 0.05)) got = down;
+        else { sl.classList.remove("hero-title-down"); got = fitHeroSlide(sl, body, blocks, wide); }
+      }
+      if (got === "floor") {
+        sl.setAttribute("data-fit", "floor");
+        if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
       } else {
-        while (!fits() && scale > FIT_FLOOR + 1e-6) {
-          scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
-          set(scale);
-        }
-        if (!fits() && liftFromTimer(sl, body) && fits()) {
-          // clear of the plate once the text sits above it
-        } else if (!fits()) {
-          sl.setAttribute("data-fit", "floor");
-          if (window.console) console.warn("animatic: " + sl.id + " still overflows at " + FIT_FLOOR * 100 + "% text; shorten it");
-          continue;
+        sl.setAttribute("data-fit", got.toFixed(2));
+      }
+    }
+  }
+  // one fit of a hero slide: the scale it settled at, or "floor"
+  function fitHeroSlide(sl, body, blocks, wide) {
+    // every hero block on the slide scales by the same factor, so stacked
+    // quotes (or a list beside a quote) keep their sizes relative to each other
+    var bases = [], parents = [];
+    blocks.forEach(function (pre) {
+      var bq = pre.querySelector("blockquote");
+      if (bq) bq.style.fontSize = "";   // fitQuotes may have shrunk it
+      pre.style.fontSize = "";
+    });
+    blocks.forEach(function (pre) {
+      bases.push(parseFloat(getComputedStyle(pre).fontSize));
+      parents.push(parseFloat(getComputedStyle(pre.parentNode).fontSize) || 1);
+    });
+    sl.removeAttribute("data-fit");
+    body.style.paddingBottom = "";
+    var set = function (sc) {
+      blocks.forEach(function (pre, k) {
+        pre.style.fontSize = (bases[k] * sc / parents[k]).toFixed(3) + "em";
+      });
+    };
+    // with unbreakable spans a line can run wider than its block: that is
+    // an overflow too (a wrapping block never does)
+    // (as a flex item the block widens to its longest line rather than
+    // overflowing, so measure it against the body's content box)
+    var tooWide = function () {
+      if (!wide) return false;
+      var r = body.getBoundingClientRect(), cs = getComputedStyle(body);
+      var left = r.left + parseFloat(cs.paddingLeft), right = r.right - parseFloat(cs.paddingRight);
+      return blocks.some(function (b) {
+        var q = b.getBoundingClientRect();
+        return q.left < left - 1 || q.right > right + 1 || b.scrollWidth > b.clientWidth + 1;
+      });
+    };
+    var fits = function () { return !overflows(sl, body, true) && !tooWide(); };
+    var scale = 1;
+    if (fits()) {
+      var lo = 1, hi = HERO_CODE_MAX;
+      set(hi);
+      if (fits()) { lo = hi; }
+      else {
+        for (var n = 0; n < 12; n++) {
+          var mid = (lo + hi) / 2;
+          set(mid);
+          if (fits()) lo = mid; else hi = mid;
         }
       }
-      sl.setAttribute("data-fit", scale.toFixed(2));
+      scale = lo;
+      set(scale);
+    } else {
+      while (!fits() && scale > FIT_FLOOR + 1e-6) {
+        scale = Math.max(FIT_FLOOR, scale - FIT_STEP);
+        set(scale);
+      }
+      if (!fits() && liftFromTimer(sl, body) && fits()) {
+        // clear of the plate once the text sits above it
+      } else if (!fits()) {
+        return "floor";
+      }
     }
+    return scale;
   }
   function fitAll() { fitQuotes(); fitBodies(); fitHeroCode(); }
   fitAll();

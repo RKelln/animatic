@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- `fit=hero` styling fixes, found with a new specimen deck
+  (`examples/specimens/hero/`, one hero screen per combination of features) and
+  `tools/contact-sheet.py`, which renders every slide of a deck into one
+  thumbnail sheet for review (`--theme`, `--only`, `--size`, `--frames`; a red
+  frame marks a slide clipped at the fit floor). Fixed: a type-in quote
+  (`` > `text` ``) lost its left padding under the lecture theme; hero lists
+  hung their bullets into the slide margin (the indent is now in em); a short
+  code span in a hero list or quote stays on one line (`--strict` no longer
+  parts from its command) unless that would shrink the block; duo and split
+  hero text ran to the slide's top and bottom edge; a hero title that leaves its
+  block under 1.5x steps down to a heading, and a hero quote that is not short
+  gets a wider column.
 - The log is one grid: rows, the `starting` notice for big transfers and the
   header are built from the same format string, so the file column always lines
   up — `starting` sits in the time slot and the size in the size column. The
